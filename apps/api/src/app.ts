@@ -1,19 +1,35 @@
 import "reflect-metadata";
 import { Module, VersioningType, type DynamicModule, type INestApplication } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { APP_GUARD, NestFactory } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import cookieParser from "cookie-parser";
+import type { Express } from "express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { randomUUID } from "node:crypto";
 import { LoggerModule, Logger as PinoLogger } from "nestjs-pino";
 import type { AppConfig } from "./config.js";
 import { DatabaseModule } from "./database.module.js";
+import { AuthController, WellKnownController } from "./auth/auth.controller.js";
+import { AuthGuard } from "./auth/auth.guard.js";
+import { AuthService } from "./auth/auth.service.js";
+import { IdTokenVerifier, remoteIdTokenKeys, type IdTokenKeys } from "./auth/id-token.verifier.js";
+import { LogMailer, type Mailer } from "./auth/mailer.js";
+import { TokenService } from "./auth/token.service.js";
 import { HealthController } from "./health/health.controller.js";
+import { MeController } from "./me/me.controller.js";
 import { ProblemFilter } from "./problem.filter.js";
 import { ReferenceController } from "./reference/reference.controller.js";
-import { APP_CONFIG } from "./tokens.js";
+import { APP_CONFIG, ID_TOKEN_VERIFIER, MAILER, TOKEN_SERVICE } from "./tokens.js";
+
+/** Replaceable collaborators (tests use local keys and a capturing mailer). */
+export interface AppOverrides {
+  idTokenKeys?: IdTokenKeys;
+  mailer?: Mailer;
+}
 
 @Module({})
 export class AppModule {
-  static forRoot(config: AppConfig): DynamicModule {
+  static forRoot(config: AppConfig, overrides: AppOverrides = {}): DynamicModule {
     return {
       module: AppModule,
       global: true,
@@ -37,17 +53,58 @@ export class AppModule {
           },
         }),
         DatabaseModule.forRoot(),
+        ThrottlerModule.forRoot({
+          throttlers: [
+            { name: "default", ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE },
+            {
+              name: "auth",
+              ttl: 60_000,
+              limit: config.AUTH_RATE_LIMIT_PER_MINUTE,
+              skipIf: (ctx) => ctx.getClass() !== AuthController,
+            },
+          ],
+        }),
       ],
-      controllers: [HealthController, ReferenceController],
-      providers: [{ provide: APP_CONFIG, useValue: config }],
+      controllers: [
+        HealthController,
+        ReferenceController,
+        AuthController,
+        WellKnownController,
+        MeController,
+      ],
+      providers: [
+        { provide: APP_CONFIG, useValue: config },
+        { provide: TOKEN_SERVICE, useFactory: () => TokenService.create(config) },
+        {
+          provide: ID_TOKEN_VERIFIER,
+          useFactory: () =>
+            new IdTokenVerifier(overrides.idTokenKeys ?? remoteIdTokenKeys(), {
+              google: config.GOOGLE_CLIENT_IDS,
+              apple: config.APPLE_CLIENT_IDS,
+            }),
+        },
+        {
+          provide: MAILER,
+          useValue: overrides.mailer ?? new LogMailer(config.NODE_ENV !== "production"),
+        },
+        AuthService,
+        // Order matters: rate limiting runs before authentication.
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+        { provide: APP_GUARD, useClass: AuthGuard },
+      ],
       exports: [APP_CONFIG],
     };
   }
 }
 
 /** Builds the configured application (used by main.ts and by the e2e tests). */
-export async function createApp(config: AppConfig): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
+export async function createApp(
+  config: AppConfig,
+  overrides: AppOverrides = {},
+): Promise<INestApplication> {
+  const app = await NestFactory.create(AppModule.forRoot(config, overrides), { bufferLogs: true });
+  (app.getHttpAdapter().getInstance() as Express).set("trust proxy", config.TRUST_PROXY_HOPS);
+  app.use(cookieParser());
   app.useLogger(app.get(PinoLogger));
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
   app.enableCors({ origin: config.CORS_ORIGINS, credentials: true });
@@ -57,7 +114,8 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
   const openApi = new DocumentBuilder()
     .setTitle("ActiveN API")
     .setDescription("Training planning, coach–athlete workplace and multi-vendor analytics")
-    .setVersion("0.1.0")
+    .setVersion("0.2.0")
+    .addBearerAuth()
     .build();
   SwaggerModule.setup("docs", app, () => SwaggerModule.createDocument(app, openApi), {
     jsonDocumentUrl: "docs/openapi.json",

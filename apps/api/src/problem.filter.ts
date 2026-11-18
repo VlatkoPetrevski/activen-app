@@ -1,4 +1,10 @@
-import { ConflictError, NotFoundError, ValidationError } from "@activen/db";
+import {
+  AccountExistsError,
+  AuthError,
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "@activen/db";
 import {
   Catch,
   HttpException,
@@ -19,6 +25,7 @@ export class ProblemFilter implements ExceptionFilter {
     const res = http.getResponse<Response>();
     const req = http.getRequest<Request>();
     const { status, title, detail, extra } = this.describe(exception);
+    if (status === 401) res.setHeader("WWW-Authenticate", 'Bearer realm="activen"');
     if (status >= 500)
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));
     res
@@ -28,6 +35,15 @@ export class ProblemFilter implements ExceptionFilter {
   }
 
   private describe(e: unknown): { status: number; title: string; detail?: string; extra?: object } {
+    if (e instanceof AuthError)
+      return { status: 401, title: "Unauthorized", detail: e.message, extra: { code: e.reason } };
+    if (e instanceof AccountExistsError)
+      return {
+        status: 409,
+        title: "Conflict",
+        detail: e.message,
+        extra: { code: "account_exists", providers: e.providers },
+      };
     if (e instanceof NotFoundError) return { status: 404, title: "Not Found", detail: e.message };
     if (e instanceof ConflictError) return { status: 409, title: "Conflict", detail: e.message };
     if (e instanceof ValidationError)

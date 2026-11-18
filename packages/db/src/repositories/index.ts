@@ -3,7 +3,9 @@ import { ActivitiesRepository } from "./activities.js";
 import { CoachingRepository } from "./coaching.js";
 import { FeedbackRepository } from "./feedback.js";
 import { HrZonesRepository } from "./hr-zones.js";
+import { LoginTokensRepository, type LoginTokenPolicy } from "./login-tokens.js";
 import { PlansRepository } from "./plans.js";
+import { SessionsRepository, type SessionPolicy } from "./sessions.js";
 import { SettingsRepository } from "./settings.js";
 import { SyncEventsRepository } from "./sync-events.js";
 import { UsersRepository } from "./users.js";
@@ -17,9 +19,16 @@ export interface Repositories {
   feedback: FeedbackRepository;
   syncEvents: SyncEventsRepository;
   coaching: CoachingRepository;
+  sessions: SessionsRepository;
+  loginTokens: LoginTokensRepository;
 }
 
-export function createRepositories(db: Db): Repositories {
+export interface RepositoryOptions {
+  sessionPolicy?: SessionPolicy;
+  loginTokenPolicy?: LoginTokenPolicy;
+}
+
+export function createRepositories(db: Db, options: RepositoryOptions = {}): Repositories {
   return {
     users: new UsersRepository(db),
     settings: new SettingsRepository(db),
@@ -29,5 +38,7 @@ export function createRepositories(db: Db): Repositories {
     feedback: new FeedbackRepository(db),
     syncEvents: new SyncEventsRepository(db),
     coaching: new CoachingRepository(db),
+    sessions: new SessionsRepository(db, options.sessionPolicy),
+    loginTokens: new LoginTokensRepository(db, options.loginTokenPolicy),
   };
 }

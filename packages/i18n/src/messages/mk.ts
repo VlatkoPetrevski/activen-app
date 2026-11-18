@@ -173,6 +173,12 @@ export const mk: Readonly<Record<MessageKey, string>> = {
   "settings.hrZones.mode.manual": "Мои зони",
   "locale.mk": "Македонски",
   "locale.en": "English",
+  "email.signIn.subject": "Најава во ActiveN",
+  "email.signIn.body":
+    "Здраво,\n\nНајави се во ActiveN преку овој линк. Важи еднаш и истекува за {minutes} минути:\n\n{url}\n\nАко не си побарал/а најава, игнорирај ја пораката — никој не може да се најави без линкот.",
+  "email.link.subject": "Потврди ја е-поштата за ActiveN",
+  "email.link.body":
+    "Здраво,\n\nПреку овој линк ја додаваш оваа е-пошта како начин за најава на твојата ActiveN сметка. Важи еднаш и истекува за {minutes} минути:\n\n{url}\n\nАко не си го побарал/а ова, игнорирај ја пораката.",
   "disclaimer.nutrition":
     "Препораките се само информативни и не се медицински совет. Одговорноста за изборот е твоја.",
 };

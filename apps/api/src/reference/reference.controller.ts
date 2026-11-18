@@ -8,12 +8,14 @@ import {
 } from "@activen/i18n";
 import { Controller, Get, Headers, Query } from "@nestjs/common";
 import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { Public } from "../auth/decorators.js";
 
 /**
  * Public reference data for clients: supported languages and localized activity types.
  * Language: `?locale=` → `Accept-Language` → mk (ADR-0008).
  */
 @ApiTags("reference")
+@Public()
 @Controller({ path: "reference", version: "1" })
 export class ReferenceController {
   @Get("locales")

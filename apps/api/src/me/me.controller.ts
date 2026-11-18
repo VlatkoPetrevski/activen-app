@@ -1,0 +1,230 @@
+import { SELF_SERVICE_ROLES, type Repositories } from "@activen/db";
+import { VENDORS, type AthleteSettings } from "@activen/domain";
+import { SUPPORTED_LOCALES } from "@activen/i18n";
+import {
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Res,
+} from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
+import { z } from "zod";
+import { AuthService } from "../auth/auth.service.js";
+import type { AuthContext } from "../auth/auth.types.js";
+import { CurrentAuth } from "../auth/decorators.js";
+import { REFRESH_COOKIE } from "../auth/auth.controller.js";
+import { REPOSITORIES } from "../tokens.js";
+import { ApiZodBody, ValidBody, ZodPipe } from "../validation.js";
+
+const ProfilePatch = z.object({ displayName: z.string().min(1).max(100) });
+
+const sourceVendors = VENDORS.filter((v) => v !== "manual") as [
+  Exclude<(typeof VENDORS)[number], "manual">,
+  ...Exclude<(typeof VENDORS)[number], "manual">[],
+];
+
+/** Partial update of the athlete settings; omitted fields keep their value. */
+export const SettingsPatch = z
+  .object({
+    locale: z.enum(SUPPORTED_LOCALES).nullable(),
+    unitSystem: z.enum(["metric", "imperial"]),
+    timeZone: z.string().min(1).max(64),
+    sourcePriority: z.array(z.enum(VENDORS)).min(1).max(VENDORS.length),
+    hrZones: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("source") }),
+      z.object({ mode: z.literal("vendor"), vendor: z.enum(sourceVendors) }),
+      z.object({ mode: z.literal("manual") }),
+    ]),
+    maxHeartRate: z.number().int().min(100).max(250).nullable(),
+    birthDate: z.iso.date().nullable(),
+  })
+  .partial()
+  .strict();
+
+const RoleParam = z.enum(SELF_SERVICE_ROLES);
+const LinkIdToken = z.object({
+  idToken: z.string().min(20).max(8192),
+  nonce: z.string().min(16).max(256),
+});
+const LinkEmailStart = z.object({
+  email: z.string().min(3).max(254),
+  locale: z.string().max(35).optional(),
+});
+const LinkEmailVerify = z.object({ token: z.string().min(20).max(128) });
+/** Deleting the account is confirmed by typing DELETE (the client asks explicitly). */
+const DeleteAccount = z.object({ confirm: z.literal("DELETE") });
+
+@ApiTags("me")
+@ApiBearerAuth()
+@Controller({ path: "me", version: "1" })
+export class MeController {
+  constructor(
+    @Inject(REPOSITORIES) private readonly repos: Repositories,
+    @Inject(AuthService) private readonly auth: AuthService,
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: "The signed-in user: profile, roles, sign-in methods and settings" })
+  async me(@CurrentAuth() a: AuthContext) {
+    const [user, identities, settings] = await Promise.all([
+      this.repos.users.get(a.userId),
+      this.repos.users.identities(a.userId),
+      this.repos.settings.get(a.userId),
+    ]);
+    return { user, identities, settings };
+  }
+
+  @Patch()
+  @ApiOperation({ summary: "Update the profile" })
+  @ApiZodBody(ProfilePatch)
+  updateProfile(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(ProfilePatch) body: z.output<typeof ProfilePatch>,
+  ) {
+    return this.repos.users.updateProfile(a.userId, body);
+  }
+
+  @Delete()
+  @HttpCode(204)
+  @ApiOperation({ summary: "Delete the account and all of its data (irreversible)" })
+  @ApiZodBody(DeleteAccount)
+  async deleteAccount(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(DeleteAccount) _body: z.output<typeof DeleteAccount>,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.repos.users.deleteAccount(a.userId);
+    res.clearCookie(REFRESH_COOKIE, { path: "/v1/auth" });
+  }
+
+  @Put("roles/:role")
+  @ApiOperation({ summary: "Take on a role (athlete or coach)" })
+  async addRole(
+    @CurrentAuth() a: AuthContext,
+    @Param("role", new ZodPipe(RoleParam)) role: z.output<typeof RoleParam>,
+  ) {
+    return { roles: await this.repos.users.addRole(a.userId, role) };
+  }
+
+  @Delete("roles/:role")
+  @ApiOperation({ summary: "Give up a role (at least one remains; coaches end their links first)" })
+  async removeRole(
+    @CurrentAuth() a: AuthContext,
+    @Param("role", new ZodPipe(RoleParam)) role: z.output<typeof RoleParam>,
+  ) {
+    return { roles: await this.repos.users.removeRole(a.userId, role) };
+  }
+
+  @Get("settings")
+  @ApiOperation({ summary: "Athlete settings (defaults until saved)" })
+  settings(@CurrentAuth() a: AuthContext): Promise<AthleteSettings> {
+    return this.repos.settings.get(a.userId);
+  }
+
+  @Patch("settings")
+  @ApiOperation({
+    summary: "Change athlete settings (language, units, time zone, sources, HR zones)",
+  })
+  @ApiZodBody(SettingsPatch)
+  async updateSettings(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(SettingsPatch) patch: z.output<typeof SettingsPatch>,
+  ): Promise<AthleteSettings> {
+    const current = await this.repos.settings.get(a.userId);
+    const next = Object.fromEntries(
+      Object.entries(patch).filter(([, v]) => v !== undefined),
+    ) as Partial<AthleteSettings>;
+    return this.repos.settings.save(a.userId, { ...current, ...next });
+  }
+
+  @Get("identities")
+  @ApiOperation({ summary: "Sign-in methods linked to the account" })
+  identities(@CurrentAuth() a: AuthContext) {
+    return this.repos.users.identities(a.userId);
+  }
+
+  @Post("identities/google")
+  @ApiOperation({ summary: "Link a Google account" })
+  @ApiZodBody(LinkIdToken)
+  linkGoogle(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(LinkIdToken) body: z.output<typeof LinkIdToken>,
+  ) {
+    return this.auth.linkIdToken(a.userId, "google", body.idToken, body.nonce);
+  }
+
+  @Post("identities/apple")
+  @ApiOperation({ summary: "Link an Apple ID" })
+  @ApiZodBody(LinkIdToken)
+  linkApple(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(LinkIdToken) body: z.output<typeof LinkIdToken>,
+  ) {
+    return this.auth.linkIdToken(a.userId, "apple", body.idToken, body.nonce);
+  }
+
+  @Post("identities/email/start")
+  @HttpCode(202)
+  @ApiOperation({ summary: "Email a confirmation link to add this address as a sign-in method" })
+  @ApiZodBody(LinkEmailStart)
+  async linkEmailStart(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(LinkEmailStart) body: z.output<typeof LinkEmailStart>,
+    @Headers("accept-language") acceptLanguage?: string,
+  ) {
+    await this.auth.sendEmailLink(
+      body.email,
+      { locale: body.locale, acceptLanguage },
+      { purpose: "link", userId: a.userId },
+    );
+    return { status: "sent" };
+  }
+
+  @Post("identities/email/verify")
+  @ApiOperation({ summary: "Confirm the emailed link and add the address" })
+  @ApiZodBody(LinkEmailVerify)
+  linkEmailVerify(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(LinkEmailVerify) body: z.output<typeof LinkEmailVerify>,
+  ) {
+    return this.auth.linkEmailToken(a.userId, body.token);
+  }
+
+  @Delete("identities/:id")
+  @ApiOperation({ summary: "Remove a sign-in method (the last one stays)" })
+  unlink(@CurrentAuth() a: AuthContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.repos.users.unlinkIdentity(a.userId, id);
+  }
+
+  @Get("sessions")
+  @ApiOperation({ summary: "Signed-in devices" })
+  async sessions(@CurrentAuth() a: AuthContext) {
+    const list = await this.repos.sessions.listActive(a.userId);
+    return list.map(({ userId: _u, ...s }) => ({ ...s, current: s.id === a.sessionId }));
+  }
+
+  @Delete("sessions/:id")
+  @HttpCode(204)
+  @ApiOperation({ summary: "Sign out a device" })
+  async revokeSession(
+    @CurrentAuth() a: AuthContext,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.repos.sessions.revoke(a.userId, id);
+  }
+
+  @Post("sessions/revoke-others")
+  @ApiOperation({ summary: "Sign out every other device" })
+  async revokeOthers(@CurrentAuth() a: AuthContext) {
+    return { revoked: await this.repos.sessions.revokeAll(a.userId, a.sessionId) };
+  }
+}

@@ -9,4 +9,7 @@ export * from "./repositories/plans.js";
 export * from "./repositories/feedback.js";
 export * from "./repositories/sync-events.js";
 export * from "./repositories/coaching.js";
+export * from "./repositories/sessions.js";
+export * from "./repositories/login-tokens.js";
+export { normalizeEmail } from "./repositories/tokens.js";
 export * from "./repositories/index.js";

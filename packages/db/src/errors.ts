@@ -13,6 +13,27 @@ export class ConflictError extends Error {
   }
 }
 
+/**
+ * An existing account already uses this email. Accounts are never merged silently: the person signs
+ * in with one of `providers` and links the new identity from the profile.
+ */
+export class AccountExistsError extends ConflictError {
+  constructor(public readonly providers: string[]) {
+    super("An account with this email already exists");
+    this.name = "AccountExistsError";
+  }
+}
+
+export type AuthFailure = "invalid" | "expired" | "revoked" | "reused";
+
+/** A credential (refresh token, magic link) that cannot be used; the API answers 401. */
+export class AuthError extends Error {
+  constructor(public readonly reason: AuthFailure) {
+    super(`Authentication failed: ${reason}`);
+    this.name = "AuthError";
+  }
+}
+
 export class ValidationError extends Error {
   constructor(
     message: string,

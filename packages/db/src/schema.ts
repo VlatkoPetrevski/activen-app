@@ -49,6 +49,7 @@ export const consentScopeEnum = pgEnum("consent_scope", [
   "location",
   "comments",
 ]);
+export const loginTokenPurposeEnum = pgEnum("login_token_purpose", ["sign_in", "link"]);
 export const syncStatusEnum = pgEnum("sync_status", [
   "pending",
   "processing",
@@ -105,6 +106,67 @@ export const userRoles = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.role] })],
+);
+
+/**
+ * A signed-in device/browser. Refresh tokens rotate within a session; revoking the session signs the
+ * device out. `expires_at` is the absolute lifetime (re-authentication required afterwards).
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    lastUsedAt: createdAt("last_used_at"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    /** Short device label for the "signed-in devices" list (truncated User-Agent). */
+    userAgent: text("user_agent"),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** Refresh tokens are stored only as SHA-256 hashes; a used token is never valid again. */
+export const refreshTokens = pgTable(
+  "refresh_tokens",
+  {
+    id: id(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    tokenHash: bytea("token_hash").notNull(),
+    issuedAt: createdAt("issued_at"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("refresh_tokens_hash_uq").on(t.tokenHash),
+    index("refresh_tokens_session_idx").on(t.sessionId),
+  ],
+);
+
+/** Single-use email magic-link tokens (hash only), for sign-in or for linking an email to a user. */
+export const loginTokens = pgTable(
+  "login_tokens",
+  {
+    id: id(),
+    tokenHash: bytea("token_hash").notNull(),
+    email: text("email").notNull(),
+    purpose: loginTokenPurposeEnum("purpose").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("login_tokens_hash_uq").on(t.tokenHash),
+    index("login_tokens_email_idx").on(t.email, t.createdAt),
+    check("login_tokens_link_user_ck", sql`(${t.purpose} = 'link') = (${t.userId} is not null)`),
+  ],
 );
 
 /** AthleteSettings (domain/athlete-settings.ts). One row per user; missing row = defaults. */

@@ -171,6 +171,12 @@ export const en = {
   "settings.hrZones.mode.manual": "My own zones",
   "locale.mk": "Македонски",
   "locale.en": "English",
+  "email.signIn.subject": "Sign in to ActiveN",
+  "email.signIn.body":
+    "Hi,\n\nUse this link to sign in to ActiveN. It works once and expires in {minutes} minutes:\n\n{url}\n\nIf you did not ask for it, ignore this email — nobody can sign in without the link.",
+  "email.link.subject": "Confirm your email for ActiveN",
+  "email.link.body":
+    "Hi,\n\nUse this link to add this email as a sign-in method to your ActiveN account. It works once and expires in {minutes} minutes:\n\n{url}\n\nIf you did not ask for it, ignore this email.",
   "disclaimer.nutrition":
     "Recommendations are informational only and not medical advice. You are responsible for your choices.",
 } as const;

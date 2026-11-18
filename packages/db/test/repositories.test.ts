@@ -75,7 +75,7 @@ describe("users", () => {
         email: "SAME@example.com",
         displayName: "B",
       }),
-    ).rejects.toThrow(); // unique email index (case-insensitive) blocks a silent second account
+    ).rejects.toMatchObject({ name: "AccountExistsError", providers: ["google"] });
     expect((await repos().users.get(a.user.id)).email).toBe("same@example.com");
   });
 
