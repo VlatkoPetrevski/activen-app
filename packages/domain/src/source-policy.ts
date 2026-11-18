@@ -64,6 +64,23 @@ export const SOURCE_POLICIES: Readonly<Record<Vendor, SourcePolicy>> = Object.fr
   },
 });
 
+/**
+ * Default source priority for a new athlete: device makers first, Strava last. Strava mostly
+ * re-publishes data recorded by a watch, and its terms restrict sharing and AI use, so it only fills
+ * gaps (e.g. when no other source is connected). The athlete can reorder this list.
+ */
+export const DEFAULT_SOURCE_PRIORITY: readonly Vendor[] = Object.freeze([
+  "garmin",
+  "suunto",
+  "polar",
+  "coros",
+  "wahoo",
+  "apple_health",
+  "google_health",
+  "manual",
+  "strava",
+]);
+
 /** Who is looking at the data. */
 export type Audience = "owner" | "coach";
 

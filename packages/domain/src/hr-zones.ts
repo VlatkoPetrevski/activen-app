@@ -1,14 +1,27 @@
 import { isLocalDate } from "./dates.js";
-import type { HrZone, HrZoneProfile, LocalDate } from "./types.js";
+import type { HrZone, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 
-/** Default profile from the reference report (spec §9). Editable per athlete. */
+/**
+ * Default profile from the reference report (spec §9); colors taken from the reference workbook.
+ * Used only until the athlete imports zones from a vendor or enters their own.
+ */
 export const DEFAULT_HR_ZONES: readonly HrZone[] = Object.freeze([
-  { name: "Easy", minBpm: null, maxBpm: 139, color: "#C6EFCE" },
-  { name: "AeT", minBpm: 140, maxBpm: 150, color: "#FFEB9C" },
-  { name: "Tempo", minBpm: 151, maxBpm: 165, color: "#F8CBAD" },
-  { name: "AnT", minBpm: 166, maxBpm: 171, color: "#F4B084" },
-  { name: "VO2max", minBpm: 172, maxBpm: null, color: "#FF7C80" },
+  { name: "Easy", minBpm: null, maxBpm: 139, color: "#D9D9D9" },
+  { name: "AeT", minBpm: 140, maxBpm: 150, color: "#9DC3E6" },
+  { name: "Tempo", minBpm: 151, maxBpm: 165, color: "#A9D18E" },
+  { name: "AnT", minBpm: 166, maxBpm: 171, color: "#F4B183" },
+  { name: "VO2max", minBpm: 172, maxBpm: null, color: "#F4CCCC" },
 ]);
+
+const FALLBACK_PALETTE = [
+  "#D9D9D9",
+  "#9DC3E6",
+  "#A9D18E",
+  "#F4B183",
+  "#F4CCCC",
+  "#E6B8B7",
+  "#B4A7D6",
+];
 
 const MIN_PLAUSIBLE_BPM = 30;
 const MAX_PLAUSIBLE_BPM = 250;
@@ -20,6 +33,7 @@ export interface ZoneValidationError {
     | "EMPTY"
     | "NAME_REQUIRED"
     | "NAME_DUPLICATE"
+    | "NAME_MIXED_SCRIPT"
     | "COLOR_INVALID"
     | "FIRST_MIN_MUST_BE_OPEN"
     | "LAST_MAX_MUST_BE_OPEN"
@@ -53,6 +67,14 @@ export function validateZones(zones: readonly HrZone[]): ZoneValidationError[] {
         message: `Duplicate zone name "${name}".`,
       });
     seen.add(name.toLowerCase());
+    // Guards against look-alike letters, e.g. Cyrillic "АеТ" typed instead of Latin "AeT", which makes
+    // the same zone appear twice in analytics.
+    if (/[A-Za-z]/.test(name) && /[\u0400-\u04FF]/.test(name))
+      errors.push({
+        zoneIndex: i,
+        code: "NAME_MIXED_SCRIPT",
+        message: `Zone name "${name}" mixes Latin and Cyrillic letters.`,
+      });
 
     if (!HEX_COLOR_RE.test(z.color))
       errors.push({ zoneIndex: i, code: "COLOR_INVALID", message: `Color must be #RRGGBB.` });
@@ -136,13 +158,22 @@ export function classifyHr(avgHr: number | null, zones: readonly HrZone[]): HrZo
  * Picks the profile effective on `date` (HR-04): the latest `effectiveFrom` not after the date,
  * highest version winning ties. Dates before the first profile use the earliest profile so that
  * historical activities are still classified.
+ *
+ * `sourcePreference` lists zone sources in the athlete's preferred order (e.g. `["manual",
+ * "garmin"]`); the first source that has any profile is used. Without it all profiles compete.
  */
 export function profileForDate(
   profiles: readonly HrZoneProfile[],
   date: LocalDate,
+  sourcePreference?: readonly Vendor[],
 ): HrZoneProfile | null {
   if (profiles.length === 0) return null;
-  const sorted = [...profiles].sort(
+  let pool = profiles;
+  if (sourcePreference && sourcePreference.length > 0) {
+    const source = sourcePreference.find((s) => profiles.some((p) => p.source === s));
+    if (source) pool = profiles.filter((p) => p.source === source);
+  }
+  const sorted = [...pool].sort(
     (a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || a.version - b.version,
   );
   let chosen: HrZoneProfile | null = null;
@@ -165,7 +196,7 @@ export class InvalidHrZoneProfileError extends Error {
  */
 export function createProfileVersion(
   previous: HrZoneProfile,
-  params: { id: string; zones: HrZone[]; effectiveFrom: LocalDate; name?: string },
+  params: { id: string; zones: HrZone[]; effectiveFrom: LocalDate; name?: string; source?: Vendor },
 ): HrZoneProfile {
   if (!isLocalDate(params.effectiveFrom))
     throw new RangeError(`Invalid effectiveFrom: "${params.effectiveFrom}"`);
@@ -174,9 +205,52 @@ export function createProfileVersion(
   return {
     id: params.id,
     athleteId: previous.athleteId,
+    source: params.source ?? previous.source,
     name: params.name ?? previous.name,
     version: previous.version + 1,
     effectiveFrom: params.effectiveFrom,
     zones: params.zones.map((z) => ({ ...z })),
   };
+}
+
+export interface VendorZoneOptions {
+  names?: readonly string[];
+  colors?: readonly string[];
+}
+
+/**
+ * Builds contiguous zones from vendor data expressed as the lower bound of each zone, low → high
+ * (Garmin and Polar report zone floors; Strava-style `{min,max}` ranges map to their `min`).
+ * Vendor values may be fractional and are rounded to whole bpm. The first zone is open below and
+ * the last open above. Five zones get the report's names (Easy…VO2max) unless names are given.
+ */
+export function zonesFromLowerBounds(
+  lowerBounds: readonly number[],
+  options: VendorZoneOptions = {},
+): HrZone[] {
+  const bounds = lowerBounds.map((b) => Math.round(b));
+  const defaultNames =
+    bounds.length === DEFAULT_HR_ZONES.length
+      ? DEFAULT_HR_ZONES.map((z) => z.name)
+      : bounds.map((_, i) => `Z${i + 1}`);
+  const zones = bounds.map((lb, i) => ({
+    name: options.names?.[i] ?? defaultNames[i] ?? `Z${i + 1}`,
+    minBpm: i === 0 ? null : lb,
+    maxBpm: i === bounds.length - 1 ? null : (bounds[i + 1] as number) - 1,
+    color: options.colors?.[i] ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] ?? "#D9D9D9",
+  }));
+  const errors = validateZones(zones);
+  if (errors.length > 0) throw new InvalidHrZoneProfileError(errors);
+  return zones;
+}
+
+/** True when two zone lists have the same names and boundaries (colors ignored). */
+export function sameZoneBoundaries(a: readonly HrZone[], b: readonly HrZone[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((z, i) => {
+      const o = b[i] as HrZone;
+      return z.name === o.name && z.minBpm === o.minBpm && z.maxBpm === o.maxBpm;
+    })
+  );
 }

@@ -91,10 +91,14 @@ export interface HrZone {
   color: string;
 }
 
-/** An immutable, versioned HR-zone profile (HR-04, HR-05). */
+/**
+ * An immutable, versioned HR-zone profile (HR-04, HR-05). Profiles are either imported from a
+ * vendor (Garmin, Polar, Suunto, …) or entered manually (`source: "manual"`).
+ */
 export interface HrZoneProfile {
   id: string;
   athleteId: string;
+  source: Vendor;
   name: string;
   version: number;
   effectiveFrom: LocalDate;

@@ -48,6 +48,7 @@ export function defaultProfile(overrides: Partial<HrZoneProfile> = {}): HrZonePr
   return {
     id: "hp1",
     athleteId: "ath1",
+    source: "manual",
     name: "Default",
     version: 1,
     effectiveFrom: "2023-01-01",

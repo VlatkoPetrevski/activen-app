@@ -8,3 +8,4 @@ export * from "./summaries.js";
 export * from "./report.js";
 export * from "./source-policy.js";
 export * from "./merge.js";
+export * from "./analytics.js";

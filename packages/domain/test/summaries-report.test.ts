@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildActivitiesReport, RACE_ROW_FILL, SUMMARY_ROW_FILL } from "../src/report.js";
+import { buildActivitiesReport, REPORT_COLORS } from "../src/report.js";
 import { emptySummary, summarize, UNCLASSIFIED_ZONE } from "../src/summaries.js";
 import { activity, defaultProfile, plan } from "./fixtures.js";
 
@@ -168,7 +168,7 @@ describe("buildActivitiesReport (spec §5, §11, AC-04, AC-06, AC-09)", () => {
       "2026-11-08",
     ]);
     const summaryRow = rows[0];
-    expect(summaryRow?.style.rowFill).toBe(SUMMARY_ROW_FILL);
+    expect(summaryRow?.style.rowFill).toBe(REPORT_COLORS.summaryFill);
   });
 
   it("shows plan text on the matched Run and keeps Strava names untouched (AC-06)", () => {
@@ -190,13 +190,13 @@ describe("buildActivitiesReport (spec §5, §11, AC-04, AC-06, AC-09)", () => {
 
   it("applies zone colors, race and non-Run styling; rest rows get no zone (AC-09)", () => {
     const get = (id: string) => rows.find((r) => r.type === "activity" && r.activity.id === id)!;
-    expect(get(longRun.id).style.zoneFill).toBe("#F8CBAD"); // Tempo
+    expect(get(longRun.id).style.zoneFill).toBe("#A9D18E"); // Tempo
     expect(get(shortRun.id).style.zoneFill).toBeNull(); // no HR → blank zone
     expect(get(ride.id).style).toMatchObject({ muted: true, bold: false });
     expect(get(race.id).style).toMatchObject({
       bold: true,
-      rowFill: RACE_ROW_FILL,
-      zoneFill: "#FF7C80",
+      rowFill: REPORT_COLORS.raceFill,
+      zoneFill: "#F4CCCC",
     });
     const restRow = rows.find((r) => r.type === "plan_only" && r.status === "rest")!;
     expect(restRow.style.zoneFill).toBeNull();

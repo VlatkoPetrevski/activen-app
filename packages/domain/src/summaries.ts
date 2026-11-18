@@ -1,7 +1,7 @@
 import { addDays, monthKey, weekStart, yearKey } from "./dates.js";
 import { classifyHr, profileForDate } from "./hr-zones.js";
-import { isRun } from "./sport.js";
-import type { Activity, HrZoneProfile, LocalDate } from "./types.js";
+import { filterActivities, isRun, type ActivityFilter } from "./sport.js";
+import type { Activity, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 
 export type SummaryPeriod = "week" | "month" | "year";
 
@@ -12,6 +12,10 @@ export interface SummaryOptions {
   paceBasis?: PaceBasis;
   /** When given, elapsed time per HR zone is reported (zone distribution, spec §12.5). */
   hrProfiles?: readonly HrZoneProfile[];
+  /** Preferred HR-zone sources, see `profileForDate`. */
+  zoneSourcePreference?: readonly Vendor[];
+  /** Which activities are counted (e.g. running only, without treadmill). Default: all. */
+  filter?: ActivityFilter;
 }
 
 export interface PeriodSummary {
@@ -34,6 +38,14 @@ export interface PeriodSummary {
   avgHr: number | null;
   /** Mean of available Relative Effort values. */
   avgRelativeEffort: number | null;
+  /** Mean of available per-activity max HR values (as in the reference report). */
+  avgMaxHr: number | null;
+  /** Highest max HR in the period. */
+  peakMaxHr: number | null;
+  /** Mean of available average-power values. */
+  avgWatts: number | null;
+  /** Sum of available calories. */
+  totalCalories: number;
   /** Elapsed seconds per zone name; activities without HR count under `UNCLASSIFIED_ZONE`. */
   zoneElapsedS: Record<string, number> | null;
 }
@@ -80,6 +92,10 @@ export function emptySummary(key: string, period: SummaryPeriod, withZones = fal
     runPaceSPerKm: null,
     avgHr: null,
     avgRelativeEffort: null,
+    avgMaxHr: null,
+    peakMaxHr: null,
+    avgWatts: null,
+    totalCalories: 0,
     zoneElapsedS: withZones ? {} : null,
   };
 }
@@ -100,7 +116,7 @@ export function summarize(
 ): PeriodSummary[] {
   const paceBasis = options.paceBasis ?? "elapsed";
   const groups = new Map<string, Activity[]>();
-  for (const a of activities) {
+  for (const a of filterActivities(activities, options.filter)) {
     if (a.deleted) continue;
     const key = periodKey(a.localDate, period);
     const list = groups.get(key);
@@ -120,6 +136,9 @@ export function summarize(
     let runCount = 0;
     const hrs: number[] = [];
     const efforts: number[] = [];
+    const maxHrs: number[] = [];
+    const watts: number[] = [];
+    let totalCalories = 0;
     const zoneElapsedS: Record<string, number> | null = options.hrProfiles ? {} : null;
 
     for (const a of list) {
@@ -128,6 +147,9 @@ export function summarize(
       elevationGainM += a.elevationGainM ?? 0;
       if (a.avgHr !== null) hrs.push(a.avgHr);
       if (a.relativeEffort !== null) efforts.push(a.relativeEffort);
+      if (a.maxHr !== null) maxHrs.push(a.maxHr);
+      if (a.avgWatts !== null) watts.push(a.avgWatts);
+      totalCalories += a.calories ?? 0;
 
       if (isRun(a.sportType)) {
         runCount += 1;
@@ -140,7 +162,11 @@ export function summarize(
       }
 
       if (zoneElapsedS && options.hrProfiles) {
-        const profile = profileForDate(options.hrProfiles, a.localDate);
+        const profile = profileForDate(
+          options.hrProfiles,
+          a.localDate,
+          options.zoneSourcePreference,
+        );
         const zone = profile ? classifyHr(a.avgHr, profile.zones) : null;
         const zoneName = zone?.name ?? UNCLASSIFIED_ZONE;
         zoneElapsedS[zoneName] = (zoneElapsedS[zoneName] ?? 0) + a.elapsedTimeS;
@@ -161,6 +187,10 @@ export function summarize(
       runPaceSPerKm: paceDistanceM > 0 ? paceTimeS / (paceDistanceM / 1000) : null,
       avgHr: mean(hrs),
       avgRelativeEffort: mean(efforts),
+      avgMaxHr: mean(maxHrs),
+      peakMaxHr: maxHrs.length > 0 ? Math.max(...maxHrs) : null,
+      avgWatts: mean(watts),
+      totalCalories,
       zoneElapsedS,
     });
   }

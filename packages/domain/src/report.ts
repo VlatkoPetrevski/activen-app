@@ -1,7 +1,7 @@
 import { dayName, weekStart, type DayName } from "./dates.js";
 import { classifyHr, profileForDate } from "./hr-zones.js";
 import { matchPlanToActivities, type PlanLink } from "./matching.js";
-import { isRun } from "./sport.js";
+import { filterActivities, isRun, type ActivityFilter } from "./sport.js";
 import { emptySummary, summarize, type PaceBasis, type PeriodSummary } from "./summaries.js";
 import type {
   Activity,
@@ -10,17 +10,30 @@ import type {
   LocalDate,
   PlanEntry,
   PlanLinkOverride,
+  Vendor,
 } from "./types.js";
 
-/** Lightest grey used for race rows in the reference report (spec §10). */
-export const RACE_ROW_FILL = "#F2F2F2";
-/** Light-blue summary style of the reference report (spec §11). */
-export const SUMMARY_ROW_FILL = "#DDEBF7";
+/** Report palette, taken from the reference workbook (`Strava_Activities_VP_v26.xlsx`). */
+export const REPORT_COLORS = Object.freeze({
+  headerFill: "#1F4E78",
+  headerFont: "#FFFFFF",
+  /** Light-blue summary rows (spec §11). */
+  summaryFill: "#DDE4EB",
+  summaryFont: "#666666",
+  /** Lighter dark-grey font for non-Run activities (spec §10). */
+  nonRunFont: "#666666",
+  /** Rest and plan-only rows. */
+  planOnlyFont: "#777777",
+  /** Lightest grey for race rows (spec §10; not yet used in the workbook). */
+  raceFill: "#F2F2F2",
+});
 
 export interface RowStyle {
   bold: boolean;
   /** Lighter dark-grey font for non-Run activities. */
   muted: boolean;
+  /** Font color; `null` = default text color. */
+  fontColor: string | null;
   rowFill: string | null;
   /** Fill of the HR Zone cell; never set for rest or plan-only rows. */
   zoneFill: string | null;
@@ -43,7 +56,10 @@ export interface ActivityRow {
   style: RowStyle;
 }
 
-export type PlanOnlyStatus = "rest" | "upcoming" | "missed" | "unlinked";
+/**
+ * `completed_hidden`: the plan was executed, but the linked activity is hidden by the active filter.
+ */
+export type PlanOnlyStatus = "rest" | "upcoming" | "missed" | "unlinked" | "completed_hidden";
 
 export interface PlanOnlyRow {
   type: "plan_only";
@@ -71,9 +87,22 @@ export interface ActivitiesReportInput {
   /** Athlete-local "today", used to tell upcoming plans from missed ones. */
   today: LocalDate;
   paceBasis?: PaceBasis;
+  /** Preferred HR-zone sources, see `profileForDate`. */
+  zoneSourcePreference?: readonly Vendor[];
+  /**
+   * Which activities are shown and counted (e.g. running only). Plan-only rows stay visible so
+   * that the plan is never hidden by a filter; matching still sees all activities.
+   */
+  filter?: ActivityFilter;
 }
 
-const NO_STYLE: RowStyle = { bold: false, muted: false, rowFill: null, zoneFill: null };
+const PLAN_ONLY_STYLE: RowStyle = {
+  bold: false,
+  muted: true,
+  fontColor: REPORT_COLORS.planOnlyFont,
+  rowFill: null,
+  zoneFill: null,
+};
 
 /**
  * Builds the calendar-oriented Activities view (spec §5, §11): newest dates first, a weekly summary
@@ -81,8 +110,11 @@ const NO_STYLE: RowStyle = { bold: false, muted: false, rowFill: null, zoneFill:
  * rows for rest days, future plans and plans with no matching activity.
  */
 export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesReport {
-  const activities = input.activities.filter((a) => !a.deleted);
-  const links = matchPlanToActivities(input.planEntries, activities, input.overrides ?? []);
+  const allActivities = input.activities.filter((a) => !a.deleted);
+  // Matching uses every activity, so a filter never changes which activity a plan belongs to.
+  const links = matchPlanToActivities(input.planEntries, allActivities, input.overrides ?? []);
+  const activities = filterActivities(allActivities, input.filter);
+  const visibleIds = new Set(activities.map((a) => a.id));
   const planById = new Map(input.planEntries.map((p) => [p.id, p]));
   const linkByActivity = new Map<string, PlanLink>();
   for (const l of links) if (l.activityId) linkByActivity.set(l.activityId, l);
@@ -90,6 +122,7 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
   const summaryOptions = {
     hrProfiles: input.hrProfiles,
     ...(input.paceBasis ? { paceBasis: input.paceBasis } : {}),
+    ...(input.zoneSourcePreference ? { zoneSourcePreference: input.zoneSourcePreference } : {}),
   };
   const weekSummaries = new Map(
     summarize(activities, "week", summaryOptions).map((s) => [s.key, s]),
@@ -100,7 +133,11 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
 
   for (const activity of activities) {
     const link = linkByActivity.get(activity.id) ?? null;
-    const profile = profileForDate(input.hrProfiles, activity.localDate);
+    const profile = profileForDate(
+      input.hrProfiles,
+      activity.localDate,
+      input.zoneSourcePreference,
+    );
     const zone = profile ? classifyHr(activity.avgHr, profile.zones) : null;
     items.push({
       date: activity.localDate,
@@ -116,7 +153,8 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
         style: {
           bold: activity.isRace,
           muted: !isRun(activity.sportType),
-          rowFill: activity.isRace ? RACE_ROW_FILL : null,
+          fontColor: isRun(activity.sportType) ? null : REPORT_COLORS.nonRunFont,
+          rowFill: activity.isRace ? REPORT_COLORS.raceFill : null,
           zoneFill: zone?.color ?? null,
         },
       },
@@ -124,11 +162,12 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
   }
 
   for (const link of links) {
-    if (link.activityId) continue;
+    if (link.activityId && visibleIds.has(link.activityId)) continue;
     const plan = planById.get(link.planEntryId);
     if (!plan) continue;
-    const status: PlanOnlyStatus =
-      plan.kind === "rest"
+    const status: PlanOnlyStatus = link.activityId
+      ? "completed_hidden"
+      : plan.kind === "rest"
         ? "rest"
         : link.reason === "manual_unlinked"
           ? "unlinked"
@@ -145,7 +184,7 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
         plan,
         link,
         status,
-        style: NO_STYLE,
+        style: PLAN_ONLY_STYLE,
       },
     });
   }
@@ -162,7 +201,13 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
       rows.push({
         type: "week_summary",
         summary: weekSummaries.get(wk) ?? emptySummary(wk, "week", true),
-        style: { ...NO_STYLE, bold: true, rowFill: SUMMARY_ROW_FILL },
+        style: {
+          bold: true,
+          muted: false,
+          fontColor: REPORT_COLORS.summaryFont,
+          rowFill: REPORT_COLORS.summaryFill,
+          zoneFill: null,
+        },
       });
     }
     rows.push(item.row);

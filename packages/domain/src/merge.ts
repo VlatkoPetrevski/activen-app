@@ -1,4 +1,9 @@
-import { canDisplay, canUseForAi, type Audience } from "./source-policy.js";
+import {
+  canDisplay,
+  canUseForAi,
+  DEFAULT_SOURCE_PRIORITY,
+  type Audience,
+} from "./source-policy.js";
 import { sportCategory } from "./sport.js";
 import type { Activity, SourceRef, Vendor } from "./types.js";
 
@@ -26,8 +31,11 @@ export interface MergedActivity {
 }
 
 export interface MergeOptions {
-  /** The athlete's source priority, most trusted first. Unlisted vendors come last. */
-  priority: readonly Vendor[];
+  /**
+   * The athlete's source priority, most trusted first; unlisted vendors come last.
+   * Defaults to {@link DEFAULT_SOURCE_PRIORITY} (device makers first, Strava last).
+   */
+  priority?: readonly Vendor[];
   /** Restricts input to sources that may be shown to this audience (default: owner). */
   audience?: Audience;
   /** Restricts input to sources whose terms allow AI processing. */
@@ -62,14 +70,15 @@ function isSameWorkout(a: Activity, b: Activity, startTolS: number, durTol: numb
  */
 export function mergeActivities(
   activities: readonly Activity[],
-  options: MergeOptions,
+  options: MergeOptions = {},
 ): MergedActivity[] {
   const audience = options.audience ?? "owner";
   const startTolS = options.startToleranceS ?? 300;
   const durTol = options.durationTolerance ?? 0.15;
+  const priority = options.priority ?? DEFAULT_SOURCE_PRIORITY;
   const rank = (v: Vendor): number => {
-    const i = options.priority.indexOf(v);
-    return i === -1 ? options.priority.length : i;
+    const i = priority.indexOf(v);
+    return i === -1 ? priority.length : i;
   };
 
   const eligible = activities
