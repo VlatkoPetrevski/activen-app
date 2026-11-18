@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { ACTIVITY_TYPE_INFO, ACTIVITY_TYPES, isActivityType } from "../src/activity-types.js";
 import {
   ACUTE_LOAD_WINDOW_DAYS,
-  GARMIN_LABELS_MK,
   hrvStatus,
   LOAD_FOCUS_CATEGORIES,
   LOAD_FOCUS_FEEDBACK,
@@ -20,12 +19,9 @@ import {
 } from "../src/hr-zones.js";
 
 describe("Garmin activity types", () => {
-  it("has display names and a group for every type", () => {
-    for (const t of ACTIVITY_TYPES) {
-      expect(ACTIVITY_TYPE_INFO[t].en.length).toBeGreaterThan(0);
-      expect(ACTIVITY_TYPE_INFO[t].mk.length).toBeGreaterThan(0);
-    }
-    expect(ACTIVITY_TYPE_INFO.TREADMILL_RUNNING.en).toBe("Treadmill");
+  it("has a group for every type", () => {
+    for (const t of ACTIVITY_TYPES) expect(ACTIVITY_TYPE_INFO[t].group).toBeTruthy();
+    expect(ACTIVITY_TYPE_INFO.TREADMILL_RUNNING.group).toBe("running");
     expect(isActivityType("TRAIL_RUNNING")).toBe(true);
     expect(isActivityType("TrailRun")).toBe(false);
   });
@@ -147,11 +143,10 @@ describe("Training Effect", () => {
 });
 
 describe("Training Status, Load Focus and labels", () => {
-  it("covers Garmin's vocabularies with Macedonian labels", () => {
+  it("covers Garmin's vocabularies", () => {
     expect(TRAINING_STATUSES).toContain("PRODUCTIVE");
     expect(LOAD_FOCUS_CATEGORIES).toEqual(["LOW_AEROBIC", "HIGH_AEROBIC", "ANAEROBIC"]);
     expect(LOAD_FOCUS_FEEDBACK).toContain("ANAEROBIC_SHORTAGE");
     expect(ACUTE_LOAD_WINDOW_DAYS).toBe(10);
-    for (const s of TRAINING_STATUSES) expect(GARMIN_LABELS_MK.trainingStatus[s]).toBeTruthy();
   });
 });

@@ -14,8 +14,16 @@ import type { HrZone, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 export type HrZoneSourceSetting =
   { mode: "source" } | { mode: "vendor"; vendor: Exclude<Vendor, "manual"> } | { mode: "manual" };
 
-/** Athlete profile settings that drive data selection (stored per athlete, edited in the profile). */
+/** Unit system for display; storage is always metric (Garmin units). */
+export type UnitSystem = "metric" | "imperial";
+
+/** Athlete profile settings that drive data selection and display (edited in the profile). */
 export interface AthleteSettings {
+  /** UI and notification language (BCP-47, e.g. "mk", "en"); `null` = negotiated from the device. */
+  locale: string | null;
+  unitSystem: UnitSystem;
+  /** IANA timezone used for calendar dates and the morning briefing (e.g. "Europe/Skopje"). */
+  timeZone: string;
   /** Data source priority, most trusted first. */
   sourcePriority: readonly Vendor[];
   hrZones: HrZoneSourceSetting;
@@ -26,6 +34,9 @@ export interface AthleteSettings {
 }
 
 export const DEFAULT_ATHLETE_SETTINGS: Readonly<AthleteSettings> = Object.freeze<AthleteSettings>({
+  locale: null,
+  unitSystem: "metric",
+  timeZone: "Europe/Skopje",
   sourcePriority: DEFAULT_SOURCE_PRIORITY,
   hrZones: { mode: "source" },
   maxHeartRate: null,

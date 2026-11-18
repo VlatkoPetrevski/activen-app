@@ -22,6 +22,7 @@ Requires Node.js ≥ 22 and pnpm 10.
 | Path              | Purpose                                                                                                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/domain` | Framework-free business rules: HR zones, pace & formatting, period summaries, plan-to-activity matching, Activities report rows, multi-source merge, vendor data-sharing policy |
+| `packages/i18n`   | Locales (mk, en), locale negotiation, ICU messages, locale- and unit-aware formatting                                                                                           |
 | `apps/`           | API, worker and web apps (upcoming increments)                                                                                                                                  |
 | `docs/`           | Architecture, ADRs, roadmap, open questions (Macedonian)                                                                                                                        |
 

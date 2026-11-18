@@ -144,44 +144,6 @@ export type LoadFocusFeedback = (typeof LOAD_FOCUS_FEEDBACK)[number];
 /** Garmin: the impact of an activity on acute load fades over time and is gone after 10 days. */
 export const ACUTE_LOAD_WINDOW_DAYS = 10;
 
-// --- Macedonian labels for the UI ----------------------------------------------------------------
-
-export const GARMIN_LABELS_MK = Object.freeze({
-  trainingReadiness: {
-    PRIME: "Врвна",
-    HIGH: "Висока",
-    MODERATE: "Умерена",
-    LOW: "Ниска",
-    POOR: "Слаба",
-  } satisfies Record<TrainingReadinessLevel, string>,
-  hrvStatus: {
-    BALANCED: "Избалансиран",
-    UNBALANCED: "Неизбалансиран",
-    LOW: "Низок",
-    POOR: "Слаб",
-    NO_STATUS: "Нема статус",
-  } satisfies Record<HrvStatus, string>,
-  trainingEffect: {
-    NO_BENEFIT: "Без ефект",
-    MINOR: "Мал ефект",
-    MAINTAINING: "Одржува",
-    IMPACTING: "Подобрува",
-    HIGHLY_IMPACTING: "Значително подобрува",
-    OVERREACHING: "Претерување",
-  } satisfies Record<TrainingEffectBenefit, string>,
-  trainingStatus: {
-    PEAKING: "Врв на форма",
-    PRODUCTIVE: "Продуктивно",
-    MAINTAINING: "Одржување",
-    RECOVERY: "Опоравок",
-    UNPRODUCTIVE: "Непродуктивно",
-    DETRAINING: "Губење форма",
-    OVERREACHING: "Претерување",
-    STRAINED: "Напрегнато",
-    NO_STATUS: "Нема статус",
-  } satisfies Record<TrainingStatus, string>,
-});
-
 function mean(xs: readonly number[]): number {
   return xs.reduce((s, x) => s + x, 0) / xs.length;
 }

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ActiveN — training planning, coach–athlete workplace and multi-vendor activity analytics",
+  "description": "ActiveN \u2014 training planning, coach\u2013athlete workplace and multi-vendor activity analytics",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

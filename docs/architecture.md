@@ -20,6 +20,8 @@ ActiveN е **сосема нова платформа, осмислена од �
 
 **Терминологија и принципи:** Garmin во почетната фаза (ADR-0007, [garmin-glossary.md](garmin-glossary.md)).
 
+**Јазици:** мултијазична платформа — mk и en од старт, i18n пакет и правила во ADR-0008.
+
 **Извори на податоци:** примарно производителите на уреди (Garmin, Suunto, Polar, COROS…). Strava е
 последна по приоритет и служи само за пополнување празнини (`DEFAULT_SOURCE_PRIORITY`).
 
@@ -163,7 +165,8 @@ erDiagram
 activen/
 ├── apps/              # web (Next.js), api (NestJS), worker — следни инкременти
 ├── packages/
-│   └── domain/        # чисти бизнис правила + unit тестови
+│   ├── domain/        # чисти бизнис правила (само кодови, без текст) + unit тестови
+│   └── i18n/          # јазици, ICU пораки mk/en, форматирање по јазик и единици
 └── docs/
     ├── architecture.md
     ├── roadmap.md

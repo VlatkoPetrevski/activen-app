@@ -1,0 +1,25 @@
+{
+  "name": "@activen/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Localization for ActiveN: supported locales, locale negotiation, ICU messages and locale-aware formatting of training data",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@activen/domain": "workspace:*",
+    "@formatjs/icu-messageformat-parser": "^3.5.23",
+    "intl-messageformat": "^12.2.0"
+  }
+}

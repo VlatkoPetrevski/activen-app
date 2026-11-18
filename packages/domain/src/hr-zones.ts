@@ -4,14 +4,15 @@ import type { HrZone, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 /**
  * Garmin's five heart-rate zones (Garmin manuals, "Heart Rate Zone Calculations" and "Heart Rate
  * Color Zones"): names, color families (gray, blue, green, orange, red) and % of maximum heart rate.
- * Hex values are the ActiveN UI palette for those color families (to be confirmed in the design).
+ * Hex values are the ActiveN UI palette for those color families. `name` is Garmin's English zone
+ * name and is stored on generated profiles; the UI translates it (`hrZone.garmin.<zone>`).
  */
 export const GARMIN_HR_ZONE_TEMPLATE = Object.freeze([
-  { zone: 1, name: "Warm Up", mk: "Загревање", color: "#9E9E9E", pctMaxLow: 0.5 },
-  { zone: 2, name: "Easy", mk: "Лесно", color: "#2F80ED", pctMaxLow: 0.6 },
-  { zone: 3, name: "Aerobic", mk: "Аеробно", color: "#27AE60", pctMaxLow: 0.7 },
-  { zone: 4, name: "Threshold", mk: "Праг", color: "#F2994A", pctMaxLow: 0.8 },
-  { zone: 5, name: "Maximum", mk: "Максимум", color: "#EB5757", pctMaxLow: 0.9 },
+  { zone: 1, name: "Warm Up", color: "#9E9E9E", pctMaxLow: 0.5 },
+  { zone: 2, name: "Easy", color: "#2F80ED", pctMaxLow: 0.6 },
+  { zone: 3, name: "Aerobic", color: "#27AE60", pctMaxLow: 0.7 },
+  { zone: 4, name: "Threshold", color: "#F2994A", pctMaxLow: 0.8 },
+  { zone: 5, name: "Maximum", color: "#EB5757", pctMaxLow: 0.9 },
 ] as const);
 
 const FALLBACK_PALETTE = [...GARMIN_HR_ZONE_TEMPLATE.map((z) => z.color), "#9B51E0", "#56CCF2"];
