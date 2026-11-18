@@ -3,7 +3,6 @@ import { activityMix, byWeekday, kpis, zoneBreakdown } from "../src/analytics.js
 import {
   classifyHr,
   createProfileVersion,
-  DEFAULT_HR_ZONES,
   InvalidHrZoneProfileError,
   profileForDate,
   sameZoneBoundaries,
@@ -15,50 +14,61 @@ import { buildActivitiesReport, REPORT_COLORS } from "../src/report.js";
 import { DEFAULT_SOURCE_PRIORITY } from "../src/source-policy.js";
 import {
   filterActivities,
-  isRun,
+  isRunning,
   matchesFilter,
   PRESET_FILTERS,
-  sportCategory,
-  sportKey,
+  activityGroup,
+  activityTypeKey,
 } from "../src/sport.js";
 import { summarize } from "../src/summaries.js";
-import { activity, defaultProfile, plan } from "./fixtures.js";
+import { activity, defaultProfile, MANUAL_ZONES, plan } from "./fixtures.js";
 
-describe("sport normalization and filters", () => {
-  it("resolves export-style names with spaces", () => {
-    expect(sportKey("Weight Training")).toBe("weighttraining");
-    expect(sportCategory("Weight Training")).toBe("strength");
-    expect(sportCategory("Rowing")).toBe("row");
-    expect(isRun("Trail Run")).toBe(true);
+describe("activity types and filters (Garmin activityType)", () => {
+  it("resolves types tolerant of case, spaces and hyphens", () => {
+    expect(activityTypeKey("strength training")).toBe("STRENGTH_TRAINING");
+    expect(activityGroup("Strength Training")).toBe("gym");
+    expect(activityGroup("indoor-rowing")).toBe("rowing");
+    expect(activityGroup("Kitesurfing")).toBe("other");
+    expect(isRunning("trail running")).toBe(true);
+    expect(isRunning("TREADMILL_RUNNING")).toBe(true);
   });
 
   it("offers presets for running with/without trail and treadmill", () => {
-    const types = ["Run", "TrailRun", "VirtualRun", "Ride", "Workout"];
+    const types = ["RUNNING", "TRAIL_RUNNING", "VIRTUAL_RUN", "CYCLING", "INDOOR_CARDIO"];
     const pick = (f: Parameters<typeof matchesFilter>[1]) =>
       types.filter((t) => matchesFilter(t, f));
     expect(pick(PRESET_FILTERS.all)).toEqual(types);
     expect(pick(undefined)).toEqual(types);
-    expect(pick(PRESET_FILTERS.running)).toEqual(["Run", "TrailRun", "VirtualRun"]);
-    expect(pick(PRESET_FILTERS.roadRunning)).toEqual(["Run"]);
-    expect(pick(PRESET_FILTERS.runningWithoutTreadmill)).toEqual(["Run", "TrailRun"]);
-    expect(pick(PRESET_FILTERS.runningWithoutTrail)).toEqual(["Run", "VirtualRun"]);
-    expect(filterActivities([{ sportType: "Ride" }], PRESET_FILTERS.running)).toEqual([]);
+    expect(pick(PRESET_FILTERS.running)).toEqual(["RUNNING", "TRAIL_RUNNING", "VIRTUAL_RUN"]);
+    expect(pick(PRESET_FILTERS.roadRunning)).toEqual(["RUNNING"]);
+    expect(pick(PRESET_FILTERS.runningWithoutTreadmill)).toEqual(["RUNNING", "TRAIL_RUNNING"]);
+    expect(pick(PRESET_FILTERS.runningWithoutTrail)).toEqual(["RUNNING", "VIRTUAL_RUN"]);
+    expect(filterActivities([{ activityType: "CYCLING" }], PRESET_FILTERS.running)).toEqual([]);
   });
 });
 
 describe("HR zones from vendors and manual entry", () => {
   it("rejects names mixing Latin and Cyrillic letters (Excel 'АеТ' bug)", () => {
-    const zones = DEFAULT_HR_ZONES.map((z) => ({ ...z }));
+    const zones = MANUAL_ZONES.map((z) => ({ ...z }));
     zones[1] = { ...zones[1]!, name: "АеТ" }; // Cyrillic А, е, Т — but no Latin letter
     expect(validateZones(zones)).toEqual([]);
     zones[1] = { ...zones[1]!, name: "AeТ" }; // Latin A, e + Cyrillic Т
     expect(validateZones(zones).map((e) => e.code)).toEqual(["NAME_MIXED_SCRIPT"]);
   });
 
-  it("builds five report-named zones from vendor lower bounds", () => {
+  it("names five vendor zones like Garmin and keeps boundaries", () => {
     const zones = zonesFromLowerBounds([95, 140, 151, 166, 172]);
-    expect(sameZoneBoundaries(zones, DEFAULT_HR_ZONES)).toBe(true);
-    expect(zones.map((z) => z.color)).toEqual(DEFAULT_HR_ZONES.map((z) => z.color));
+    expect(zones.map((z) => z.name)).toEqual([
+      "Warm Up",
+      "Easy",
+      "Aerobic",
+      "Threshold",
+      "Maximum",
+    ]);
+    const renamed = zonesFromLowerBounds([95, 140, 151, 166, 172], {
+      names: MANUAL_ZONES.map((z) => z.name),
+    });
+    expect(sameZoneBoundaries(renamed, MANUAL_ZONES)).toBe(true);
   });
 
   it("rounds fractional vendor bounds and names other zone counts Z1…Zn", () => {
@@ -83,11 +93,14 @@ describe("HR zones from vendors and manual entry", () => {
   });
 
   it("detects boundary changes, ignoring colors", () => {
-    const recolored = DEFAULT_HR_ZONES.map((z) => ({ ...z, color: "#000000" }));
-    expect(sameZoneBoundaries(recolored, DEFAULT_HR_ZONES)).toBe(true);
-    expect(sameZoneBoundaries(recolored.slice(1), DEFAULT_HR_ZONES)).toBe(false);
+    const recolored = MANUAL_ZONES.map((z) => ({ ...z, color: "#000000" }));
+    expect(sameZoneBoundaries(recolored, MANUAL_ZONES)).toBe(true);
+    expect(sameZoneBoundaries(recolored.slice(1), MANUAL_ZONES)).toBe(false);
     expect(
-      sameZoneBoundaries(zonesFromLowerBounds([0, 141, 151, 166, 172]), DEFAULT_HR_ZONES),
+      sameZoneBoundaries(
+        zonesFromLowerBounds([0, 141, 151, 166, 172], { names: MANUAL_ZONES.map((z) => z.name) }),
+        MANUAL_ZONES,
+      ),
     ).toBe(false);
   });
 
@@ -103,12 +116,12 @@ describe("HR zones from vendors and manual entry", () => {
     expect(profileForDate([manual, garmin], "2026-06-01", [])?.id).toBe("g1");
     expect(
       classifyHr(137, profileForDate([manual, garmin], "2026-06-01", ["garmin"])!.zones)?.name,
-    ).toBe("AeT");
+    ).toBe("Easy");
   });
 
   it("keeps or changes the source when versioning", () => {
     const v1 = defaultProfile();
-    const zones = DEFAULT_HR_ZONES.map((z) => ({ ...z }));
+    const zones = MANUAL_ZONES.map((z) => ({ ...z }));
     expect(createProfileVersion(v1, { id: "v2", zones, effectiveFrom: "2026-01-01" }).source).toBe(
       "manual",
     );
@@ -124,106 +137,107 @@ describe("source priority", () => {
     expect(DEFAULT_SOURCE_PRIORITY[0]).toBe("garmin");
     expect(DEFAULT_SOURCE_PRIORITY.at(-1)).toBe("strava");
     const strava = activity({
-      localDate: "2026-11-16",
+      calendarDate: "2026-11-16",
       source: { vendor: "strava", externalId: "s" },
-      name: "Strava name",
+      activityName: "Strava name",
     });
     const suunto = activity({
-      localDate: "2026-11-16",
+      calendarDate: "2026-11-16",
       source: { vendor: "suunto", externalId: "u" },
-      name: "Suunto name",
+      activityName: "Suunto name",
     });
-    expect(mergeActivities([strava, suunto])[0]?.activity.name).toBe("Suunto name");
+    expect(mergeActivities([strava, suunto])[0]?.activity.activityName).toBe("Suunto name");
   });
 });
 
 /**
  * Regression against the reference workbook: week 21.09.–27.09.2026 (names and gear omitted).
  * Excel weekly row: distance 36.5423 km, elevation 106 m, Relative Effort 48.25, avg HR 141,
- * avg max HR 161.75, calories 3576.
+ * avg max HR 161.75, activeKilocalories 3576.
  */
 describe("parity with the reference Excel week 21–27.09.2026", () => {
   const week = [
     activity({
-      localDate: "2026-09-24",
-      distanceM: 12_009.8,
-      elapsedTimeS: 4_085,
-      elevationGainM: 38,
-      relativeEffort: 52,
-      avgHr: 151,
-      maxHr: 176,
-      avgWatts: 381,
-      calories: 964,
+      calendarDate: "2026-09-24",
+      distanceInMeters: 12_009.8,
+      durationInSeconds: 4_085,
+      totalElevationGainInMeters: 38,
+      trainingLoad: 52,
+      averageHeartRateInBeatsPerMinute: 151,
+      maxHeartRateInBeatsPerMinute: 176,
+      averagePowerInWatts: 381,
+      activeKilocalories: 964,
     }),
     activity({
-      localDate: "2026-09-23",
-      distanceM: 8_010.3,
-      elapsedTimeS: 3_013,
-      elevationGainM: 23,
-      relativeEffort: 14,
-      avgHr: 138,
-      maxHr: 150,
-      avgWatts: 363,
-      calories: 649,
+      calendarDate: "2026-09-23",
+      distanceInMeters: 8_010.3,
+      durationInSeconds: 3_013,
+      totalElevationGainInMeters: 23,
+      trainingLoad: 14,
+      averageHeartRateInBeatsPerMinute: 138,
+      maxHeartRateInBeatsPerMinute: 150,
+      averagePowerInWatts: 363,
+      activeKilocalories: 649,
     }),
     activity({
-      localDate: "2026-09-22",
-      sportType: "Workout",
-      distanceM: 0,
-      elapsedTimeS: 5_440,
-      elevationGainM: 0,
-      relativeEffort: 16,
-      avgHr: 116,
-      maxHr: 145,
-      avgWatts: null,
-      calories: 651,
+      calendarDate: "2026-09-22",
+      activityType: "INDOOR_CARDIO",
+      distanceInMeters: 0,
+      durationInSeconds: 5_440,
+      totalElevationGainInMeters: 0,
+      trainingLoad: 16,
+      averageHeartRateInBeatsPerMinute: 116,
+      maxHeartRateInBeatsPerMinute: 145,
+      averagePowerInWatts: null,
+      activeKilocalories: 651,
     }),
     activity({
-      localDate: "2026-09-22",
-      distanceM: 16_522.2,
-      elapsedTimeS: 5_384,
-      elevationGainM: 45,
-      relativeEffort: 111,
-      avgHr: 159,
-      maxHr: 176,
-      avgWatts: 442,
-      calories: 1312,
+      calendarDate: "2026-09-22",
+      distanceInMeters: 16_522.2,
+      durationInSeconds: 5_384,
+      totalElevationGainInMeters: 45,
+      trainingLoad: 111,
+      averageHeartRateInBeatsPerMinute: 159,
+      maxHeartRateInBeatsPerMinute: 176,
+      averagePowerInWatts: 442,
+      activeKilocalories: 1312,
     }),
   ];
   const [w] = summarize(week, "week", { hrProfiles: [defaultProfile()] });
 
   it("reproduces the weekly totals and averages", () => {
-    expect(w?.totalDistanceM).toBeCloseTo(36_542.3, 1);
-    expect(w?.elevationGainM).toBe(106);
-    expect(w?.avgRelativeEffort).toBe(48.25);
-    expect(w?.avgHr).toBe(141);
-    expect(w?.avgMaxHr).toBe(161.75);
-    expect(w?.peakMaxHr).toBe(176);
-    expect(w?.totalCalories).toBe(3_576);
+    expect(w?.distanceInMeters).toBeCloseTo(36_542.3, 1);
+    expect(w?.totalElevationGainInMeters).toBe(106);
+    expect(w?.averageTrainingLoad).toBe(48.25);
+    expect(w?.totalTrainingLoad).toBe(193);
+    expect(w?.averageHeartRateInBeatsPerMinute).toBe(141);
+    expect(w?.averageMaxHeartRateInBeatsPerMinute).toBe(161.75);
+    expect(w?.maxHeartRateInBeatsPerMinute).toBe(176);
+    expect(w?.activeKilocalories).toBe(3_576);
   });
 
   it("fixes the workbook's weekly pace (run time / run distance, elapsed)", () => {
-    expect(w?.runPaceSPerKm).toBeCloseTo((4_085 + 3_013 + 5_384) / 36.5423, 6);
+    expect(w?.runningPaceInSecondsPerKilometer).toBeCloseTo((4_085 + 3_013 + 5_384) / 36.5423, 6);
     // Excel summed power (1186 W); the meaningful value is the mean.
-    expect(w?.avgWatts).toBeCloseTo(395.33, 2);
+    expect(w?.averagePowerInWatts).toBeCloseTo(395.33, 2);
   });
 
   it("classifies the activities into the same zones as the workbook", () => {
-    expect(w?.zoneElapsedS).toEqual({ Tempo: 4_085 + 5_384, Easy: 3_013 + 5_440 });
+    expect(w?.timeInHeartRateZonesInSeconds).toEqual({ Tempo: 4_085 + 5_384, Easy: 3_013 + 5_440 });
   });
 
   it("can count running only", () => {
     const [runs] = summarize(week, "week", { filter: PRESET_FILTERS.running });
     expect(runs?.activityCount).toBe(3);
-    expect(runs?.avgHr).toBeCloseTo(149.33, 2);
+    expect(runs?.averageHeartRateInBeatsPerMinute).toBeCloseTo(149.33, 2);
   });
 });
 
 describe("report filter and palette", () => {
   it("hides filtered activities but never the plan, and keeps plan matching unchanged", () => {
-    const ride = activity({ localDate: "2026-11-16", sportType: "Ride" });
-    const treadmill = activity({ localDate: "2026-11-16", sportType: "VirtualRun" });
-    const p = plan({ date: "2026-11-16", description: "8 km easy" });
+    const ride = activity({ calendarDate: "2026-11-16", activityType: "CYCLING" });
+    const treadmill = activity({ calendarDate: "2026-11-16", activityType: "VIRTUAL_RUN" });
+    const p = plan({ calendarDate: "2026-11-16", description: "8 km easy" });
     const r = buildActivitiesReport({
       activities: [ride, treadmill],
       planEntries: [p],
@@ -243,8 +257,8 @@ describe("report filter and palette", () => {
 
   it("uses the workbook colors for summary, non-run and plan-only rows", () => {
     const r = buildActivitiesReport({
-      activities: [activity({ localDate: "2026-11-16", sportType: "Workout" })],
-      planEntries: [plan({ date: "2026-11-17", kind: "rest" })],
+      activities: [activity({ calendarDate: "2026-11-16", activityType: "INDOOR_CARDIO" })],
+      planEntries: [plan({ calendarDate: "2026-11-17", kind: "rest" })],
       hrProfiles: [],
       today: "2026-11-18",
     });
@@ -259,70 +273,70 @@ describe("report filter and palette", () => {
 describe("analytics (Analysis sheet)", () => {
   const acts = [
     activity({
-      localDate: "2026-11-16",
-      distanceM: 10_000,
-      elapsedTimeS: 3_000,
-      avgHr: 135,
-      relativeEffort: 20,
-      elevationGainM: 10,
+      calendarDate: "2026-11-16",
+      distanceInMeters: 10_000,
+      durationInSeconds: 3_000,
+      averageHeartRateInBeatsPerMinute: 135,
+      trainingLoad: 20,
+      totalElevationGainInMeters: 10,
     }),
     activity({
-      localDate: "2026-11-17",
-      sportType: "TrailRun",
-      distanceM: 20_000,
-      elapsedTimeS: 7_200,
-      avgHr: 155,
-      relativeEffort: 80,
-      elevationGainM: 500,
+      calendarDate: "2026-11-17",
+      activityType: "TRAIL_RUNNING",
+      distanceInMeters: 20_000,
+      durationInSeconds: 7_200,
+      averageHeartRateInBeatsPerMinute: 155,
+      trainingLoad: 80,
+      totalElevationGainInMeters: 500,
     }),
     activity({
-      localDate: "2026-11-18",
-      sportType: "Workout",
-      distanceM: 0,
-      elapsedTimeS: 3_600,
-      avgHr: null,
-      relativeEffort: null,
+      calendarDate: "2026-11-18",
+      activityType: "INDOOR_CARDIO",
+      distanceInMeters: 0,
+      durationInSeconds: 3_600,
+      averageHeartRateInBeatsPerMinute: null,
+      trainingLoad: null,
     }),
     activity({
-      localDate: "2026-11-23",
-      sportType: "VirtualRun",
-      distanceM: 5_000,
-      elapsedTimeS: 1_500,
-      avgHr: null,
-      relativeEffort: null,
-      elevationGainM: null,
+      calendarDate: "2026-11-23",
+      activityType: "VIRTUAL_RUN",
+      distanceInMeters: 5_000,
+      durationInSeconds: 1_500,
+      averageHeartRateInBeatsPerMinute: null,
+      trainingLoad: null,
+      totalElevationGainInMeters: null,
     }),
-    activity({ localDate: "2026-11-19", deleted: true }),
+    activity({ calendarDate: "2026-11-19", deleted: true }),
   ];
 
   it("computes running KPIs with a weighted pace", () => {
     expect(kpis(acts)).toEqual({
       count: 3,
-      distanceM: 35_000,
-      elapsedS: 11_700,
-      paceSPerKm: 11_700 / 35,
-      avgHr: 145,
-      avgRelativeEffort: 50,
-      elevationGainM: 510,
-      longestDistanceM: 20_000,
+      distanceInMeters: 35_000,
+      durationInSeconds: 11_700,
+      paceInSecondsPerKilometer: 11_700 / 35,
+      averageHeartRateInBeatsPerMinute: 145,
+      averageTrainingLoad: 50,
+      totalElevationGainInMeters: 510,
+      longestDistanceInMeters: 20_000,
     });
     expect(kpis(acts, { filter: PRESET_FILTERS.roadRunning }).count).toBe(1);
     expect(kpis(acts, { from: "2026-11-17", to: "2026-11-17" }).count).toBe(1);
     expect(kpis([], {})).toMatchObject({
       count: 0,
-      paceSPerKm: null,
-      avgHr: null,
-      longestDistanceM: null,
+      paceInSecondsPerKilometer: null,
+      averageHeartRateInBeatsPerMinute: null,
+      longestDistanceInMeters: null,
     });
   });
 
   it("builds the activity mix of all activities", () => {
     const mix = activityMix(acts);
-    expect(mix.map((m) => [m.sportType, m.count])).toEqual([
-      ["Run", 1],
-      ["TrailRun", 1],
-      ["VirtualRun", 1],
-      ["Workout", 1],
+    expect(mix.map((m) => [m.activityType, m.count])).toEqual([
+      ["INDOOR_CARDIO", 1],
+      ["RUNNING", 1],
+      ["TRAIL_RUNNING", 1],
+      ["VIRTUAL_RUN", 1],
     ]);
     expect(mix[0]?.share).toBe(0.25);
     expect(activityMix([])).toEqual([]);
@@ -335,14 +349,21 @@ describe("analytics (Analysis sheet)", () => {
       ["Tempo", 1],
       [null, 1],
     ]);
-    expect(z[1]).toMatchObject({ distanceM: 20_000, avgHr: 155, avgRelativeEffort: 80 });
-    expect(z[2]).toMatchObject({ avgHr: null, avgRelativeEffort: null });
+    expect(z[1]).toMatchObject({
+      distanceInMeters: 20_000,
+      averageHeartRateInBeatsPerMinute: 155,
+      averageTrainingLoad: 80,
+    });
+    expect(z[2]).toMatchObject({
+      averageHeartRateInBeatsPerMinute: null,
+      averageTrainingLoad: null,
+    });
     expect(zoneBreakdown(acts, []).map((e) => e.zone)).toEqual([null]);
   });
 
   it("distributes running by weekday", () => {
     const d = byWeekday(acts);
-    expect(d[0]).toMatchObject({ day: "Monday", count: 2, distanceM: 15_000 });
+    expect(d[0]).toMatchObject({ day: "Monday", count: 2, distanceInMeters: 15_000 });
     expect(d[1]?.share).toBeCloseTo(20 / 35, 6);
     expect(byWeekday([]).every((x) => x.share === 0)).toBe(true);
   });

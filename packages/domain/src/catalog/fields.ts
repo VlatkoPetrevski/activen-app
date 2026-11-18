@@ -3,8 +3,10 @@ import type { Transform } from "./transforms.js";
 /**
  * ActiveN canonical data catalog.
  *
- * Every metric the platform stores has one canonical key, unit and meaning. Vendor fields that serve
- * the same purpose are mapped onto it; vendor metrics with no equivalent (Body Battery, Nightly
+ * Initial phase: Garmin is the reference model. Canonical keys are `<garmin summary type>.<garmin
+ * field name>` and units follow Garmin (e.g. `body_comps.weightInGrams`, pace in min/km). Fields
+ * Garmin does not have get Garmin-style names. Vendor fields that serve the same purpose are mapped
+ * onto the canonical field; vendor metrics with no equivalent (Body Battery, Nightly
  * Recharge, Running Index, EPOC, Stamina…) become their own fields marked `origin: <vendor>`, so
  * they are never silently compared with another vendor's algorithm.
  *
@@ -28,21 +30,25 @@ export interface FieldMapping {
 }
 
 export const DOMAINS = [
-  "activity",
-  "activity_lap",
-  "activity_stream",
-  "daily",
-  "intraday",
-  "sleep",
-  "recovery",
-  "stress",
-  "spot_check",
-  "body",
-  "fitness",
-  "training_load",
+  "activities",
+  "activity_laps",
+  "activity_samples",
+  "dailies",
+  "epochs",
+  "sleeps",
+  "hrv",
+  "stress_details",
+  "respiration",
+  "pulse_ox",
+  "skin_temp",
+  "health_snapshot",
+  "body_comps",
+  "blood_pressure",
+  "user_metrics",
+  "training_status",
   "profile",
-  "planned_workout",
-  "route",
+  "workouts",
+  "courses",
 ] as const;
 export type Domain = (typeof DOMAINS)[number];
 
@@ -52,6 +58,7 @@ export const UNITS = [
   "bool",
   "id",
   "datetime",
+  "unix_s",
   "date",
   "s",
   "ms",
@@ -68,6 +75,8 @@ export const UNITS = [
   "w",
   "kcal",
   "kg",
+  "g",
+  "min_per_km",
   "pct",
   "c",
   "mmhg",
@@ -122,14 +131,19 @@ function f(
     unit,
     label,
     origin: opts.origin ?? "common",
-    sensitivity: opts.sensitivity ?? (domain.startsWith("activity") ? "standard" : "health"),
+    sensitivity:
+      opts.sensitivity ??
+      (domain === "activities" || domain === "activity_laps" || domain === "activity_samples"
+        ? "standard"
+        : "health"),
     mappings,
   };
   if (opts.note !== undefined) field.note = opts.note;
   return field;
 }
 
-// FIT message paths shared by Suunto and COROS (and Garmin's FIT export).
+// FIT message paths shared by Suunto and COROS (and Garmin's FIT export). FIT decoders return
+// timestamps as dates; adapters convert them to Unix seconds.
 const fitBoth = (path: string, transform: Transform = "none", note?: string) => ({
   suunto: fit(path, transform, note),
   coros: fit(path, transform, note),
@@ -139,73 +153,75 @@ const fitBoth = (path: string, transform: Transform = "none", note?: string) => 
 
 export const CATALOG: readonly CatalogField[] = Object.freeze([
   // ===== Activity (workout summary) =====
-  f("activity.external_id", "activity", "id", "ID кај изворот", {
+  f("activities.summaryId", "activities", "id", "ID кај изворот", {
     garmin: doc("Activities.summaryId", "none", "activityId = ID во Garmin Connect"),
     polar: doc("Exercise.id"),
     suunto: tbc("Workout.workoutKey"),
     coros: tbc("getWorkoutRecords.labelId"),
   }),
-  f("activity.start_time", "activity", "datetime", "Почеток", {
-    garmin: doc("Activities.startTimeInSeconds", "epoch_s_to_iso"),
-    polar: doc("Exercise.start_time", "none", "локално време + start_time_utc_offset"),
+  f("activities.startTimeInSeconds", "activities", "unix_s", "Почеток", {
+    garmin: doc("Activities.startTimeInSeconds"),
+    polar: doc("Exercise.start_time", "iso_to_epoch_s", "локално време + start_time_utc_offset"),
     ...fitBoth("FIT session.start_time"),
   }),
-  f("activity.utc_offset_s", "activity", "s", "Временска зона (поместување)", {
+  f("activities.startTimeOffsetInSeconds", "activities", "s", "Временска зона (поместување)", {
     garmin: doc("Activities.startTimeOffsetInSeconds"),
     polar: tbc("Exercise.start_time_utc_offset", "none", "веројатно во минути"),
     ...fitBoth("FIT activity.local_timestamp − timestamp"),
   }),
-  f("activity.name", "activity", "text", "Име на активност", {
+  f("activities.activityName", "activities", "text", "Име на активност", {
     garmin: doc("Activities.activityName"),
     suunto: fit("FIT session.description (developer field)"),
     coros: tbc("getWorkoutRecords.name"),
   }),
-  f("activity.sport", "activity", "enum", "Спорт", {
+  f("activities.activityType", "activities", "enum", "Спорт", {
     garmin: doc("Activities.activityType", "none", "see catalog/sports.ts"),
     polar: doc("Exercise.sport + detailed_sport_info"),
     ...fitBoth("FIT session.sport + sub_sport"),
   }),
-  f("activity.device", "activity", "text", "Уред", {
+  f("activities.deviceName", "activities", "text", "Уред", {
     garmin: doc("Activities.deviceName"),
     polar: doc("Exercise.device"),
     ...fitBoth("FIT file_id.product_name"),
   }),
-  f("activity.elapsed_time_s", "activity", "s", "Вкупно време (elapsed)", {
+  f("activities.durationInSeconds", "activities", "s", "Вкупно време (elapsed)", {
     garmin: doc("Activities.durationInSeconds"),
     polar: doc("Exercise.duration", "iso_duration_to_s"),
     ...fitBoth("FIT session.total_elapsed_time"),
   }),
-  f("activity.timer_time_s", "activity", "s", "Време без паузи", {
+  f("activities.timerDurationInSeconds", "activities", "s", "Време без паузи", {
     garmin: doc("ActivityDetails.samples[-1].timerDurationInSeconds"),
     ...fitBoth("FIT session.total_timer_time"),
   }),
-  f("activity.moving_time_s", "activity", "s", "Време во движење", {
+  f("activities.movingDurationInSeconds", "activities", "s", "Време во движење", {
     garmin: doc("ActivityDetails.samples[-1].movingDurationInSeconds"),
   }),
-  f("activity.distance_m", "activity", "m", "Растојание", {
+  f("activities.distanceInMeters", "activities", "m", "Растојание", {
     garmin: doc("Activities.distanceInMeters"),
     polar: doc("Exercise.distance"),
     ...fitBoth("FIT session.total_distance"),
   }),
-  f("activity.avg_speed_ms", "activity", "m_s", "Просечна брзина", {
+  f("activities.averageSpeedInMetersPerSecond", "activities", "m_s", "Просечна брзина", {
     garmin: doc("Activities.averageSpeedInMetersPerSecond"),
     ...fitBoth("FIT session.avg_speed (enhanced_avg_speed)"),
   }),
-  f("activity.max_speed_ms", "activity", "m_s", "Максимална брзина", {
+  f("activities.maxSpeedInMetersPerSecond", "activities", "m_s", "Максимална брзина", {
     garmin: doc("Activities.maxSpeedInMetersPerSecond"),
     ...fitBoth("FIT session.max_speed"),
   }),
   f(
-    "activity.avg_pace_s_per_km",
-    "activity",
-    "s_per_km",
+    "activities.averagePaceInMinutesPerKilometer",
+    "activities",
+    "min_per_km",
     "Просечно темпо (од вендор)",
     {
-      garmin: doc("Activities.averagePaceInMinutesPerKilometer", "min_per_km_to_s_per_km"),
+      garmin: doc("Activities.averagePaceInMinutesPerKilometer"),
     },
-    { note: "ActiveN го пресметува темпото од elapsed time / растојание; ова е само за споредба." },
+    {
+      note: "Garmin единица (min/km). ActiveN го пресметува темпото од elapsed time / растојание.",
+    },
   ),
-  f("activity.elevation_gain_m", "activity", "m", "Искачување", {
+  f("activities.totalElevationGainInMeters", "activities", "m", "Искачување", {
     garmin: doc("Activities.totalElevationGainInMeters"),
     polar: tbc(
       "Exercise TCX/samples type 3 (altitude)",
@@ -214,24 +230,24 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     ),
     ...fitBoth("FIT session.total_ascent"),
   }),
-  f("activity.elevation_loss_m", "activity", "m", "Спуштање", {
+  f("activities.totalElevationLossInMeters", "activities", "m", "Спуштање", {
     garmin: doc("Activities.totalElevationLossInMeters"),
     ...fitBoth("FIT session.total_descent"),
   }),
-  f("activity.avg_hr", "activity", "bpm", "Просечен пулс", {
+  f("activities.averageHeartRateInBeatsPerMinute", "activities", "bpm", "Просечен пулс", {
     garmin: doc("Activities.averageHeartRateInBeatsPerMinute"),
     polar: doc("Exercise.heart_rate.average"),
     ...fitBoth("FIT session.avg_heart_rate"),
   }),
-  f("activity.max_hr", "activity", "bpm", "Максимален пулс", {
+  f("activities.maxHeartRateInBeatsPerMinute", "activities", "bpm", "Максимален пулс", {
     garmin: doc("Activities.maxHeartRateInBeatsPerMinute"),
     polar: doc("Exercise.heart_rate.maximum"),
     ...fitBoth("FIT session.max_heart_rate"),
   }),
-  f("activity.min_hr", "activity", "bpm", "Минимален пулс", {
+  f("activities.minHeartRateInBeatsPerMinute", "activities", "bpm", "Минимален пулс", {
     ...fitBoth("FIT session.min_heart_rate"),
   }),
-  f("activity.calories_kcal", "activity", "kcal", "Калории", {
+  f("activities.activeKilocalories", "activities", "kcal", "Калории", {
     garmin: doc(
       "Activities.activeKilocalories",
       "none",
@@ -240,47 +256,65 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     polar: doc("Exercise.calories"),
     ...fitBoth("FIT session.total_calories"),
   }),
-  f("activity.steps", "activity", "count", "Чекори", { garmin: doc("Activities.steps") }),
-  f("activity.avg_run_cadence_spm", "activity", "spm", "Каденца трчање (просек)", {
-    garmin: doc("Activities.averageRunCadenceInStepsPerMinute"),
-    ...fitBoth(
-      "FIT session.avg_cadence (+avg_fractional_cadence)",
-      "none",
-      "FIT за трчање често е по нога — проверка ×2",
-    ),
-  }),
-  f("activity.max_run_cadence_spm", "activity", "spm", "Каденца трчање (макс.)", {
+  f("activities.steps", "activities", "count", "Чекори", { garmin: doc("Activities.steps") }),
+  f(
+    "activities.averageRunCadenceInStepsPerMinute",
+    "activities",
+    "spm",
+    "Каденца трчање (просек)",
+    {
+      garmin: doc("Activities.averageRunCadenceInStepsPerMinute"),
+      ...fitBoth(
+        "FIT session.avg_cadence (+avg_fractional_cadence)",
+        "none",
+        "FIT за трчање често е по нога — проверка ×2",
+      ),
+    },
+  ),
+  f("activities.maxRunCadenceInStepsPerMinute", "activities", "spm", "Каденца трчање (макс.)", {
     garmin: doc("Activities.maxRunCadenceInStepsPerMinute"),
     ...fitBoth("FIT session.max_cadence", "none", "FIT за трчање често е по нога — проверка ×2"),
   }),
-  f("activity.avg_bike_cadence_rpm", "activity", "rpm", "Каденца велосипед (просек)", {
-    garmin: doc("Activities.averageBikeCadenceInRoundsPerMinute"),
-    ...fitBoth("FIT session.avg_cadence"),
-  }),
-  f("activity.max_bike_cadence_rpm", "activity", "rpm", "Каденца велосипед (макс.)", {
-    garmin: doc("Activities.maxBikeCadenceInRoundsPerMinute"),
-    ...fitBoth("FIT session.max_cadence"),
-  }),
-  f("activity.avg_power_w", "activity", "w", "Просечна моќност", {
+  f(
+    "activities.averageBikeCadenceInRoundsPerMinute",
+    "activities",
+    "rpm",
+    "Каденца велосипед (просек)",
+    {
+      garmin: doc("Activities.averageBikeCadenceInRoundsPerMinute"),
+      ...fitBoth("FIT session.avg_cadence"),
+    },
+  ),
+  f(
+    "activities.maxBikeCadenceInRoundsPerMinute",
+    "activities",
+    "rpm",
+    "Каденца велосипед (макс.)",
+    {
+      garmin: doc("Activities.maxBikeCadenceInRoundsPerMinute"),
+      ...fitBoth("FIT session.max_cadence"),
+    },
+  ),
+  f("activities.averagePowerInWatts", "activities", "w", "Просечна моќност", {
     garmin: fit("FIT session.avg_power"),
     polar: doc("ExerciseSamples type 4 (power)", "none", "просек од samples"),
     ...fitBoth("FIT session.avg_power"),
   }),
-  f("activity.max_power_w", "activity", "w", "Максимална моќност", {
+  f("activities.maxPowerInWatts", "activities", "w", "Максимална моќност", {
     garmin: fit("FIT session.max_power"),
     ...fitBoth("FIT session.max_power"),
   }),
-  f("activity.normalized_power_w", "activity", "w", "Нормализирана моќност", {
+  f("activities.normalizedPowerInWatts", "activities", "w", "Нормализирана моќност", {
     garmin: fit("FIT session.normalized_power"),
     coros: fit("FIT session.normalized_power"),
   }),
-  f("activity.avg_temperature_c", "activity", "c", "Просечна температура", {
+  f("activities.averageTemperatureInCelsius", "activities", "c", "Просечна температура", {
     garmin: doc("ActivityDetails.samples.airTemperatureCelcius", "none", "просек од samples"),
     ...fitBoth("FIT session.avg_temperature"),
   }),
   f(
-    "activity.start_lat",
-    "activity",
+    "activities.startingLatitudeInDegree",
+    "activities",
     "deg",
     "Почетна ширина",
     {
@@ -295,8 +329,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { sensitivity: "health", note: "Локација — не се прикажува на тренер без согласност." },
   ),
   f(
-    "activity.start_lon",
-    "activity",
+    "activities.startingLongitudeInDegree",
+    "activities",
     "deg",
     "Почетна должина",
     {
@@ -310,34 +344,38 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { sensitivity: "health" },
   ),
-  f("activity.has_route", "activity", "bool", "Има GPS рута", { polar: doc("Exercise.has_route") }),
-  f("activity.is_manual", "activity", "bool", "Рачно внесена/изменета", {
+  f("activities.hasRoute", "activities", "bool", "Има GPS рута", {
+    polar: doc("Exercise.has_route"),
+  }),
+  f("activities.manual", "activities", "bool", "Рачно внесена/изменета", {
     garmin: doc("Activities.manual"),
   }),
-  f("activity.parent_id", "activity", "id", "Мултиспорт родител", {
+  f("activities.parentSummaryId", "activities", "id", "Мултиспорт родител", {
     garmin: doc("Activities.parentSummaryId"),
   }),
-  f("activity.pool_length_m", "activity", "m", "Должина на базен", {
+  f("activities.poolLengthInMeters", "activities", "m", "Должина на базен", {
     garmin: fit("FIT session.pool_length"),
     ...fitBoth("FIT session.pool_length"),
   }),
-  f("activity.active_lengths", "activity", "count", "Пливани должини", {
+  f("activities.numberOfActiveLengths", "activities", "count", "Пливани должини", {
     garmin: doc("Activities.numberOfActiveLengths"),
     ...fitBoth("FIT session.num_active_lengths"),
   }),
-  f("activity.avg_swim_cadence_spm", "activity", "spm", "Каденца пливање", {
+  f("activities.averageSwimCadenceInStrokesPerMinute", "activities", "spm", "Каденца пливање", {
     garmin: doc("Activities.averageSwimCadenceInStrokesPerMinute"),
     suunto: fit("FIT length.avg_swimming_cadence"),
   }),
-  f("activity.avg_swolf", "activity", "score", "SWOLF", { suunto: doc("FIT session.avg_swolf") }),
-  f("activity.time_in_hr_zones_s", "activity", "array", "Време по HR зони", {
+  f("activities.averageSwolf", "activities", "score", "SWOLF", {
+    suunto: doc("FIT session.avg_swolf"),
+  }),
+  f("activities.timeInHeartRateZonesInSeconds", "activities", "array", "Време по HR зони", {
     garmin: fit("FIT session.time_in_hr_zone"),
     polar: doc("Exercise.heart_rate_zones[].in-zone", "iso_duration_to_s"),
     ...fitBoth("FIT session.time_in_hr_zone"),
   }),
   f(
-    "activity.hr_zone_bounds",
-    "activity",
+    "activities.heartRateZoneBounds",
+    "activities",
     "array",
     "Граници на HR зони од вендорот",
     {
@@ -347,8 +385,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { note: "Извор за увоз на HR зони (zonesFromLowerBounds)." },
   ),
   f(
-    "activity.rpe",
-    "activity",
+    "activities.perceivedEffort",
+    "activities",
     "score",
     "Субјективен напор (RPE)",
     {
@@ -358,8 +396,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { note: "Канонска скала 1–10; рачно внесување во ActiveN е примарен извор." },
   ),
   f(
-    "activity.feeling",
-    "activity",
+    "activities.feel",
+    "activities",
     "score",
     "Чувство (1–5)",
     {
@@ -367,40 +405,46 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { note: "Се спојува со внесот „како се чувствуваш“ во ActiveN." },
   ),
-  f("activity.aerobic_training_effect", "activity", "score", "Аеробен ефект (0–5)", {
+  f("activities.aerobicTrainingEffect", "activities", "score", "Аеробен ефект (0–5)", {
     garmin: fit("FIT session.total_training_effect"),
     suunto: doc("FIT session.total_training_effect", "none", "Suunto: PTE"),
     coros: tbc("FIT session.total_training_effect"),
   }),
-  f("activity.anaerobic_training_effect", "activity", "score", "Анаеробен ефект (0–5)", {
+  f("activities.anaerobicTrainingEffect", "activities", "score", "Анаеробен ефект (0–5)", {
     garmin: fit("FIT session.total_anaerobic_training_effect"),
     coros: tbc("FIT session.total_anaerobic_training_effect"),
   }),
-  f("activity.recovery_time_s", "activity", "s", "Препорачано време за опоравок", {
+  f("activities.recoveryTimeInSeconds", "activities", "s", "Препорачано време за опоравок", {
     suunto: doc("FIT session.recovery_time"),
     garmin: tbc("FIT (Garmin developer data)"),
     coros: tbc("workout summary"),
   }),
-  f("activity.vo2max_estimate", "activity", "ml_kg_min", "VO2max проценка (по тренинг)", {
+  f("activities.vo2MaxEstimate", "activities", "ml_kg_min", "VO2max проценка (по тренинг)", {
     suunto: doc("FIT session.estimated_vo2_max"),
   }),
   // Running dynamics (FIT profile)
-  f("activity.avg_ground_contact_ms", "activity", "ms", "Контакт со подлога", {
+  f("activities.averageGroundContactTimeInMilliseconds", "activities", "ms", "Контакт со подлога", {
     garmin: fit("FIT session.avg_stance_time"),
     coros: tbc("FIT session.avg_stance_time"),
   }),
-  f("activity.avg_vertical_oscillation_mm", "activity", "mm", "Вертикална осцилација", {
-    garmin: fit("FIT session.avg_vertical_oscillation"),
-    coros: tbc("FIT session.avg_vertical_oscillation"),
-  }),
-  f("activity.avg_stride_length_mm", "activity", "mm", "Должина на чекор", {
+  f(
+    "activities.averageVerticalOscillationInMillimeters",
+    "activities",
+    "mm",
+    "Вертикална осцилација",
+    {
+      garmin: fit("FIT session.avg_vertical_oscillation"),
+      coros: tbc("FIT session.avg_vertical_oscillation"),
+    },
+  ),
+  f("activities.averageStrideLengthInMillimeters", "activities", "mm", "Должина на чекор", {
     garmin: fit("FIT session.avg_step_length"),
     coros: tbc("FIT session.avg_step_length"),
   }),
   // Proprietary per-activity metrics
   f(
-    "activity.polar_running_index",
-    "activity",
+    "activities.polarRunningIndex",
+    "activities",
     "score",
     "Polar Running Index",
     {
@@ -409,8 +453,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "activity.polar_energy_sources_pct",
-    "activity",
+    "activities.polarEnergySourcesInPercent",
+    "activities",
     "array",
     "Извори на енергија (масти/јаглехидрати/протеини)",
     {
@@ -419,8 +463,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "activity.polar_cardio_load",
-    "activity",
+    "activities.polarCardioLoad",
+    "activities",
     "score",
     "Polar Cardio Load",
     {
@@ -429,8 +473,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "activity.polar_muscle_load",
-    "activity",
+    "activities.polarMuscleLoad",
+    "activities",
     "score",
     "Polar Muscle Load",
     {
@@ -439,8 +483,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "activity.polar_perceived_load",
-    "activity",
+    "activities.polarPerceivedLoad",
+    "activities",
     "score",
     "Polar Perceived Load",
     {
@@ -449,18 +493,20 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "activity.garmin_training_load",
-    "activity",
+    "activities.trainingLoad",
+    "activities",
     "score",
-    "Garmin Training Load",
+    "Training Load (оптоварување на активноста)",
     {
       garmin: tbc("FIT session.training_load_peak"),
     },
-    { origin: "garmin" },
+    {
+      note: "Garmin концепт (EPOC). Polar/Suunto/COROS имаат свои скали во посебни полиња; без Garmin се користи TRIMP.",
+    },
   ),
   f(
-    "activity.suunto_tss",
-    "activity",
+    "activities.suuntoTss",
+    "activities",
     "score",
     "Suunto TSS",
     {
@@ -469,8 +515,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "suunto" },
   ),
   f(
-    "activity.suunto_peak_epoc",
-    "activity",
+    "activities.suuntoPeakEpoc",
+    "activities",
     "score",
     "Suunto EPOC",
     {
@@ -479,8 +525,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "suunto" },
   ),
   f(
-    "activity.coros_training_load",
-    "activity",
+    "activities.corosTrainingLoad",
+    "activities",
     "score",
     "COROS Training Load",
     {
@@ -489,8 +535,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "coros" },
   ),
   f(
-    "activity.trimp",
-    "activity",
+    "activities.trimp",
+    "activities",
     "score",
     "TRIMP (ActiveN)",
     {},
@@ -501,56 +547,62 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
   ),
 
   // ===== Laps =====
-  f("lap.start_time", "activity_lap", "datetime", "Почеток на круг", {
-    garmin: doc("ActivityDetails.laps[].startTimeInSeconds", "epoch_s_to_iso"),
+  f("activity_laps.startTimeInSeconds", "activity_laps", "unix_s", "Почеток на круг", {
+    garmin: doc("ActivityDetails.laps[].startTimeInSeconds"),
     ...fitBoth("FIT lap.start_time"),
   }),
-  f("lap.elapsed_time_s", "activity_lap", "s", "Време на круг", {
+  f("activity_laps.durationInSeconds", "activity_laps", "s", "Време на круг", {
     garmin: fit("FIT lap.total_elapsed_time"),
     ...fitBoth("FIT lap.total_elapsed_time"),
   }),
-  f("lap.distance_m", "activity_lap", "m", "Растојание на круг", {
+  f("activity_laps.distanceInMeters", "activity_laps", "m", "Растојание на круг", {
     garmin: fit("FIT lap.total_distance"),
     ...fitBoth("FIT lap.total_distance"),
   }),
-  f("lap.avg_hr", "activity_lap", "bpm", "Просечен пулс (круг)", {
-    garmin: fit("FIT lap.avg_heart_rate"),
-    ...fitBoth("FIT lap.avg_heart_rate"),
-  }),
-  f("lap.max_hr", "activity_lap", "bpm", "Макс. пулс (круг)", {
+  f(
+    "activity_laps.averageHeartRateInBeatsPerMinute",
+    "activity_laps",
+    "bpm",
+    "Просечен пулс (круг)",
+    {
+      garmin: fit("FIT lap.avg_heart_rate"),
+      ...fitBoth("FIT lap.avg_heart_rate"),
+    },
+  ),
+  f("activity_laps.maxHeartRateInBeatsPerMinute", "activity_laps", "bpm", "Макс. пулс (круг)", {
     garmin: fit("FIT lap.max_heart_rate"),
     ...fitBoth("FIT lap.max_heart_rate"),
   }),
-  f("lap.avg_speed_ms", "activity_lap", "m_s", "Брзина (круг)", {
+  f("activity_laps.averageSpeedInMetersPerSecond", "activity_laps", "m_s", "Брзина (круг)", {
     garmin: fit("FIT lap.avg_speed"),
     ...fitBoth("FIT lap.avg_speed"),
   }),
-  f("lap.avg_power_w", "activity_lap", "w", "Моќност (круг)", {
+  f("activity_laps.averagePowerInWatts", "activity_laps", "w", "Моќност (круг)", {
     garmin: fit("FIT lap.avg_power"),
     ...fitBoth("FIT lap.avg_power"),
   }),
-  f("lap.avg_cadence", "activity_lap", "spm", "Каденца (круг)", {
+  f("activity_laps.averageCadence", "activity_laps", "spm", "Каденца (круг)", {
     garmin: fit("FIT lap.avg_cadence"),
     ...fitBoth("FIT lap.avg_cadence"),
   }),
-  f("lap.ascent_m", "activity_lap", "m", "Искачување (круг)", {
+  f("activity_laps.totalElevationGainInMeters", "activity_laps", "m", "Искачување (круг)", {
     garmin: fit("FIT lap.total_ascent"),
     ...fitBoth("FIT lap.total_ascent"),
   }),
-  f("lap.trigger", "activity_lap", "enum", "Причина за круг", {
+  f("activity_laps.lapTrigger", "activity_laps", "enum", "Причина за круг", {
     garmin: fit("FIT lap.lap_trigger"),
     ...fitBoth("FIT lap.lap_trigger"),
   }),
 
   // ===== Streams (samples) =====
-  f("stream.time", "activity_stream", "series", "Време", {
+  f("activity_samples.startTimeInSeconds", "activity_samples", "series", "Време", {
     garmin: doc("ActivityDetails.samples.startTimeInSeconds"),
     polar: doc("ExerciseSamples.recording-rate", "none", "временска оска од recording-rate"),
     ...fitBoth("FIT record.timestamp"),
   }),
   f(
-    "stream.position",
-    "activity_stream",
+    "activity_samples.position",
+    "activity_samples",
     "series",
     "GPS позиција",
     {
@@ -560,49 +612,49 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { sensitivity: "health" },
   ),
-  f("stream.altitude_m", "activity_stream", "series", "Надморска висина", {
+  f("activity_samples.elevationInMeters", "activity_samples", "series", "Надморска висина", {
     garmin: doc("ActivityDetails.samples.elevationInMeters"),
     polar: doc("ExerciseSamples type 3"),
     ...fitBoth("FIT record.altitude"),
   }),
-  f("stream.heart_rate", "activity_stream", "series", "Пулс", {
+  f("activity_samples.heartRate", "activity_samples", "series", "Пулс", {
     garmin: doc("ActivityDetails.samples.heartrate"),
     polar: doc("ExerciseSamples type 0"),
     ...fitBoth("FIT record.heart_rate"),
   }),
-  f("stream.speed_ms", "activity_stream", "series", "Брзина", {
+  f("activity_samples.speedMetersPerSecond", "activity_samples", "series", "Брзина", {
     garmin: doc("ActivityDetails.samples.speedMetersPerSecond"),
     polar: doc("ExerciseSamples type 1", "kmh_to_ms"),
     ...fitBoth("FIT record.speed"),
   }),
-  f("stream.distance_m", "activity_stream", "series", "Растојание", {
+  f("activity_samples.totalDistanceInMeters", "activity_samples", "series", "Растојание", {
     garmin: doc("ActivityDetails.samples.totalDistanceInMeters"),
     polar: doc("ExerciseSamples type 10"),
     ...fitBoth("FIT record.distance"),
   }),
-  f("stream.cadence", "activity_stream", "series", "Каденца", {
+  f("activity_samples.cadence", "activity_samples", "series", "Каденца", {
     garmin: doc("ActivityDetails.samples.stepsPerMinute / bikeCadenceInRPM"),
     polar: doc("ExerciseSamples type 2 (rpm) / 8 (spm)"),
     ...fitBoth("FIT record.cadence"),
   }),
-  f("stream.power_w", "activity_stream", "series", "Моќност", {
+  f("activity_samples.powerInWatts", "activity_samples", "series", "Моќност", {
     garmin: doc("ActivityDetails.samples.powerInWatts"),
     polar: doc("ExerciseSamples type 4"),
     ...fitBoth("FIT record.power"),
   }),
-  f("stream.temperature_c", "activity_stream", "series", "Температура", {
+  f("activity_samples.airTemperatureInCelsius", "activity_samples", "series", "Температура", {
     garmin: doc("ActivityDetails.samples.airTemperatureCelcius"),
     polar: doc("ExerciseSamples type 9"),
     coros: fit("FIT record.temperature"),
   }),
-  f("stream.rr_interval_ms", "activity_stream", "series", "RR интервали", {
+  f("activity_samples.rrIntervalInMilliseconds", "activity_samples", "series", "RR интервали", {
     polar: doc("ExerciseSamples type 11", "none", "само со H6/H7/H9/H10 сензор"),
     suunto: doc("FIT hrv.time", "none", "во секунди во FIT"),
     garmin: fit("FIT hrv.time"),
   }),
   f(
-    "stream.suunto_epoc",
-    "activity_stream",
+    "activity_samples.suuntoEpoc",
+    "activity_samples",
     "series",
     "EPOC (тек)",
     {
@@ -612,27 +664,27 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
   ),
 
   // ===== Daily =====
-  f("daily.steps", "daily", "count", "Чекори", {
+  f("dailies.steps", "dailies", "count", "Чекори", {
     garmin: doc("Dailies.steps"),
     polar: doc("DailyActivity.steps"),
     coros: tbc("getDailyData.steps"),
     suunto: tbc("247 activity steps"),
   }),
-  f("daily.distance_m", "daily", "m", "Дневно растојание", {
+  f("dailies.distanceInMeters", "dailies", "m", "Дневно растојание", {
     garmin: doc("Dailies.distanceInMeters"),
     polar: doc("DailyActivity.distance_from_steps"),
   }),
-  f("daily.active_kcal", "daily", "kcal", "Активни калории", {
+  f("dailies.activeKilocalories", "dailies", "kcal", "Активни калории", {
     garmin: doc("Dailies.activeKilocalories"),
     polar: doc("DailyActivity.active_calories"),
     coros: tbc("getDailyData.calories"),
   }),
-  f("daily.bmr_kcal", "daily", "kcal", "Базални калории (BMR)", {
+  f("dailies.bmrKilocalories", "dailies", "kcal", "Базални калории (BMR)", {
     garmin: doc("Dailies.bmrKilocalories"),
   }),
   f(
-    "daily.total_kcal",
-    "daily",
+    "dailies.totalKilocalories",
+    "dailies",
     "kcal",
     "Вкупно калории",
     {
@@ -640,32 +692,34 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { note: "Garmin: active + BMR." },
   ),
-  f("daily.active_time_s", "daily", "s", "Активно време", {
+  f("dailies.activeTimeInSeconds", "dailies", "s", "Активно време", {
     garmin: doc("Dailies.activeTimeInSeconds"),
     polar: doc("DailyActivity.active_duration", "iso_duration_to_s"),
   }),
-  f("daily.inactive_time_s", "daily", "s", "Неактивно време", {
+  f("dailies.inactiveTimeInSeconds", "dailies", "s", "Неактивно време", {
     polar: doc("DailyActivity.inactive_duration", "iso_duration_to_s"),
   }),
-  f("daily.moderate_intensity_s", "daily", "s", "Умерен интензитет", {
+  f("dailies.moderateIntensityDurationInSeconds", "dailies", "s", "Умерен интензитет", {
     garmin: doc("Dailies.moderateIntensityDurationInSeconds"),
   }),
-  f("daily.vigorous_intensity_s", "daily", "s", "Висок интензитет", {
+  f("dailies.vigorousIntensityDurationInSeconds", "dailies", "s", "Висок интензитет", {
     garmin: doc("Dailies.vigorousIntensityDurationInSeconds"),
   }),
-  f("daily.floors", "daily", "count", "Искачени катови", { garmin: doc("Dailies.floorsClimbed") }),
-  f("daily.resting_hr", "daily", "bpm", "Пулс во мирување", {
+  f("dailies.floorsClimbed", "dailies", "count", "Искачени катови", {
+    garmin: doc("Dailies.floorsClimbed"),
+  }),
+  f("dailies.restingHeartRateInBeatsPerMinute", "dailies", "bpm", "Пулс во мирување", {
     garmin: doc("Dailies.restingHeartRateInBeatsPerMinute"),
     polar: doc("PhysicalInfo.resting_heart_rate", "none", "профилна вредност, не дневна"),
     coros: doc("queryRestingHeartRate"),
   }),
-  f("daily.min_hr", "daily", "bpm", "Мин. пулс (ден)", {
+  f("dailies.minHeartRateInBeatsPerMinute", "dailies", "bpm", "Мин. пулс (ден)", {
     garmin: doc("Dailies.minHeartRateInBeatsPerMinute"),
   }),
-  f("daily.max_hr", "daily", "bpm", "Макс. пулс (ден)", {
+  f("dailies.maxHeartRateInBeatsPerMinute", "dailies", "bpm", "Макс. пулс (ден)", {
     garmin: doc("Dailies.maxHeartRateInBeatsPerMinute"),
   }),
-  f("daily.avg_hr", "daily", "bpm", "Просечен пулс (ден)", {
+  f("dailies.averageHeartRateInBeatsPerMinute", "dailies", "bpm", "Просечен пулс (ден)", {
     garmin: doc(
       "Dailies.averageHeartRateInBeatsPerMinute",
       "none",
@@ -673,83 +727,85 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     ),
     coros: doc("queryAvgHeartRate"),
   }),
-  f("daily.avg_stress", "daily", "score", "Просечен стрес", {
+  f("dailies.averageStressLevel", "dailies", "score", "Просечен стрес", {
     garmin: doc("Dailies.averageStressLevel", "none", "1–100; −1 = недоволно податоци"),
     coros: doc("queryStressLevel"),
   }),
-  f("daily.max_stress", "daily", "score", "Макс. стрес", { garmin: doc("Dailies.maxStressLevel") }),
-  f("daily.stress_durations_s", "daily", "array", "Време по стрес нивоа", {
+  f("dailies.maxStressLevel", "dailies", "score", "Макс. стрес", {
+    garmin: doc("Dailies.maxStressLevel"),
+  }),
+  f("dailies.stressDurationsInSeconds", "dailies", "array", "Време по стрес нивоа", {
     garmin: doc("Dailies.rest/low/medium/highStressDurationInSeconds"),
   }),
-  f("daily.steps_goal", "daily", "count", "Цел за чекори", { garmin: doc("Dailies.stepsGoal") }),
+  f("dailies.stepsGoal", "dailies", "count", "Цел за чекори", { garmin: doc("Dailies.stepsGoal") }),
 
   // ===== Intraday =====
-  f("intraday.heart_rate", "intraday", "series", "Пулс низ денот", {
+  f("dailies.timeOffsetHeartRateSamples", "dailies", "series", "Пулс низ денот", {
     garmin: doc("Dailies.timeOffsetHeartRateSamples"),
     polar: doc("ContinuousHeartRate.heart_rate_samples", "none", "5-минутни вредности"),
     coros: tbc("heart rate time series"),
   }),
-  f("intraday.activity_epochs", "intraday", "series", "Активност по интервали", {
+  f("epochs.epochSummaries", "epochs", "series", "Активност по интервали", {
     garmin: doc("Epochs (15 min): activityType, met, intensity, steps"),
     polar: doc("DailyActivity.samples.activity_zones"),
   }),
-  f("intraday.respiration", "intraday", "series", "Дишење низ денот", {
+  f("respiration.timeOffsetEpochToBreaths", "respiration", "series", "Дишење низ денот", {
     garmin: doc("Respiration.timeOffsetEpochToBreaths"),
   }),
-  f("intraday.spo2", "intraday", "series", "SpO2 низ денот", {
+  f("pulse_ox.timeOffsetSpo2Values", "pulse_ox", "series", "SpO2 низ денот", {
     garmin: doc("PulseOx.timeOffsetSpo2Values"),
   }),
 
   // ===== Sleep =====
-  f("sleep.start_time", "sleep", "datetime", "Почеток на сон", {
-    garmin: doc("Sleeps.startTimeInSeconds", "epoch_s_to_iso"),
-    polar: doc("Sleep.sleep_start_time"),
+  f("sleeps.startTimeInSeconds", "sleeps", "unix_s", "Почеток на сон", {
+    garmin: doc("Sleeps.startTimeInSeconds"),
+    polar: doc("Sleep.sleep_start_time", "iso_to_epoch_s"),
     coros: tbc("sleep start"),
     suunto: tbc("247 sleep", "none", "Suunto FAQ: сонот можеби не е достапен преку Cloud API"),
   }),
   f(
-    "sleep.end_time",
-    "sleep",
-    "datetime",
+    "sleeps.endTimeInSeconds",
+    "sleeps",
+    "unix_s",
     "Крај на сон",
     {
-      polar: doc("Sleep.sleep_end_time"),
+      polar: doc("Sleep.sleep_end_time", "iso_to_epoch_s"),
       coros: tbc("sleep end"),
     },
     { note: "Garmin: start + duration + awake." },
   ),
-  f("sleep.duration_s", "sleep", "s", "Времетраење на сон", {
+  f("sleeps.durationInSeconds", "sleeps", "s", "Времетраење на сон", {
     garmin: doc("Sleeps.durationInSeconds"),
     polar: doc("Sleep light+deep+rem"),
     coros: tbc("sleep total"),
   }),
-  f("sleep.deep_s", "sleep", "s", "Длабок сон", {
+  f("sleeps.deepSleepDurationInSeconds", "sleeps", "s", "Длабок сон", {
     garmin: doc("Sleeps.deepSleepDurationInSeconds"),
     polar: doc("Sleep.deep_sleep"),
     coros: tbc("sleep deep"),
   }),
-  f("sleep.light_s", "sleep", "s", "Лесен сон", {
+  f("sleeps.lightSleepDurationInSeconds", "sleeps", "s", "Лесен сон", {
     garmin: doc("Sleeps.lightSleepDurationInSeconds"),
     polar: doc("Sleep.light_sleep"),
     coros: tbc("sleep light"),
   }),
-  f("sleep.rem_s", "sleep", "s", "REM сон", {
+  f("sleeps.remSleepInSeconds", "sleeps", "s", "REM сон", {
     garmin: doc("Sleeps.remSleepInSeconds"),
     polar: doc("Sleep.rem_sleep"),
     coros: tbc("sleep rem"),
   }),
-  f("sleep.awake_s", "sleep", "s", "Будност / прекини", {
+  f("sleeps.awakeDurationInSeconds", "sleeps", "s", "Будност / прекини", {
     garmin: doc("Sleeps.awakeDurationInSeconds"),
     polar: doc("Sleep.total_interruption_duration"),
     coros: tbc("sleep awake"),
   }),
-  f("sleep.unmeasured_s", "sleep", "s", "Неизмерен сон", {
+  f("sleeps.unmeasurableSleepInSeconds", "sleeps", "s", "Неизмерен сон", {
     garmin: doc("Sleeps.unmeasurableSleepInSeconds"),
     polar: doc("Sleep.unrecognized_sleep_stage"),
   }),
   f(
-    "sleep.score",
-    "sleep",
+    "sleeps.overallSleepScore",
+    "sleeps",
     "score",
     "Оценка на сон (0–100)",
     {
@@ -759,22 +815,26 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { note: "Различни алгоритми; се прикажува со извор, не се усреднува меѓу вендори." },
   ),
-  f("sleep.hypnogram", "sleep", "series", "Фази на сон (хипнограм)", {
+  f("sleeps.sleepLevelsMap", "sleeps", "series", "Фази на сон (хипнограм)", {
     garmin: doc("Sleeps.sleepLevelsMap (deep/light/rem/awake)"),
     polar: doc("Sleep.hypnogram", "none", "0 будност, 1 REM, 2–3 лесен, 4 длабок, 5 непознато"),
   }),
-  f("sleep.heart_rate", "sleep", "series", "Пулс во сон", {
+  f("sleeps.sleepHeartRateSamples", "sleeps", "series", "Пулс во сон", {
     polar: doc("Sleep.heart_rate_samples"),
   }),
-  f("sleep.respiration", "sleep", "series", "Дишење во сон", {
+  f("sleeps.timeOffsetSleepRespiration", "sleeps", "series", "Дишење во сон", {
     garmin: doc("Sleeps.timeOffsetSleepRespiration"),
   }),
-  f("sleep.spo2", "sleep", "series", "SpO2 во сон", { garmin: doc("Sleeps.timeOffsetSleepSpo2") }),
-  f("sleep.naps", "sleep", "array", "Дремки", { garmin: doc("Sleeps.naps") }),
-  f("sleep.cycles", "sleep", "count", "Циклуси на сон", { polar: doc("Sleep.sleep_cycles") }),
+  f("sleeps.timeOffsetSleepSpo2", "sleeps", "series", "SpO2 во сон", {
+    garmin: doc("Sleeps.timeOffsetSleepSpo2"),
+  }),
+  f("sleeps.naps", "sleeps", "array", "Дремки", { garmin: doc("Sleeps.naps") }),
+  f("sleeps.sleepCycles", "sleeps", "count", "Циклуси на сон", {
+    polar: doc("Sleep.sleep_cycles"),
+  }),
   f(
-    "sleep.continuity",
-    "sleep",
+    "sleeps.polarContinuity",
+    "sleeps",
     "score",
     "Континуитет",
     {
@@ -782,12 +842,12 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { origin: "polar" },
   ),
-  f("sleep.user_rating", "sleep", "score", "Лична оценка на сон", {
+  f("sleeps.sleepRating", "sleeps", "score", "Лична оценка на сон", {
     polar: doc("Sleep.sleep_rating", "none", "0–5; 0 = не е внесено"),
   }),
   f(
-    "sleep.polar_sleep_charge",
-    "sleep",
+    "sleeps.polarSleepCharge",
+    "sleeps",
     "score",
     "Polar Sleep Charge",
     {
@@ -797,23 +857,23 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
   ),
 
   // ===== Overnight recovery / readiness =====
-  f("recovery.hrv_rmssd_ms", "recovery", "ms", "HRV ноќен просек (RMSSD)", {
+  f("hrv.lastNightAvg", "hrv", "ms", "HRV ноќен просек (RMSSD)", {
     garmin: doc("HRV.lastNightAvg"),
     polar: doc("NightlyRecharge.heart_rate_variability_avg"),
     coros: doc("querySleepHrv (daily average)"),
     suunto: tbc("247 recovery HRV"),
   }),
-  f("recovery.hrv_samples", "recovery", "series", "HRV низ ноќта", {
+  f("hrv.hrvValues", "hrv", "series", "HRV низ ноќта", {
     garmin: doc("HRV.hrvValues"),
     polar: doc("NightlyRecharge.hrv_samples"),
     coros: doc("querySleepHrv (raw curve)"),
   }),
-  f("recovery.hrv_5min_high_ms", "recovery", "ms", "HRV највисок 5-мин.", {
+  f("hrv.lastNight5MinHigh", "hrv", "ms", "HRV највисок 5-мин.", {
     garmin: doc("HRV.lastNight5MinHigh"),
   }),
   f(
-    "recovery.hrv_baseline_range",
-    "recovery",
+    "hrv.baselineRange",
+    "hrv",
     "array",
     "HRV нормален опсег",
     {
@@ -821,20 +881,20 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { note: "За другите вендори ActiveN го пресметува од 7/28-дневна историја." },
   ),
-  f("recovery.night_hr_avg", "recovery", "bpm", "Ноќен пулс (просек)", {
+  f("sleeps.averageSleepHeartRate", "sleeps", "bpm", "Ноќен пулс (просек)", {
     polar: doc("NightlyRecharge.heart_rate_avg"),
   }),
-  f("recovery.night_breathing_rate", "recovery", "brpm", "Ноќно дишење (просек)", {
+  f("sleeps.averageRespirationValue", "sleeps", "brpm", "Ноќно дишење (просек)", {
     polar: doc("NightlyRecharge.breathing_rate_avg"),
     garmin: doc("Sleeps.timeOffsetSleepRespiration", "none", "просек од samples"),
   }),
-  f("recovery.skin_temp_deviation_c", "recovery", "c", "Отстапување на температура на кожа", {
+  f("skin_temp.avgDeviationCelsius", "skin_temp", "c", "Отстапување на температура на кожа", {
     garmin: doc("SkinTemp.avgDeviationCelsius"),
     polar: doc("Biosensing.skintemperature.deviation_from_baseline_celsius"),
   }),
   f(
-    "recovery.garmin_body_battery",
-    "recovery",
+    "stress_details.timeOffsetBodyBatteryValues",
+    "stress_details",
     "series",
     "Garmin Body Battery",
     {
@@ -843,8 +903,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "garmin" },
   ),
   f(
-    "recovery.polar_nightly_recharge",
-    "recovery",
+    "hrv.polarNightlyRechargeStatus",
+    "hrv",
     "score",
     "Polar Nightly Recharge (1–6)",
     {
@@ -853,8 +913,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "recovery.polar_ans_charge",
-    "recovery",
+    "hrv.polarAnsCharge",
+    "hrv",
     "score",
     "Polar ANS charge (−10…+10)",
     {
@@ -863,8 +923,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "recovery.polar_alertness",
-    "recovery",
+    "sleeps.polarAlertness",
+    "sleeps",
     "series",
     "Polar SleepWise будност",
     {
@@ -873,8 +933,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "recovery.polar_circadian_bedtime",
-    "recovery",
+    "sleeps.polarCircadianBedtime",
+    "sleeps",
     "array",
     "Polar циркадијално време за сон",
     {
@@ -883,8 +943,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "polar" },
   ),
   f(
-    "recovery.coros_recovery_pct",
-    "recovery",
+    "training_status.corosRecoveryPercent",
+    "training_status",
     "pct",
     "COROS опоравок (%)",
     {
@@ -893,52 +953,74 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "coros" },
   ),
   f(
-    "recovery.readiness",
-    "recovery",
+    "training_status.trainingReadiness",
+    "training_status",
     "score",
-    "Спремност (ActiveN)",
+    "Training Readiness (спремност)",
     {},
     {
       origin: "activen",
-      note: "Утринска оценка од HRV vs baseline, пулс во мирување, сон и оптоварување — за брифингот.",
+      note: "По Garmin принцип: sleep score, recovery time, HRV status, acute load, историја на сон и стрес. 1–100: Prime/High/Moderate/Low/Poor.",
+    },
+  ),
+  f(
+    "training_status.hrvStatus",
+    "training_status",
+    "enum",
+    "HRV Status",
+    {},
+    {
+      origin: "activen",
+      note: "По Garmin принцип: 7-дневен просек vs личен baseline (Balanced/Unbalanced/Low/Poor/No status).",
+    },
+  ),
+  f(
+    "training_status.loadFocus",
+    "training_status",
+    "array",
+    "Training Load Focus",
+    {},
+    {
+      origin: "activen",
+      note: "По Garmin принцип: 4-неделна распределба Low aerobic / High aerobic / Anaerobic.",
     },
   ),
 
   // ===== Stress =====
-  f("stress.samples", "stress", "series", "Стрес низ денот", {
+  f("stress_details.timeOffsetStressLevelValues", "stress_details", "series", "Стрес низ денот", {
     garmin: doc("StressDetails.timeOffsetStressLevelValues", "none", "3-мин. просеци 1–100"),
     coros: doc("queryStressTimeSeries"),
   }),
 
   // ===== Spot checks (on-demand health measurements) =====
-  f("spot.heart_rate", "spot_check", "bpm", "Мерење: пулс", {
+  f("health_snapshot.heartRateAvgValue", "health_snapshot", "bpm", "Мерење: пулс", {
     garmin: doc("HealthSnapshot.heartRateAvgValue"),
     coros: doc("queryHealthCheckTimeSeries (heart rate)"),
   }),
-  f("spot.hrv_rmssd_ms", "spot_check", "ms", "Мерење: HRV (RMSSD)", {
+  f("health_snapshot.rmssdAvgValue", "health_snapshot", "ms", "Мерење: HRV (RMSSD)", {
     garmin: doc("HealthSnapshot.rmssdAvgValue"),
     coros: doc("queryHealthCheckTimeSeries (HRV)"),
     polar: doc("Biosensing.ecg.heart_rate_variability_ms"),
   }),
-  f("spot.respiration", "spot_check", "brpm", "Мерење: дишење", {
+  f("health_snapshot.respirationAvgValue", "health_snapshot", "brpm", "Мерење: дишење", {
     garmin: doc("HealthSnapshot.respirationAvgValue"),
     coros: doc("queryHealthCheckTimeSeries (respiratory rate)"),
   }),
-  f("spot.spo2_pct", "spot_check", "pct", "Мерење: SpO2", {
+  f("pulse_ox.onDemandSpo2", "pulse_ox", "pct", "Мерење: SpO2", {
     garmin: doc("PulseOx.timeOffsetSpo2Values (onDemand = true)"),
     polar: doc("Biosensing.spo2.blood_oxygen_percent"),
     coros: doc("queryHealthCheckTimeSeries (SpO2)"),
   }),
-  f("spot.stress", "spot_check", "score", "Мерење: стрес", {
+  f("health_snapshot.stressAvgValue", "health_snapshot", "score", "Мерење: стрес", {
     garmin: doc("HealthSnapshot.stressAvgValue"),
     coros: doc("queryHealthCheckTimeSeries (stress)"),
   }),
-  f("spot.body_temperature_c", "spot_check", "c", "Телесна температура", {
+  f("health_snapshot.bodyTemperatureInCelsius", "health_snapshot", "c", "Телесна температура", {
     polar: doc("Biosensing.bodytemperature.samples.temperature_celsius"),
   }),
   f(
-    "spot.blood_pressure",
-    "spot_check",
+    "blood_pressure.reading",
+    "blood_pressure",
     "mmhg",
     "Крвен притисок",
     {
@@ -947,8 +1029,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { sensitivity: "special" },
   ),
   f(
-    "spot.ecg",
-    "spot_check",
+    "health_snapshot.ecg",
+    "health_snapshot",
     "series",
     "ЕКГ",
     {
@@ -958,57 +1040,81 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
   ),
 
   // ===== Body =====
-  f("body.weight_kg", "body", "kg", "Тежина", {
-    garmin: doc("BodyComps.weightInGrams", "g_to_kg"),
-    polar: doc("PhysicalInfo.weight"),
+  f("body_comps.weightInGrams", "body_comps", "g", "Тежина", {
+    garmin: doc("BodyComps.weightInGrams"),
+    polar: doc("PhysicalInfo.weight", "kg_to_g"),
   }),
-  f("body.height_cm", "body", "cm", "Висина", { polar: doc("PhysicalInfo.height") }),
-  f("body.bmi", "body", "score", "BMI", { garmin: doc("BodyComps.bodyMassIndex") }),
-  f("body.fat_pct", "body", "pct", "Масно ткиво", { garmin: doc("BodyComps.bodyFatInPercent") }),
-  f("body.water_pct", "body", "pct", "Вода во телото", {
+  f("profile.heightInCentimeters", "profile", "cm", "Висина", {
+    polar: doc("PhysicalInfo.height"),
+  }),
+  f("body_comps.bodyMassIndex", "body_comps", "score", "BMI", {
+    garmin: doc("BodyComps.bodyMassIndex"),
+  }),
+  f("body_comps.bodyFatInPercent", "body_comps", "pct", "Масно ткиво", {
+    garmin: doc("BodyComps.bodyFatInPercent"),
+  }),
+  f("body_comps.bodyWaterInPercent", "body_comps", "pct", "Вода во телото", {
     garmin: doc("BodyComps.bodyWaterInPercent"),
   }),
-  f("body.muscle_mass_kg", "body", "kg", "Мускулна маса", {
-    garmin: doc("BodyComps.muscleMassInGrams", "g_to_kg"),
+  f("body_comps.muscleMassInGrams", "body_comps", "g", "Мускулна маса", {
+    garmin: doc("BodyComps.muscleMassInGrams"),
   }),
-  f("body.bone_mass_kg", "body", "kg", "Коскена маса", {
-    garmin: doc("BodyComps.boneMassInGrams", "g_to_kg"),
+  f("body_comps.boneMassInGrams", "body_comps", "g", "Коскена маса", {
+    garmin: doc("BodyComps.boneMassInGrams"),
   }),
 
   // ===== Fitness & profile =====
-  f("fitness.vo2max_running", "fitness", "ml_kg_min", "VO2max (трчање)", {
+  f("user_metrics.vo2Max", "user_metrics", "ml_kg_min", "VO2max (трчање)", {
     garmin: doc("UserMetrics.vo2Max"),
     polar: doc("PhysicalInfo.vo2_max"),
     coros: doc("fitness overview VO2max"),
     suunto: doc("FIT session.estimated_vo2_max", "none", "по тренинг"),
   }),
-  f("fitness.vo2max_cycling", "fitness", "ml_kg_min", "VO2max (велосипед)", {
+  f("user_metrics.vo2MaxCycling", "user_metrics", "ml_kg_min", "VO2max (велосипед)", {
     garmin: doc("UserMetrics.vo2MaxCycling"),
   }),
-  f("fitness.fitness_age", "fitness", "years", "Фитнес возраст", {
+  f("user_metrics.fitnessAge", "user_metrics", "years", "Фитнес возраст", {
     garmin: doc("UserMetrics.fitnessAge"),
   }),
-  f("fitness.max_hr", "fitness", "bpm", "Максимален пулс (профил)", {
-    polar: doc("PhysicalInfo.maximum_heart_rate"),
-    coros: tbc("user profile max HR"),
-    garmin: tbc("FIT user_profile / zones_target.max_heart_rate"),
-  }),
-  f("fitness.aerobic_threshold_hr", "fitness", "bpm", "Аеробен праг (пулс)", {
+  f(
+    "user_metrics.maxHeartRateInBeatsPerMinute",
+    "user_metrics",
+    "bpm",
+    "Максимален пулс (профил)",
+    {
+      polar: doc("PhysicalInfo.maximum_heart_rate"),
+      coros: tbc("user profile max HR"),
+      garmin: tbc("FIT user_profile / zones_target.max_heart_rate"),
+    },
+  ),
+  f("user_metrics.aerobicThresholdHeartRate", "user_metrics", "bpm", "Аеробен праг (пулс)", {
     polar: doc("PhysicalInfo.aerobic_threshold"),
     suunto: doc("FIT session.aerobic_threshold"),
   }),
-  f("fitness.anaerobic_threshold_hr", "fitness", "bpm", "Анаеробен / лактатен праг (пулс)", {
-    polar: doc("PhysicalInfo.anaerobic_threshold"),
-    suunto: doc("FIT session.anaerobic_threshold"),
-    coros: tbc("lactate threshold HR (lthr)"),
-    garmin: tbc("FIT zones_target.threshold_heart_rate"),
-  }),
-  f("fitness.threshold_pace_s_per_km", "fitness", "s_per_km", "Прагово темпо", {
-    coros: doc("fitness overview threshold pace"),
-  }),
   f(
-    "fitness.race_predictions",
-    "fitness",
+    "user_metrics.lactateThresholdHeartRate",
+    "user_metrics",
+    "bpm",
+    "Анаеробен / лактатен праг (пулс)",
+    {
+      polar: doc("PhysicalInfo.anaerobic_threshold"),
+      suunto: doc("FIT session.anaerobic_threshold"),
+      coros: tbc("lactate threshold HR (lthr)"),
+      garmin: tbc("FIT zones_target.threshold_heart_rate"),
+    },
+  ),
+  f(
+    "user_metrics.lactateThresholdPaceInSecondsPerKilometer",
+    "user_metrics",
+    "s_per_km",
+    "Прагово темпо",
+    {
+      coros: doc("fitness overview threshold pace"),
+    },
+  ),
+  f(
+    "user_metrics.racePredictorTimes",
+    "user_metrics",
     "array",
     "Предвидени времиња (5к/10к/полу/маратон)",
     {
@@ -1016,13 +1122,13 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     },
     { note: "ActiveN исто така пресметува сопствена предикција (вендор-независна)." },
   ),
-  f("fitness.ftp_w", "fitness", "w", "FTP", {
+  f("user_metrics.functionalThresholdPowerInWatts", "user_metrics", "w", "FTP", {
     coros: tbc("cycling FTP"),
     garmin: tbc("FIT zones_target.functional_threshold_power"),
   }),
   f(
-    "fitness.coros_running_fitness",
-    "fitness",
+    "user_metrics.corosRunningFitness",
+    "user_metrics",
     "score",
     "COROS Running Fitness",
     {
@@ -1031,8 +1137,8 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
     { origin: "coros" },
   ),
   f(
-    "fitness.coros_stamina",
-    "fitness",
+    "user_metrics.corosStamina",
+    "user_metrics",
     "score",
     "COROS Base Fitness / Stamina",
     {
@@ -1043,45 +1149,45 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
 
   // ===== Training load (period) =====
   f(
-    "load.acute",
-    "training_load",
+    "training_status.acuteLoad",
+    "training_status",
     "score",
-    "Краткорочно оптоварување",
+    "Acute Load (краткорочно оптоварување)",
     {
       polar: doc("CardioLoad.strain"),
       coros: doc("training load: short-term load"),
     },
     { note: "Различни скали; ActiveN пресметува сопствено acute/chronic од TRIMP." },
   ),
-  f("load.chronic", "training_load", "score", "Долгорочно оптоварување", {
+  f("training_status.chronicLoad", "training_status", "score", "Долгорочно оптоварување", {
     polar: doc("CardioLoad.tolerance"),
     coros: doc("training load: long-term load"),
   }),
-  f("load.ratio", "training_load", "score", "Однос акутно/хронично", {
+  f("training_status.loadRatio", "training_status", "score", "Однос акутно/хронично", {
     polar: doc("CardioLoad.cardio_load_ratio"),
     coros: doc("training load: ratio"),
   }),
-  f("load.status", "training_load", "enum", "Статус на оптоварување", {
+  f("training_status.trainingStatus", "training_status", "enum", "Training Status", {
     polar: doc("CardioLoad.cardio_load_status"),
     coros: doc("training load: daily commentary / recovery level"),
   }),
 
   // ===== Profile =====
-  f("profile.birth_date", "profile", "date", "Датум на раѓање", {
+  f("profile.birthDate", "profile", "date", "Датум на раѓање", {
     polar: doc("PhysicalInfo.birthday"),
   }),
-  f("profile.sex", "profile", "enum", "Пол", { polar: doc("PhysicalInfo.gender") }),
-  f("profile.training_background", "profile", "enum", "Тренинг позадина", {
+  f("profile.gender", "profile", "enum", "Пол", { polar: doc("PhysicalInfo.gender") }),
+  f("profile.trainingBackground", "profile", "enum", "Тренинг позадина", {
     polar: doc("PhysicalInfo.training_background"),
   }),
-  f("profile.sleep_goal_s", "profile", "s", "Цел за сон", {
+  f("profile.sleepGoalInSeconds", "profile", "s", "Цел за сон", {
     polar: doc("PhysicalInfo.sleep_goal", "iso_duration_to_s"),
   }),
 
   // ===== Planned workout (write) =====
   f(
-    "plan.workout",
-    "planned_workout",
+    "workouts.workout",
+    "workouts",
     "array",
     "Структуриран тренинг (испраќање на часовник)",
     {
@@ -1095,13 +1201,13 @@ export const CATALOG: readonly CatalogField[] = Object.freeze([
       note: "Polar AccessLink нема испраќање тренинзи — Polar корисниците го гледаат планот во ActiveN.",
     },
   ),
-  f("plan.schedule", "planned_workout", "date", "Закажан датум", {
+  f("workouts.scheduledDate", "workouts", "date", "Закажан датум", {
     garmin: doc("Training API schedule: scheduledDate"),
     coros: doc("training calendar"),
   }),
 
   // ===== Routes (write) =====
-  f("route.course", "route", "array", "Рута (GPX/курс)", {
+  f("courses.course", "courses", "array", "Рута (GPX/курс)", {
     garmin: doc("Courses API"),
     coros: doc("GPX route import/export"),
     suunto: tbc("route upload"),

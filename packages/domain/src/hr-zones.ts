@@ -2,26 +2,37 @@ import { isLocalDate } from "./dates.js";
 import type { HrZone, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 
 /**
- * Default profile from the reference report (spec §9); colors taken from the reference workbook.
- * Used only until the athlete imports zones from a vendor or enters their own.
+ * Garmin's five heart-rate zones (Garmin manuals, "Heart Rate Zone Calculations" and "Heart Rate
+ * Color Zones"): names, color families (gray, blue, green, orange, red) and % of maximum heart rate.
+ * Hex values are the ActiveN UI palette for those color families (to be confirmed in the design).
  */
-export const DEFAULT_HR_ZONES: readonly HrZone[] = Object.freeze([
-  { name: "Easy", minBpm: null, maxBpm: 139, color: "#D9D9D9" },
-  { name: "AeT", minBpm: 140, maxBpm: 150, color: "#9DC3E6" },
-  { name: "Tempo", minBpm: 151, maxBpm: 165, color: "#A9D18E" },
-  { name: "AnT", minBpm: 166, maxBpm: 171, color: "#F4B183" },
-  { name: "VO2max", minBpm: 172, maxBpm: null, color: "#F4CCCC" },
-]);
+export const GARMIN_HR_ZONE_TEMPLATE = Object.freeze([
+  { zone: 1, name: "Warm Up", mk: "Загревање", color: "#9E9E9E", pctMaxLow: 0.5 },
+  { zone: 2, name: "Easy", mk: "Лесно", color: "#2F80ED", pctMaxLow: 0.6 },
+  { zone: 3, name: "Aerobic", mk: "Аеробно", color: "#27AE60", pctMaxLow: 0.7 },
+  { zone: 4, name: "Threshold", mk: "Праг", color: "#F2994A", pctMaxLow: 0.8 },
+  { zone: 5, name: "Maximum", mk: "Максимум", color: "#EB5757", pctMaxLow: 0.9 },
+] as const);
 
-const FALLBACK_PALETTE = [
-  "#D9D9D9",
-  "#9DC3E6",
-  "#A9D18E",
-  "#F4B183",
-  "#F4CCCC",
-  "#E6B8B7",
-  "#B4A7D6",
-];
+const FALLBACK_PALETTE = [...GARMIN_HR_ZONE_TEMPLATE.map((z) => z.color), "#9B51E0", "#56CCF2"];
+
+/** Garmin's default maximum heart rate estimate when none is measured: 220 minus age. */
+export function estimatedMaxHeartRate(ageInYears: number): number {
+  if (!Number.isFinite(ageInYears) || ageInYears <= 0 || ageInYears > 120)
+    throw new RangeError(`Invalid age: ${ageInYears}`);
+  return 220 - Math.round(ageInYears);
+}
+
+/**
+ * Default zones when the athlete has neither vendor zones nor manual ones: Garmin % of max HR
+ * (Zone 1 50–60 %, Zone 2 60–70 %, Zone 3 70–80 %, Zone 4 80–90 %, Zone 5 90–100 %).
+ * Zone 1 is open below so every heart rate value is classified.
+ */
+export function garminHeartRateZones(maxHeartRate: number): HrZone[] {
+  if (!Number.isFinite(maxHeartRate) || maxHeartRate < 100 || maxHeartRate > 250)
+    throw new RangeError(`Invalid max heart rate: ${maxHeartRate}`);
+  return zonesFromLowerBounds(GARMIN_HR_ZONE_TEMPLATE.map((z) => z.pctMaxLow * maxHeartRate));
+}
 
 const MIN_PLAUSIBLE_BPM = 30;
 const MAX_PLAUSIBLE_BPM = 250;
@@ -142,14 +153,14 @@ export function validateZones(zones: readonly HrZone[]): ZoneValidationError[] {
 
 /**
  * Classifies an average heart rate into a zone. Upper bounds are inclusive and the value belongs to
- * the first zone whose upper bound it does not exceed, so fractional averages (e.g. 139.4 from a
- * vendor) fall into the next zone up (AeT). This mirrors a nested `IF(HR<=139, …)` Excel formula.
- * Returns `null` when HR is missing (spec §10: blank zone, no color).
+ * the first zone whose upper bound it does not exceed, so a fractional average just above a whole
+ * bpm bound (e.g. 139.4 with a zone ending at 139) falls into the next zone up.
+ * Returns `null` when HR is missing (blank zone, no color).
  */
-export function classifyHr(avgHr: number | null, zones: readonly HrZone[]): HrZone | null {
-  if (avgHr === null || !Number.isFinite(avgHr) || avgHr <= 0) return null;
+export function classifyHr(heartRate: number | null, zones: readonly HrZone[]): HrZone | null {
+  if (heartRate === null || !Number.isFinite(heartRate) || heartRate <= 0) return null;
   for (const zone of zones) {
-    if (zone.maxBpm === null || avgHr <= zone.maxBpm) return zone;
+    if (zone.maxBpm === null || heartRate <= zone.maxBpm) return zone;
   }
   return null;
 }
@@ -222,16 +233,16 @@ export interface VendorZoneOptions {
  * Builds contiguous zones from vendor data expressed as the lower bound of each zone, low → high
  * (Garmin and Polar report zone floors; Strava-style `{min,max}` ranges map to their `min`).
  * Vendor values may be fractional and are rounded to whole bpm. The first zone is open below and
- * the last open above. Five zones get the report's names (Easy…VO2max) unless names are given.
+ * the last open above. Five zones get Garmin's names (Warm Up … Maximum) unless names are given.
  */
 export function zonesFromLowerBounds(
   lowerBounds: readonly number[],
   options: VendorZoneOptions = {},
 ): HrZone[] {
   const bounds = lowerBounds.map((b) => Math.round(b));
-  const defaultNames =
-    bounds.length === DEFAULT_HR_ZONES.length
-      ? DEFAULT_HR_ZONES.map((z) => z.name)
+  const defaultNames: readonly string[] =
+    bounds.length === GARMIN_HR_ZONE_TEMPLATE.length
+      ? GARMIN_HR_ZONE_TEMPLATE.map((z) => z.name)
       : bounds.map((_, i) => `Z${i + 1}`);
   const zones = bounds.map((lb, i) => ({
     name: options.names?.[i] ?? defaultNames[i] ?? `Z${i + 1}`,

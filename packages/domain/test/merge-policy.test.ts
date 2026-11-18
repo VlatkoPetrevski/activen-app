@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mergeActivities } from "../src/merge.js";
 import { canDisplay, canUseForAi, SOURCE_POLICIES } from "../src/source-policy.js";
 import { VENDORS } from "../src/types.js";
-import { activity } from "./fixtures.js";
+import { activity, t } from "./fixtures.js";
 
 describe("source policies", () => {
   it("defines a policy for every vendor", () => {
@@ -20,30 +20,30 @@ describe("source policies", () => {
 
 describe("mergeActivities", () => {
   const garmin = activity({
-    localDate: "2026-11-16",
+    calendarDate: "2026-11-16",
     source: { vendor: "garmin", externalId: "g1" },
-    name: "Skopje Running",
-    startTime: "2026-11-16T06:00:00Z",
-    elapsedTimeS: 3_000,
-    relativeEffort: null,
+    activityName: "Skopje Running",
+    startTimeInSeconds: t("2026-11-16T06:00:00Z"),
+    durationInSeconds: 3_000,
+    trainingLoad: null,
     gearName: null,
-    avgWatts: 250,
+    averagePowerInWatts: 250,
   });
   const strava = activity({
-    localDate: "2026-11-16",
+    calendarDate: "2026-11-16",
     source: { vendor: "strava", externalId: "s1" },
-    name: "Morning Run",
-    startTime: "2026-11-16T06:00:30Z",
-    elapsedTimeS: 3_010,
-    relativeEffort: 55,
+    activityName: "Morning Run",
+    startTimeInSeconds: t("2026-11-16T06:00:30Z"),
+    durationInSeconds: 3_010,
+    trainingLoad: 55,
     gearName: "Pegasus",
-    avgWatts: null,
+    averagePowerInWatts: null,
   });
   const otherRide = activity({
-    localDate: "2026-11-16",
+    calendarDate: "2026-11-16",
     source: { vendor: "strava", externalId: "s2" },
-    sportType: "Ride",
-    startTime: "2026-11-16T06:01:00Z",
+    activityType: "CYCLING",
+    startTimeInSeconds: t("2026-11-16T06:01:00Z"),
   });
 
   it("merges the same workout using the priority order and fills missing fields", () => {
@@ -51,23 +51,23 @@ describe("mergeActivities", () => {
       priority: ["garmin", "strava"],
     });
     expect(merged?.activity.id).toBe(garmin.id);
-    expect(merged?.activity.name).toBe("Skopje Running");
-    expect(merged?.activity.relativeEffort).toBe(55);
+    expect(merged?.activity.activityName).toBe("Skopje Running");
+    expect(merged?.activity.trainingLoad).toBe(55);
     expect(merged?.activity.gearName).toBe("Pegasus");
-    expect(merged?.activity.avgWatts).toBe(250);
+    expect(merged?.activity.averagePowerInWatts).toBe(250);
     expect(merged?.sources.map((s) => s.vendor)).toEqual(["garmin", "strava"]);
     expect(merged?.provenance).toMatchObject({
-      relativeEffort: "strava",
-      avgWatts: "garmin",
-      avgHr: "garmin",
+      trainingLoad: "strava",
+      averagePowerInWatts: "garmin",
+      averageHeartRateInBeatsPerMinute: "garmin",
     });
     expect(ride?.activity.id).toBe(otherRide.id); // different sport → not merged
   });
 
   it("respects a different priority", () => {
     const [merged] = mergeActivities([garmin, strava], { priority: ["strava"] });
-    expect(merged?.activity.name).toBe("Morning Run");
-    expect(merged?.provenance.avgWatts).toBe("garmin");
+    expect(merged?.activity.activityName).toBe("Morning Run");
+    expect(merged?.provenance.averagePowerInWatts).toBe("garmin");
   });
 
   it("excludes restricted sources entirely from the coach view", () => {
@@ -76,7 +76,7 @@ describe("mergeActivities", () => {
       audience: "coach",
     });
     expect(result).toHaveLength(1);
-    expect(result[0]?.activity.relativeEffort).toBeNull();
+    expect(result[0]?.activity.trainingLoad).toBeNull();
     expect(result[0]?.activity.gearName).toBeNull();
     expect(Object.values(result[0]?.provenance ?? {})).not.toContain("strava");
   });
@@ -87,8 +87,8 @@ describe("mergeActivities", () => {
   });
 
   it("does not merge records too far apart in time or duration, or from the same vendor", () => {
-    const late = { ...strava, id: "late", startTime: "2026-11-16T06:10:00Z" };
-    const longer = { ...strava, id: "longer", elapsedTimeS: 6_000 };
+    const late = { ...strava, id: "late", startTimeInSeconds: t("2026-11-16T06:10:00Z") };
+    const longer = { ...strava, id: "longer", durationInSeconds: 6_000 };
     const sameVendor = {
       ...garmin,
       id: "dup",
@@ -109,8 +109,8 @@ describe("mergeActivities", () => {
   });
 
   it("treats zero-duration records as the same workout when everything else matches", () => {
-    const a = { ...garmin, id: "z1", elapsedTimeS: 0 };
-    const b = { ...strava, id: "z2", elapsedTimeS: 0 };
+    const a = { ...garmin, id: "z1", durationInSeconds: 0 };
+    const b = { ...strava, id: "z2", durationInSeconds: 0 };
     expect(mergeActivities([a, b], { priority: [] })).toHaveLength(1);
   });
 

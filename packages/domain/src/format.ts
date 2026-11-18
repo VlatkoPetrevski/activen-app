@@ -1,4 +1,4 @@
-/** Display helpers that reproduce the formats of the reference Excel report. */
+/** Display helpers: distance in km, pace MM:SS min/km, duration HH:MM:SS. */
 
 const pad2 = (n: number): string => n.toString().padStart(2, "0");
 

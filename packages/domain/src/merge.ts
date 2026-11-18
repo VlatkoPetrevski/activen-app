@@ -4,19 +4,19 @@ import {
   DEFAULT_SOURCE_PRIORITY,
   type Audience,
 } from "./source-policy.js";
-import { sportCategory } from "./sport.js";
+import { activityGroup } from "./sport.js";
 import type { Activity, SourceRef, Vendor } from "./types.js";
 
 /** Fields that may be filled from a secondary source when the primary source lacks them. */
 export const MERGEABLE_FIELDS = [
-  "distanceM",
-  "movingTimeS",
-  "elevationGainM",
-  "relativeEffort",
-  "avgHr",
-  "maxHr",
-  "avgWatts",
-  "calories",
+  "distanceInMeters",
+  "movingDurationInSeconds",
+  "totalElevationGainInMeters",
+  "trainingLoad",
+  "averageHeartRateInBeatsPerMinute",
+  "maxHeartRateInBeatsPerMinute",
+  "averagePowerInWatts",
+  "activeKilocalories",
   "gearName",
 ] as const;
 export type MergeableField = (typeof MERGEABLE_FIELDS)[number];
@@ -47,17 +47,17 @@ export interface MergeOptions {
 }
 
 function startMs(a: Activity): number {
-  return Date.parse(a.startTime);
+  return a.startTimeInSeconds * 1000;
 }
 
 function isSameWorkout(a: Activity, b: Activity, startTolS: number, durTol: number): boolean {
   if (a.athleteId !== b.athleteId) return false;
   if (a.source.vendor === b.source.vendor) return false;
-  if (sportCategory(a.sportType) !== sportCategory(b.sportType)) return false;
+  if (activityGroup(a.activityType) !== activityGroup(b.activityType)) return false;
   if (Math.abs(startMs(a) - startMs(b)) > startTolS * 1000) return false;
-  const longer = Math.max(a.elapsedTimeS, b.elapsedTimeS);
+  const longer = Math.max(a.durationInSeconds, b.durationInSeconds);
   if (longer === 0) return true;
-  return Math.abs(a.elapsedTimeS - b.elapsedTimeS) / longer <= durTol;
+  return Math.abs(a.durationInSeconds - b.durationInSeconds) / longer <= durTol;
 }
 
 /**

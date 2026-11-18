@@ -2,15 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   classifyHr,
   createProfileVersion,
-  DEFAULT_HR_ZONES,
   InvalidHrZoneProfileError,
   profileForDate,
   validateZones,
 } from "../src/hr-zones.js";
 import type { HrZone } from "../src/types.js";
-import { defaultProfile } from "./fixtures.js";
+import { defaultProfile, MANUAL_ZONES } from "./fixtures.js";
 
-const zones = DEFAULT_HR_ZONES;
+const zones = MANUAL_ZONES;
 const codes = (z: HrZone[]) => validateZones(z).map((e) => e.code);
 
 describe("validateZones (HR-03)", () => {

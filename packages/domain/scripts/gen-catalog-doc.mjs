@@ -6,21 +6,25 @@ import { CATALOG, CATALOG_VENDORS, DOMAINS, vendorCoverage } from "../dist/catal
 const out = fileURLToPath(new URL("../../../docs/data-catalog-fields.md", import.meta.url));
 const VENDOR_NAMES = { garmin: "Garmin", polar: "Polar", suunto: "Suunto", coros: "COROS" };
 const DOMAIN_NAMES = {
-  activity: "Активност (резиме)",
-  activity_lap: "Кругови",
-  activity_stream: "Временски серии (samples)",
-  daily: "Дневно резиме",
-  intraday: "Низ денот",
-  sleep: "Сон",
-  recovery: "Ноќен опоравок и спремност",
-  stress: "Стрес",
-  spot_check: "Моментални мерења",
-  body: "Тело",
-  fitness: "Фитнес метрики",
-  training_load: "Оптоварување (период)",
-  profile: "Профил",
-  planned_workout: "Планирани тренинзи (запишување кај вендор)",
-  route: "Рути (запишување кај вендор)",
+  activities: "Activities — активности (резиме)",
+  activity_laps: "Activity laps — кругови",
+  activity_samples: "Activity samples — временски серии",
+  dailies: "Dailies — дневно резиме",
+  epochs: "Epochs — 15-минутни интервали",
+  sleeps: "Sleeps — сон",
+  hrv: "HRV — варијабилност на пулс (ноќ)",
+  stress_details: "Stress details — стрес и Body Battery",
+  respiration: "Respiration — дишење",
+  pulse_ox: "Pulse Ox — SpO2",
+  skin_temp: "Skin temperature — температура на кожа",
+  health_snapshot: "Health Snapshot — моментални мерења",
+  body_comps: "Body composition — состав на тело",
+  blood_pressure: "Blood pressure — крвен притисок",
+  user_metrics: "User metrics — фитнес метрики",
+  training_status: "Training status — спремност, оптоварување, статус",
+  profile: "Profile — профил",
+  workouts: "Workouts (Training API) — планирани тренинзи кон часовник",
+  courses: "Courses (Courses API) — рути",
 };
 const MARK = { documented: "✅", fit_profile: "🟦", to_confirm: "❓" };
 const esc = (s) => String(s).replaceAll("|", "\\|");
@@ -35,6 +39,8 @@ let md = `# Каталог на податоци — полиња и мапир�
 
 > **Генериран документ** од \`packages/domain/src/catalog/fields.ts\` — не се уредува рачно.
 > Објаснувањето и одлуките се во [data-catalog.md](data-catalog.md).
+
+Клучевите следат Garmin терминологија: \`<summary type>.<Garmin име на поле>\`, со Garmin единици.
 
 Легенда: ✅ потврдено во јавна документација · 🟦 стандардно поле во FIT профилот · ❓ намената е позната, името/единицата треба да се потврди во партнерската документација · — нема.
 

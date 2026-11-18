@@ -1,7 +1,7 @@
 import { dayName, weekStart, type DayName } from "./dates.js";
 import { classifyHr, profileForDate } from "./hr-zones.js";
 import { matchPlanToActivities, type PlanLink } from "./matching.js";
-import { filterActivities, isRun, type ActivityFilter } from "./sport.js";
+import { filterActivities, isRunning, type ActivityFilter } from "./sport.js";
 import { emptySummary, summarize, type PaceBasis, type PeriodSummary } from "./summaries.js";
 import type {
   Activity,
@@ -47,7 +47,7 @@ export interface WeekSummaryRow {
 
 export interface ActivityRow {
   type: "activity";
-  date: LocalDate;
+  calendarDate: LocalDate;
   day: DayName;
   activity: Activity;
   plan: PlanEntry | null;
@@ -63,7 +63,7 @@ export type PlanOnlyStatus = "rest" | "upcoming" | "missed" | "unlinked" | "comp
 
 export interface PlanOnlyRow {
   type: "plan_only";
-  date: LocalDate;
+  calendarDate: LocalDate;
   day: DayName;
   plan: PlanEntry;
   link: PlanLink;
@@ -128,32 +128,34 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
     summarize(activities, "week", summaryOptions).map((s) => [s.key, s]),
   );
 
-  type DayItem = { date: LocalDate; sortKey: string; row: ActivityRow | PlanOnlyRow };
+  type DayItem = { calendarDate: LocalDate; sortKey: string; row: ActivityRow | PlanOnlyRow };
   const items: DayItem[] = [];
 
   for (const activity of activities) {
     const link = linkByActivity.get(activity.id) ?? null;
     const profile = profileForDate(
       input.hrProfiles,
-      activity.localDate,
+      activity.calendarDate,
       input.zoneSourcePreference,
     );
-    const zone = profile ? classifyHr(activity.avgHr, profile.zones) : null;
+    const zone = profile
+      ? classifyHr(activity.averageHeartRateInBeatsPerMinute, profile.zones)
+      : null;
     items.push({
-      date: activity.localDate,
-      sortKey: `1|${activity.startTime}`,
+      calendarDate: activity.calendarDate,
+      sortKey: `1|${activity.startTimeInSeconds.toString().padStart(12, "0")}`,
       row: {
         type: "activity",
-        date: activity.localDate,
-        day: dayName(activity.localDate),
+        calendarDate: activity.calendarDate,
+        day: dayName(activity.calendarDate),
         activity,
         plan: link ? (planById.get(link.planEntryId) ?? null) : null,
         link,
         zone,
         style: {
           bold: activity.isRace,
-          muted: !isRun(activity.sportType),
-          fontColor: isRun(activity.sportType) ? null : REPORT_COLORS.nonRunFont,
+          muted: !isRunning(activity.activityType),
+          fontColor: isRunning(activity.activityType) ? null : REPORT_COLORS.nonRunFont,
           rowFill: activity.isRace ? REPORT_COLORS.raceFill : null,
           zoneFill: zone?.color ?? null,
         },
@@ -171,16 +173,16 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
         ? "rest"
         : link.reason === "manual_unlinked"
           ? "unlinked"
-          : plan.date >= input.today
+          : plan.calendarDate >= input.today
             ? "upcoming"
             : "missed";
     items.push({
-      date: plan.date,
+      calendarDate: plan.calendarDate,
       sortKey: `0|${(999_999 - plan.sequence).toString().padStart(6, "0")}`,
       row: {
         type: "plan_only",
-        date: plan.date,
-        day: dayName(plan.date),
+        calendarDate: plan.calendarDate,
+        day: dayName(plan.calendarDate),
         plan,
         link,
         status,
@@ -190,12 +192,14 @@ export function buildActivitiesReport(input: ActivitiesReportInput): ActivitiesR
   }
 
   // Newest date first; within a day, latest activity first and plan-only rows last.
-  items.sort((a, b) => b.date.localeCompare(a.date) || b.sortKey.localeCompare(a.sortKey));
+  items.sort(
+    (a, b) => b.calendarDate.localeCompare(a.calendarDate) || b.sortKey.localeCompare(a.sortKey),
+  );
 
   const rows: ReportRow[] = [];
   let currentWeek: string | null = null;
   for (const item of items) {
-    const wk = weekStart(item.date);
+    const wk = weekStart(item.calendarDate);
     if (wk !== currentWeek) {
       currentWeek = wk;
       rows.push({

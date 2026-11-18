@@ -1,12 +1,16 @@
 /**
- * Unit conversions used when mapping vendor fields onto the canonical model. Canonical units are
- * SI-like and fixed per field: seconds, metres, m/s, bpm, kcal, kg, °C, percent (0–100).
+ * Unit conversions used when mapping vendor fields onto the canonical model. Canonical units follow
+ * Garmin and are fixed per field (seconds, Unix seconds, metres, m/s, bpm, kcal, grams, °C, %).
  */
 
 export const TRANSFORMS = [
   "none",
   /** Garmin: grams → kilograms. */
   "g_to_kg",
+  /** Polar: kilograms → grams (Garmin unit). */
+  "kg_to_g",
+  /** ISO-8601 instant → Unix seconds (Garmin `…InSeconds`). */
+  "iso_to_epoch_s",
   /** Polar samples: km/h → m/s. */
   "kmh_to_ms",
   /** Garmin: pace min/km → seconds per km. */
@@ -52,6 +56,14 @@ export function applyTransform(transform: Transform, value: unknown): unknown {
       return value;
     case "g_to_kg":
       return num() / 1000;
+    case "kg_to_g":
+      return num() * 1000;
+    case "iso_to_epoch_s": {
+      if (typeof value !== "string") throw new TypeError("iso_to_epoch_s expects a string");
+      const ms = Date.parse(value);
+      if (Number.isNaN(ms)) throw new RangeError(`Invalid ISO instant: "${value}"`);
+      return ms / 1000;
+    }
     case "kmh_to_ms":
       return num() / 3.6;
     case "min_per_km_to_s_per_km":

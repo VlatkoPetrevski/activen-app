@@ -54,8 +54,8 @@ export function validateCatalog(fields: readonly CatalogField[] = CATALOG): stri
   for (const f of fields) {
     if (seen.has(f.key)) errors.push(`${f.key}: duplicate key`);
     seen.add(f.key);
-    if (!/^[a-z]+(\.[a-z0-9_]+)+$/.test(f.key))
-      errors.push(`${f.key}: key must be dotted snake_case`);
+    if (!/^[a-z_]+\.[a-z][A-Za-z0-9]*$/.test(f.key))
+      errors.push(`${f.key}: key must be <summary_type>.<camelCaseField>`);
     if (!f.label.trim()) errors.push(`${f.key}: label required`);
     const vendors = Object.keys(f.mappings) as CatalogVendor[];
     for (const v of vendors) {

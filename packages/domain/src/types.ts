@@ -1,9 +1,10 @@
 /**
- * Vendor-agnostic domain model.
- *
- * Every data source (Strava, Garmin, Polar, Suunto, COROS, ...) is mapped by an adapter into these
- * types. Nothing in the domain layer knows which vendor an activity came from beyond `source`.
+ * Vendor-agnostic domain model. In the initial phase the vocabulary follows Garmin: field names and
+ * units mirror the Garmin Health/Activity API (e.g. `distanceInMeters`, `durationInSeconds`,
+ * `averageHeartRateInBeatsPerMinute`), activity types use Garmin `activityType` values, and other
+ * vendors are mapped onto them by their adapters (see catalog/).
  */
+import type { ActivityType } from "./activity-types.js";
 
 /** Calendar date in the athlete's local timezone, formatted `YYYY-MM-DD`. */
 export type LocalDate = string;
@@ -33,23 +34,27 @@ export interface Activity {
   athleteId: string;
   /** Primary source the record was taken from. */
   source: SourceRef;
-  /** Exact activity name from the source (spec field N). */
-  name: string;
-  /** Sport type using Strava's sport_type vocabulary as canonical (e.g. "Run", "TrailRun", "Ride"). */
-  sportType: string;
-  /** Start date in athlete-local timezone (spec field A). */
-  localDate: LocalDate;
-  /** Start instant, ISO-8601 UTC. */
-  startTime: string;
-  distanceM: number | null;
-  elapsedTimeS: number;
-  movingTimeS: number | null;
-  elevationGainM: number | null;
-  relativeEffort: number | null;
-  avgHr: number | null;
-  maxHr: number | null;
-  avgWatts: number | null;
-  calories: number | null;
+  /** Activity name from the source. */
+  activityName: string;
+  /** Garmin `activityType` value (e.g. `RUNNING`, `TRAIL_RUNNING`, `TREADMILL_RUNNING`). */
+  activityType: ActivityType;
+  /** Start date in athlete-local timezone (Garmin `calendarDate`). */
+  calendarDate: LocalDate;
+  /** Start, Unix seconds UTC (Garmin `startTimeInSeconds`). */
+  startTimeInSeconds: number;
+  /** Seconds to add for device-local time (Garmin `startTimeOffsetInSeconds`). */
+  startTimeOffsetInSeconds: number;
+  distanceInMeters: number | null;
+  /** Elapsed duration incl. pauses (Garmin `durationInSeconds`). */
+  durationInSeconds: number;
+  movingDurationInSeconds: number | null;
+  totalElevationGainInMeters: number | null;
+  /** Garmin Training Load of the activity (EPOC-based exercise load). */
+  trainingLoad: number | null;
+  averageHeartRateInBeatsPerMinute: number | null;
+  maxHeartRateInBeatsPerMinute: number | null;
+  averagePowerInWatts: number | null;
+  activeKilocalories: number | null;
   gearName: string | null;
   isRace: boolean;
   /** Soft-deleted because the source deleted it (SYNC-04). */
@@ -62,13 +67,13 @@ export type PlanEntryKind = "workout" | "rest";
 export interface PlanEntry {
   id: string;
   athleteId: string;
-  date: LocalDate;
+  calendarDate: LocalDate;
   kind: PlanEntryKind;
   /** Free-text plan description shown in the "Activity Plan" column. */
   description: string;
-  plannedSportType: string | null;
-  plannedDistanceM: number | null;
-  plannedDurationS: number | null;
+  plannedActivityType: ActivityType | null;
+  plannedDistanceInMeters: number | null;
+  plannedDurationInSeconds: number | null;
   notes: string | null;
   /** Ordering when several sessions are planned on the same date (AM/PM). Lower first. */
   sequence: number;

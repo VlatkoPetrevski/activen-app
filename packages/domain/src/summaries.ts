@@ -1,6 +1,6 @@
 import { addDays, monthKey, weekStart, yearKey } from "./dates.js";
 import { classifyHr, profileForDate } from "./hr-zones.js";
-import { filterActivities, isRun, type ActivityFilter } from "./sport.js";
+import { filterActivities, isRunning, type ActivityFilter } from "./sport.js";
 import type { Activity, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 
 export type SummaryPeriod = "week" | "month" | "year";
@@ -10,7 +10,7 @@ export type PaceBasis = "elapsed" | "moving";
 
 export interface SummaryOptions {
   paceBasis?: PaceBasis;
-  /** When given, elapsed time per HR zone is reported (zone distribution, spec §12.5). */
+  /** When given, elapsed time per HR zone is reported (time in HR zones). */
   hrProfiles?: readonly HrZoneProfile[];
   /** Preferred HR-zone sources, see `profileForDate`. */
   zoneSourcePreference?: readonly Vendor[];
@@ -25,29 +25,31 @@ export interface PeriodSummary {
   from: LocalDate;
   to: LocalDate;
   activityCount: number;
-  runCount: number;
+  runningActivityCount: number;
   /** Sum of all activity distances. */
-  totalDistanceM: number;
-  runDistanceM: number;
-  totalElapsedS: number;
-  runElapsedS: number;
-  elevationGainM: number;
+  distanceInMeters: number;
+  runningDistanceInMeters: number;
+  durationInSeconds: number;
+  runningDurationInSeconds: number;
+  totalElevationGainInMeters: number;
   /** Weighted: total running time / total running distance. `null` without running distance. */
-  runPaceSPerKm: number | null;
+  runningPaceInSecondsPerKilometer: number | null;
   /** Mean of available average-HR values. */
-  avgHr: number | null;
-  /** Mean of available Relative Effort values. */
-  avgRelativeEffort: number | null;
+  averageHeartRateInBeatsPerMinute: number | null;
+  /** Sum of Training Load (Garmin principle: exercise loads add up into the period load). */
+  totalTrainingLoad: number;
+  /** Mean of available per-activity Training Load values. */
+  averageTrainingLoad: number | null;
   /** Mean of available per-activity max HR values (as in the reference report). */
-  avgMaxHr: number | null;
+  averageMaxHeartRateInBeatsPerMinute: number | null;
   /** Highest max HR in the period. */
-  peakMaxHr: number | null;
+  maxHeartRateInBeatsPerMinute: number | null;
   /** Mean of available average-power values. */
-  avgWatts: number | null;
-  /** Sum of available calories. */
-  totalCalories: number;
+  averagePowerInWatts: number | null;
+  /** Sum of available activeKilocalories. */
+  activeKilocalories: number;
   /** Elapsed seconds per zone name; activities without HR count under `UNCLASSIFIED_ZONE`. */
-  zoneElapsedS: Record<string, number> | null;
+  timeInHeartRateZonesInSeconds: Record<string, number> | null;
 }
 
 function periodKey(date: LocalDate, period: SummaryPeriod): string {
@@ -83,20 +85,21 @@ export function emptySummary(key: string, period: SummaryPeriod, withZones = fal
     key,
     ...periodRange(key, period),
     activityCount: 0,
-    runCount: 0,
-    totalDistanceM: 0,
-    runDistanceM: 0,
-    totalElapsedS: 0,
-    runElapsedS: 0,
-    elevationGainM: 0,
-    runPaceSPerKm: null,
-    avgHr: null,
-    avgRelativeEffort: null,
-    avgMaxHr: null,
-    peakMaxHr: null,
-    avgWatts: null,
-    totalCalories: 0,
-    zoneElapsedS: withZones ? {} : null,
+    runningActivityCount: 0,
+    distanceInMeters: 0,
+    runningDistanceInMeters: 0,
+    durationInSeconds: 0,
+    runningDurationInSeconds: 0,
+    totalElevationGainInMeters: 0,
+    runningPaceInSecondsPerKilometer: null,
+    averageHeartRateInBeatsPerMinute: null,
+    totalTrainingLoad: 0,
+    averageTrainingLoad: null,
+    averageMaxHeartRateInBeatsPerMinute: null,
+    maxHeartRateInBeatsPerMinute: null,
+    averagePowerInWatts: null,
+    activeKilocalories: 0,
+    timeInHeartRateZonesInSeconds: withZones ? {} : null,
   };
 }
 
@@ -118,7 +121,7 @@ export function summarize(
   const groups = new Map<string, Activity[]>();
   for (const a of filterActivities(activities, options.filter)) {
     if (a.deleted) continue;
-    const key = periodKey(a.localDate, period);
+    const key = periodKey(a.calendarDate, period);
     const list = groups.get(key);
     if (list) list.push(a);
     else groups.set(key, [a]);
@@ -126,50 +129,56 @@ export function summarize(
 
   const summaries: PeriodSummary[] = [];
   for (const [key, list] of groups) {
-    let totalDistanceM = 0;
-    let runDistanceM = 0;
-    let totalElapsedS = 0;
-    let runElapsedS = 0;
-    let elevationGainM = 0;
+    let distanceInMeters = 0;
+    let runningDistanceInMeters = 0;
+    let durationInSeconds = 0;
+    let runningDurationInSeconds = 0;
+    let totalElevationGainInMeters = 0;
     let paceTimeS = 0;
     let paceDistanceM = 0;
-    let runCount = 0;
+    let runningActivityCount = 0;
     const hrs: number[] = [];
-    const efforts: number[] = [];
+    const loads: number[] = [];
     const maxHrs: number[] = [];
     const watts: number[] = [];
-    let totalCalories = 0;
-    const zoneElapsedS: Record<string, number> | null = options.hrProfiles ? {} : null;
+    let activeKilocalories = 0;
+    const timeInHeartRateZonesInSeconds: Record<string, number> | null = options.hrProfiles
+      ? {}
+      : null;
 
     for (const a of list) {
-      totalDistanceM += a.distanceM ?? 0;
-      totalElapsedS += a.elapsedTimeS;
-      elevationGainM += a.elevationGainM ?? 0;
-      if (a.avgHr !== null) hrs.push(a.avgHr);
-      if (a.relativeEffort !== null) efforts.push(a.relativeEffort);
-      if (a.maxHr !== null) maxHrs.push(a.maxHr);
-      if (a.avgWatts !== null) watts.push(a.avgWatts);
-      totalCalories += a.calories ?? 0;
+      distanceInMeters += a.distanceInMeters ?? 0;
+      durationInSeconds += a.durationInSeconds;
+      totalElevationGainInMeters += a.totalElevationGainInMeters ?? 0;
+      if (a.averageHeartRateInBeatsPerMinute !== null) hrs.push(a.averageHeartRateInBeatsPerMinute);
+      if (a.trainingLoad !== null) loads.push(a.trainingLoad);
+      if (a.maxHeartRateInBeatsPerMinute !== null) maxHrs.push(a.maxHeartRateInBeatsPerMinute);
+      if (a.averagePowerInWatts !== null) watts.push(a.averagePowerInWatts);
+      activeKilocalories += a.activeKilocalories ?? 0;
 
-      if (isRun(a.sportType)) {
-        runCount += 1;
-        runDistanceM += a.distanceM ?? 0;
-        runElapsedS += a.elapsedTimeS;
-        if (a.distanceM !== null && a.distanceM > 0) {
-          paceDistanceM += a.distanceM;
-          paceTimeS += paceBasis === "moving" ? (a.movingTimeS ?? a.elapsedTimeS) : a.elapsedTimeS;
+      if (isRunning(a.activityType)) {
+        runningActivityCount += 1;
+        runningDistanceInMeters += a.distanceInMeters ?? 0;
+        runningDurationInSeconds += a.durationInSeconds;
+        if (a.distanceInMeters !== null && a.distanceInMeters > 0) {
+          paceDistanceM += a.distanceInMeters;
+          paceTimeS +=
+            paceBasis === "moving"
+              ? (a.movingDurationInSeconds ?? a.durationInSeconds)
+              : a.durationInSeconds;
         }
       }
 
-      if (zoneElapsedS && options.hrProfiles) {
+      if (timeInHeartRateZonesInSeconds && options.hrProfiles) {
         const profile = profileForDate(
           options.hrProfiles,
-          a.localDate,
+          a.calendarDate,
           options.zoneSourcePreference,
         );
-        const zone = profile ? classifyHr(a.avgHr, profile.zones) : null;
+        const zone = profile ? classifyHr(a.averageHeartRateInBeatsPerMinute, profile.zones) : null;
         const zoneName = zone?.name ?? UNCLASSIFIED_ZONE;
-        zoneElapsedS[zoneName] = (zoneElapsedS[zoneName] ?? 0) + a.elapsedTimeS;
+        timeInHeartRateZonesInSeconds[zoneName] =
+          (timeInHeartRateZonesInSeconds[zoneName] ?? 0) + a.durationInSeconds;
       }
     }
 
@@ -178,20 +187,22 @@ export function summarize(
       key,
       ...periodRange(key, period),
       activityCount: list.length,
-      runCount,
-      totalDistanceM,
-      runDistanceM,
-      totalElapsedS,
-      runElapsedS,
-      elevationGainM,
-      runPaceSPerKm: paceDistanceM > 0 ? paceTimeS / (paceDistanceM / 1000) : null,
-      avgHr: mean(hrs),
-      avgRelativeEffort: mean(efforts),
-      avgMaxHr: mean(maxHrs),
-      peakMaxHr: maxHrs.length > 0 ? Math.max(...maxHrs) : null,
-      avgWatts: mean(watts),
-      totalCalories,
-      zoneElapsedS,
+      runningActivityCount,
+      distanceInMeters,
+      runningDistanceInMeters,
+      durationInSeconds,
+      runningDurationInSeconds,
+      totalElevationGainInMeters,
+      runningPaceInSecondsPerKilometer:
+        paceDistanceM > 0 ? paceTimeS / (paceDistanceM / 1000) : null,
+      averageHeartRateInBeatsPerMinute: mean(hrs),
+      totalTrainingLoad: loads.reduce((sum, v) => sum + v, 0),
+      averageTrainingLoad: mean(loads),
+      averageMaxHeartRateInBeatsPerMinute: mean(maxHrs),
+      maxHeartRateInBeatsPerMinute: maxHrs.length > 0 ? Math.max(...maxHrs) : null,
+      averagePowerInWatts: mean(watts),
+      activeKilocalories,
+      timeInHeartRateZonesInSeconds,
     });
   }
 

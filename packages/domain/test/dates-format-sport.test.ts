@@ -10,7 +10,7 @@ import {
   yearKey,
 } from "../src/dates.js";
 import { formatDuration, formatPace, metersToKm, paceSecondsPerKm } from "../src/format.js";
-import { isRun, sportCategory } from "../src/sport.js";
+import { isRunning, activityGroup } from "../src/sport.js";
 
 describe("dates", () => {
   it("validates local dates including leap years", () => {
@@ -76,16 +76,17 @@ describe("format", () => {
   });
 });
 
-describe("sport", () => {
-  it("treats trail and treadmill runs as runs", () => {
-    expect(isRun("Run")).toBe(true);
-    expect(isRun("TrailRun")).toBe(true);
-    expect(isRun("VirtualRun")).toBe(true);
-    expect(isRun("Ride")).toBe(false);
+describe("activity groups", () => {
+  it("treats trail, treadmill and virtual runs as running", () => {
+    expect(isRunning("TREADMILL_RUNNING")).toBe(true);
+    expect(isRunning("RUNNING")).toBe(true);
+    expect(isRunning("TRAIL_RUNNING")).toBe(true);
+    expect(isRunning("VIRTUAL_RUN")).toBe(true);
+    expect(isRunning("CYCLING")).toBe(false);
   });
 
-  it("falls back to 'other' for unknown sports", () => {
-    expect(sportCategory("GravelRide")).toBe("ride");
-    expect(sportCategory("Kitesurf")).toBe("other");
+  it("falls back to 'other' for unknown activity types", () => {
+    expect(activityGroup("GRAVEL_CYCLING")).toBe("cycling");
+    expect(activityGroup("Kitesurf")).toBe("other");
   });
 });

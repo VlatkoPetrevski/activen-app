@@ -4,9 +4,9 @@ import { filterActivities, PRESET_FILTERS, type ActivityFilter } from "./sport.j
 import type { Activity, HrZoneProfile, LocalDate, Vendor } from "./types.js";
 
 /**
- * Analytics that reproduce the "Analysis" sheet of the reference workbook. Every function takes an
- * {@link ActivityFilter}; the default is running (Run, TrailRun, VirtualRun), and the athlete can
- * narrow it, e.g. to road running only.
+ * Core analytics (KPIs, activity mix, HR-zone breakdown, weekday distribution). Every function takes
+ * an {@link ActivityFilter}; the default is running (all Garmin running types), and the athlete can
+ * narrow it, e.g. to road running only (`RUNNING`).
  */
 export interface AnalyticsOptions {
   filter?: ActivityFilter;
@@ -22,66 +22,70 @@ function scope(activities: readonly Activity[], options: AnalyticsOptions): Acti
   return filterActivities(activities, options.filter ?? PRESET_FILTERS.running).filter(
     (a) =>
       !a.deleted &&
-      (options.from === undefined || a.localDate >= options.from) &&
-      (options.to === undefined || a.localDate <= options.to),
+      (options.from === undefined || a.calendarDate >= options.from) &&
+      (options.to === undefined || a.calendarDate <= options.to),
   );
 }
 
 export interface Kpis {
   count: number;
-  distanceM: number;
-  elapsedS: number;
+  distanceInMeters: number;
+  durationInSeconds: number;
   /** Weighted: total elapsed time / total distance. */
-  paceSPerKm: number | null;
-  avgHr: number | null;
-  avgRelativeEffort: number | null;
-  elevationGainM: number;
-  longestDistanceM: number | null;
+  paceInSecondsPerKilometer: number | null;
+  averageHeartRateInBeatsPerMinute: number | null;
+  averageTrainingLoad: number | null;
+  totalElevationGainInMeters: number;
+  longestDistanceInMeters: number | null;
 }
 
 /** KPI cards: count, distance, time, weighted pace, avg HR, avg effort, elevation, longest. */
 export function kpis(activities: readonly Activity[], options: AnalyticsOptions = {}): Kpis {
   const list = scope(activities, options);
-  let distanceM = 0;
-  let elapsedS = 0;
-  let elevationGainM = 0;
+  let distanceInMeters = 0;
+  let durationInSeconds = 0;
+  let totalElevationGainInMeters = 0;
   let paceDist = 0;
   let paceTime = 0;
   let longest: number | null = null;
   for (const a of list) {
-    distanceM += a.distanceM ?? 0;
-    elapsedS += a.elapsedTimeS;
-    elevationGainM += a.elevationGainM ?? 0;
-    if (a.distanceM !== null && a.distanceM > 0) {
-      paceDist += a.distanceM;
-      paceTime += a.elapsedTimeS;
-      longest = Math.max(longest ?? 0, a.distanceM);
+    distanceInMeters += a.distanceInMeters ?? 0;
+    durationInSeconds += a.durationInSeconds;
+    totalElevationGainInMeters += a.totalElevationGainInMeters ?? 0;
+    if (a.distanceInMeters !== null && a.distanceInMeters > 0) {
+      paceDist += a.distanceInMeters;
+      paceTime += a.durationInSeconds;
+      longest = Math.max(longest ?? 0, a.distanceInMeters);
     }
   }
   return {
     count: list.length,
-    distanceM,
-    elapsedS,
-    paceSPerKm: paceDist > 0 ? paceTime / (paceDist / 1000) : null,
-    avgHr: mean(list.flatMap((a) => (a.avgHr === null ? [] : [a.avgHr]))),
-    avgRelativeEffort: mean(
-      list.flatMap((a) => (a.relativeEffort === null ? [] : [a.relativeEffort])),
+    distanceInMeters,
+    durationInSeconds,
+    paceInSecondsPerKilometer: paceDist > 0 ? paceTime / (paceDist / 1000) : null,
+    averageHeartRateInBeatsPerMinute: mean(
+      list.flatMap((a) =>
+        a.averageHeartRateInBeatsPerMinute === null ? [] : [a.averageHeartRateInBeatsPerMinute],
+      ),
     ),
-    elevationGainM,
-    longestDistanceM: longest,
+    averageTrainingLoad: mean(
+      list.flatMap((a) => (a.trainingLoad === null ? [] : [a.trainingLoad])),
+    ),
+    totalElevationGainInMeters,
+    longestDistanceInMeters: longest,
   };
 }
 
 export interface MixEntry {
-  sportType: string;
+  activityType: string;
   count: number;
-  distanceM: number;
-  elapsedS: number;
+  distanceInMeters: number;
+  durationInSeconds: number;
   /** Share of the activity count, 0–1. */
   share: number;
 }
 
-/** Activity mix by sport type, most frequent first. Default filter: all activities. */
+/** Activity mix by activity type, most frequent first. Default filter: all activities. */
 export function activityMix(
   activities: readonly Activity[],
   options: AnalyticsOptions = {},
@@ -89,31 +93,31 @@ export function activityMix(
   const list = scope(activities, { ...options, filter: options.filter ?? PRESET_FILTERS.all });
   const map = new Map<string, MixEntry>();
   for (const a of list) {
-    const e = map.get(a.sportType) ?? {
-      sportType: a.sportType,
+    const e = map.get(a.activityType) ?? {
+      activityType: a.activityType,
       count: 0,
-      distanceM: 0,
-      elapsedS: 0,
+      distanceInMeters: 0,
+      durationInSeconds: 0,
       share: 0,
     };
     e.count += 1;
-    e.distanceM += a.distanceM ?? 0;
-    e.elapsedS += a.elapsedTimeS;
-    map.set(a.sportType, e);
+    e.distanceInMeters += a.distanceInMeters ?? 0;
+    e.durationInSeconds += a.durationInSeconds;
+    map.set(a.activityType, e);
   }
   const total = list.length;
   return [...map.values()]
     .map((e) => ({ ...e, share: total === 0 ? 0 : e.count / total }))
-    .sort((a, b) => b.count - a.count || a.sportType.localeCompare(b.sportType));
+    .sort((a, b) => b.count - a.count || a.activityType.localeCompare(b.activityType));
 }
 
 export interface ZoneEntry {
   /** Zone name, or `null` for activities without HR. */
   zone: string | null;
   count: number;
-  distanceM: number;
-  avgHr: number | null;
-  avgRelativeEffort: number | null;
+  distanceInMeters: number;
+  averageHeartRateInBeatsPerMinute: number | null;
+  averageTrainingLoad: number | null;
 }
 
 /** Intensity by HR zone (each activity classified with the profile valid on its date). */
@@ -125,8 +129,8 @@ export function zoneBreakdown(
   const groups = new Map<string | null, Activity[]>();
   const order: (string | null)[] = [];
   for (const a of scope(activities, options)) {
-    const p = profileForDate(profiles, a.localDate, options.zoneSourcePreference);
-    const zone = p ? (classifyHr(a.avgHr, p.zones)?.name ?? null) : null;
+    const p = profileForDate(profiles, a.calendarDate, options.zoneSourcePreference);
+    const zone = p ? (classifyHr(a.averageHeartRateInBeatsPerMinute, p.zones)?.name ?? null) : null;
     if (!groups.has(zone)) {
       groups.set(zone, []);
       order.push(zone);
@@ -146,10 +150,14 @@ export function zoneBreakdown(
       return {
         zone,
         count: list.length,
-        distanceM: list.reduce((s, a) => s + (a.distanceM ?? 0), 0),
-        avgHr: mean(list.flatMap((a) => (a.avgHr === null ? [] : [a.avgHr]))),
-        avgRelativeEffort: mean(
-          list.flatMap((a) => (a.relativeEffort === null ? [] : [a.relativeEffort])),
+        distanceInMeters: list.reduce((s, a) => s + (a.distanceInMeters ?? 0), 0),
+        averageHeartRateInBeatsPerMinute: mean(
+          list.flatMap((a) =>
+            a.averageHeartRateInBeatsPerMinute === null ? [] : [a.averageHeartRateInBeatsPerMinute],
+          ),
+        ),
+        averageTrainingLoad: mean(
+          list.flatMap((a) => (a.trainingLoad === null ? [] : [a.trainingLoad])),
         ),
       };
     });
@@ -158,7 +166,7 @@ export function zoneBreakdown(
 export interface WeekdayEntry {
   day: DayName;
   count: number;
-  distanceM: number;
+  distanceInMeters: number;
   /** Share of total distance, 0–1. */
   share: number;
 }
@@ -168,12 +176,12 @@ export function byWeekday(
   activities: readonly Activity[],
   options: AnalyticsOptions = {},
 ): WeekdayEntry[] {
-  const rows = DAY_NAMES.map((day) => ({ day, count: 0, distanceM: 0, share: 0 }));
+  const rows = DAY_NAMES.map((day) => ({ day, count: 0, distanceInMeters: 0, share: 0 }));
   for (const a of scope(activities, options)) {
-    const r = rows[weekdayIndex(a.localDate)] as WeekdayEntry;
+    const r = rows[weekdayIndex(a.calendarDate)] as WeekdayEntry;
     r.count += 1;
-    r.distanceM += a.distanceM ?? 0;
+    r.distanceInMeters += a.distanceInMeters ?? 0;
   }
-  const total = rows.reduce((s, r) => s + r.distanceM, 0);
-  return rows.map((r) => ({ ...r, share: total === 0 ? 0 : r.distanceM / total }));
+  const total = rows.reduce((s, r) => s + r.distanceInMeters, 0);
+  return rows.map((r) => ({ ...r, share: total === 0 ? 0 : r.distanceInMeters / total }));
 }

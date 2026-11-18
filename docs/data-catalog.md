@@ -7,20 +7,24 @@
 ## 1. Зошто каталог
 
 ActiveN не зависи од ниту еден вендор. Секоја метрика има **едно канонско име, единица и значење**.
-Адаптерот за секој вендор ги мапира неговите полиња на тој модел. Правила:
+Адаптерот за секој вендор ги мапира неговите полиња на тој модел. **Во почетната фаза канонскиот
+модел е Garmin** (ADR-0007): клучевите се `<Garmin summary type>.<Garmin име на поле>`
+(пр. `hrv.lastNightAvg`, `dailies.restingHeartRateInBeatsPerMinute`), единиците се Garmin
+(тежина во грамови, темпо во min/km, време во Unix секунди), а типовите активности се Garmin
+`activityType`. Речник на поими: [garmin-glossary.md](garmin-glossary.md). Правила:
 
-1. **Иста намена → едно канонско поле.** Пр. `recovery.hrv_rmssd_ms` = Garmin `HRV.lastNightAvg`
+1. **Иста намена → едно канонско поле.** Пр. `hrv.lastNightAvg` = Garmin `HRV.lastNightAvg`
    = Polar `NightlyRecharge.heart_rate_variability_avg` = COROS ноќен HRV просек.
 2. **Своја метрика на вендорот → ново поле со потекло од вендорот.** Body Battery (Garmin),
    Nightly Recharge / ANS charge / Running Index (Polar), EPOC / TSS (Suunto), Running Fitness /
    Stamina (COROS). Тие **не се споредуваат** меѓу вендори, бидејќи алгоритмите се различни.
-3. **Вендор-независни пресметки на ActiveN** (`origin: activen`): TRIMP, спремност (readiness),
-   акутно/хронично оптоварување, предикција на резултат. Тие ја даваат споредливоста кога корисникот
+3. **Пресметки на ActiveN по Garmin принцип** (`origin: activen`): Training Readiness, HRV Status,
+   Training Load Focus, acute load; TRIMP кога нема Garmin Training Load. Тие ја даваат споредливоста кога корисникот
    менува часовник или има повеќе извори.
-4. **Единиците се фиксни:** секунди, метри, m/s, bpm, kcal, kg, °C, % — конверзиите
-   (`g_to_kg`, `kmh_to_ms`, `min_per_km_to_s_per_km`, `iso_duration_to_s` …) се тестирани функции.
+4. **Единиците се фиксни (Garmin):** секунди, Unix секунди, метри, m/s, bpm, kcal, грамови, °C, % —
+   конверзиите (`kg_to_g`, `kmh_to_ms`, `iso_duration_to_s`, `iso_to_epoch_s` …) се тестирани функции.
 5. **Чувствителност:** локација и здравствени податоци се 🔒 (согласност); ЕКГ и крвен притисок се
-   посебна категорија и не се увезуваат во MVP.
+   посебна категорија и не се увезуваат во MVP. Женско здравје не е во опсегот засега.
 
 ## 2. Што нуди секој вендор
 
@@ -44,22 +48,23 @@ ActiveN не зависи од ниту еден вендор. Секоја ме
 1. **Утрински брифинг** (HRV, пулс во мирување, сон) е целосно изводлив за Garmin, Polar и COROS.
    За Suunto зависи од потврда на 24/7 податоците; до тогаш брифингот се базира на оптоварување и
    субјективна оценка.
-2. **Спремност (readiness)** се пресметува од ActiveN (HRV vs. личен baseline, пулс во мирување,
-   сон, оптоварување) — иста логика за секој вендор. Вендорските оценки (Body Battery, Nightly
-   Recharge, COROS recovery) се прикажуваат дополнително, со ознака на изворот.
+2. **Training Readiness** по Garmin принцип (sleep score, recovery time, HRV status, acute load,
+   историја на сон и стрес). Кај Garmin корисници се користат Garmin вредностите; за другите ActiveN
+   пресметува приближување. Вендорските оценки (Nightly Recharge, COROS recovery) се прикажуваат
+   дополнително, со ознака на изворот.
 3. **HR зони од вендор:** Polar ги дава границите во секој тренинг, Suunto аеробен/анаеробен праг,
    COROS прагови зони; Garmin преку FIT (за потврда). Рачниот внес останува секогаш можен.
 4. **Тренерот задава тренинг → на часовник:** Garmin, Suunto, COROS. Polar корисниците го гледаат
    планот во ActiveN (и во утринскиот потсетник).
 5. **Субјективна оценка:** Polar (RPE) и Suunto (feeling 1–5) веќе ја собираат; ActiveN има свој
    внес (RPE 1–10 + чувство + коментар) кој е примарен и се спојува со вендорските.
-6. **Оптоварување:** секој вендор има своја скала (Garmin Training Load, Polar Cardio Load, Suunto
-   TSS/EPOC, COROS Training Load). ActiveN користи **свој TRIMP** за acute/chronic и прикажува
-   вендорската вредност само како информација.
+6. **Оптоварување:** канонско е Garmin **Training Load** (acute load, load focus). Polar Cardio Load,
+   Suunto TSS/EPOC и COROS Training Load остануваат посебни полиња; кога нема Garmin вредност,
+   ActiveN пресметува TRIMP.
 7. **Историја:** Polar (30 дена) и Garmin (~1 месец) ограничуваат backfill → понудуваме увоз на
    архива (FIT/ZIP export од корисникот) при онбординг.
-8. **Водење на трчање:** сите четири разликуваат патно, трејл и тредмил → канонските типови `Run`,
-   `TrailRun`, `TreadmillRun`, `TrackRun`, `VirtualRun` и филтрите се поддржани за сите.
+8. **Водење на трчање:** сите четири разликуваат патно, трејл и тредмил → Garmin типовите `RUNNING`,
+   `TRAIL_RUNNING`, `TREADMILL_RUNNING`, `TRACK_RUNNING`, `VIRTUAL_RUN` и филтрите важат за сите.
 
 ## 4. Отворено (влегува во `open-questions.md`)
 

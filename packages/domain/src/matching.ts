@@ -1,4 +1,5 @@
-import { sportCategory, type SportCategory } from "./sport.js";
+import type { ActivityGroup } from "./activity-types.js";
+import { activityGroup } from "./sport.js";
 import type { Activity, PlanEntry, PlanLinkOverride } from "./types.js";
 
 export type PlanLinkReason =
@@ -31,25 +32,29 @@ export interface PlanLink {
 }
 
 /**
- * Which activities a plan entry may automatically attach to. The spec's rule is "Run"; when a plan
- * explicitly targets another sport (e.g. a planned Ride), activities of that sport category are used
- * instead so that multi-sport plans behave the same way.
+ * Which activities a plan entry may automatically attach to: running by default; when a plan
+ * explicitly targets another activity type (e.g. a planned CYCLING session), activities of that
+ * group are used instead so that multi-sport plans behave the same way.
  */
-function targetCategory(entry: PlanEntry): SportCategory {
-  return entry.plannedSportType ? sportCategory(entry.plannedSportType) : "run";
+function targetGroup(entry: PlanEntry): ActivityGroup {
+  return entry.plannedActivityType ? activityGroup(entry.plannedActivityType) : "running";
 }
 
 /** Longest distance first; ties resolved by earlier start, then id, so the result is deterministic. */
 function compareCandidates(a: Activity, b: Activity): number {
   return (
-    (b.distanceM ?? 0) - (a.distanceM ?? 0) ||
-    a.startTime.localeCompare(b.startTime) ||
+    (b.distanceInMeters ?? 0) - (a.distanceInMeters ?? 0) ||
+    a.startTimeInSeconds - b.startTimeInSeconds ||
     a.id.localeCompare(b.id)
   );
 }
 
 function compareEntries(a: PlanEntry, b: PlanEntry): number {
-  return a.date.localeCompare(b.date) || a.sequence - b.sequence || a.id.localeCompare(b.id);
+  return (
+    a.calendarDate.localeCompare(b.calendarDate) ||
+    a.sequence - b.sequence ||
+    a.id.localeCompare(b.id)
+  );
 }
 
 /**
@@ -59,7 +64,7 @@ function compareEntries(a: PlanEntry, b: PlanEntry): number {
  * 1. Candidates are activities on the same athlete-local date.
  * 2. Exactly one Run → linked.  3. Several Runs → the longest one.
  * 4. Non-Run activities are never auto-linked, so their own data is untouched.
- * 5. Manual overrides win (and may point to an activity on another date, e.g. a shifted workout).
+ * 5. Manual overrides win (and may point to an activity on another calendarDate, e.g. a shifted workout).
  *
  * Each activity receives at most one plan entry. When several sessions are planned on one date they
  * are processed by `sequence`, each taking the longest remaining candidate.
@@ -73,9 +78,9 @@ export function matchPlanToActivities(
   const liveById = new Map(live.map((a) => [a.id, a]));
   const byDate = new Map<string, Activity[]>();
   for (const a of live) {
-    const list = byDate.get(a.localDate);
+    const list = byDate.get(a.calendarDate);
     if (list) list.push(a);
-    else byDate.set(a.localDate, [a]);
+    else byDate.set(a.calendarDate, [a]);
   }
   const overrideByEntry = new Map(overrides.map((o) => [o.planEntryId, o]));
 
@@ -127,9 +132,9 @@ export function matchPlanToActivities(
         : "OVERRIDE_TARGET_MISSING"
       : null;
 
-    const category = targetCategory(entry);
-    const candidates = (byDate.get(entry.date) ?? [])
-      .filter((a) => !claimed.has(a.id) && sportCategory(a.sportType) === category)
+    const group = targetGroup(entry);
+    const candidates = (byDate.get(entry.calendarDate) ?? [])
+      .filter((a) => !claimed.has(a.id) && activityGroup(a.activityType) === group)
       .sort(compareCandidates);
     const chosen = candidates[0];
 
