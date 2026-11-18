@@ -153,7 +153,7 @@ erDiagram
 ## 7. Квалитет и испорака
 
 - **Тестирање**: unit тестови на domain (праг на покриеност 90% линии), интеграциски тестови на API со
-  вистински PostgreSQL (Testcontainers), contract тестови за секој вендор адаптер со снимени одговори,
+  вистински PostgreSQL (привремена база по извршување, ADR-0009), contract тестови за секој вендор адаптер со снимени одговори,
   E2E (Playwright) за главните текови.
 - **CI**: `pnpm verify` (format → lint → typecheck → test) на секој commit; deploy само ако е зелено.
 - **Опсервабилност**: структурирани логови, OpenTelemetry трагови, метрики за sync лаг и неуспешни настани.
@@ -163,10 +163,12 @@ erDiagram
 
 ```
 activen/
-├── apps/              # web (Next.js), api (NestJS), worker — следни инкременти
+├── apps/
+│   └── api/           # NestJS REST API: health, reference, OpenAPI (web и worker — следни инкременти)
 ├── packages/
 │   ├── domain/        # чисти бизнис правила (само кодови, без текст) + unit тестови
-│   └── i18n/          # јазици, ICU пораки mk/en, форматирање по јазик и единици
+│   ├── i18n/          # јазици, ICU пораки mk/en, форматирање по јазик и единици
+│   └── db/            # Drizzle шема, миграции, repository слој + интеграциски тестови (ADR-0009)
 └── docs/
     ├── architecture.md
     ├── roadmap.md

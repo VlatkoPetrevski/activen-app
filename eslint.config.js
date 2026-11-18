@@ -9,6 +9,13 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "no-console": "warn",
+      // `_`-prefixed names are deliberate discards (e.g. omitting keys via rest destructuring).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
+      ],
+      // NestJS modules are decorated classes that may only carry static factories.
+      "@typescript-eslint/no-extraneous-class": ["error", { allowWithDecorator: true }],
     },
   },
   {

@@ -16,7 +16,7 @@
 - **API:** NestJS (модули = граници на домени), OpenAPI спецификација.
 - **База:** PostgreSQL. ORM/миграции: Drizzle или Prisma — одлука во инкремент 1.
 - **Редици/worker-и:** Redis + BullMQ (sync, backfill, утрински брифинг).
-- **Тестови:** Vitest (unit), Testcontainers (интеграциски), Playwright (E2E).
+- **Тестови:** Vitest (unit), вистински PostgreSQL (интеграциски; заменето од ADR-0009), Playwright (E2E).
 
 ## Алтернативи
 
