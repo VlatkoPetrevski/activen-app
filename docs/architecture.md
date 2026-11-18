@@ -132,6 +132,11 @@ erDiagram
 3. **Деавторизација** кај вендор → ги бришеме неговите податоци (барање на Strava и GDPR).
 4. **Креирање workout-и кај вендор** (Garmin Training API, итн.) е опционален адаптер по вендор.
 
+### 5.1 Канонски модел на податоци
+
+Сите полиња, единици и мапирања по вендор се во [data-catalog.md](data-catalog.md) и
+[data-catalog-fields.md](data-catalog-fields.md) (ADR-0006).
+
 ## 6. Безбедност и приватност
 
 - OAuth токени на вендори: енкрипција на ниво на поле (envelope encryption, клуч во KMS/Secret Manager).

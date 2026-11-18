@@ -12,6 +12,12 @@ export default tseslint.config(
     },
   },
   {
+    // Node build scripts.
+    files: ["**/scripts/**/*.mjs"],
+    languageOptions: { globals: { URL: "readonly", console: "readonly" } },
+    rules: { "no-console": "off" },
+  },
+  {
     // Tests assert on known fixtures; `!` keeps them readable. Production code stays strict.
     files: ["**/test/**/*.ts", "**/*.test.ts"],
     rules: { "@typescript-eslint/no-non-null-assertion": "off" },

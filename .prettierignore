@@ -1,0 +1,3 @@
+pnpm-lock.yaml
+# Generated from packages/domain/src/catalog — regenerate with `pnpm --filter @activen/domain catalog:doc`
+docs/data-catalog-fields.md

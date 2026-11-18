@@ -15,6 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "catalog:doc": "tsc -p tsconfig.build.json && node scripts/gen-catalog-doc.mjs"
   }
 }

@@ -9,6 +9,8 @@ export type SportCategory = "run" | "ride" | "swim" | "walk_hike" | "strength" |
 const CATEGORY_BY_SPORT: Readonly<Record<string, SportCategory>> = {
   run: "run",
   trailrun: "run",
+  treadmillrun: "run",
+  trackrun: "run",
   virtualrun: "run",
   ride: "ride",
   mountainbikeride: "ride",
@@ -18,6 +20,7 @@ const CATEGORY_BY_SPORT: Readonly<Record<string, SportCategory>> = {
   virtualride: "ride",
   velomobile: "ride",
   swim: "swim",
+  openwaterswim: "swim",
   walk: "walk_hike",
   hike: "walk_hike",
   weighttraining: "strength",
@@ -25,6 +28,7 @@ const CATEGORY_BY_SPORT: Readonly<Record<string, SportCategory>> = {
   workout: "strength",
   highintensityintervaltraining: "strength",
   rowing: "row",
+  indoorrowing: "row",
   virtualrow: "row",
 };
 
@@ -37,7 +41,7 @@ export function sportCategory(sportType: string): SportCategory {
   return CATEGORY_BY_SPORT[sportKey(sportType)] ?? "other";
 }
 
-/** "Run" in the sense of the plan-matching and summary rules: road, trail and treadmill runs. */
+/** "Run" in the sense of the plan-matching and summary rules: road, trail, track, treadmill, virtual. */
 export function isRun(sportType: string): boolean {
   return sportCategory(sportType) === "run";
 }
@@ -76,6 +80,9 @@ export const PRESET_FILTERS = {
   all: {},
   running: { categories: ["run"] },
   roadRunning: { sportTypes: ["Run"] },
-  runningWithoutTreadmill: { categories: ["run"], excludeSportTypes: ["VirtualRun"] },
+  runningWithoutTreadmill: {
+    categories: ["run"],
+    excludeSportTypes: ["TreadmillRun", "VirtualRun"],
+  },
   runningWithoutTrail: { categories: ["run"], excludeSportTypes: ["TrailRun"] },
 } as const satisfies Record<string, ActivityFilter>;

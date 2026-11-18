@@ -9,3 +9,4 @@ export * from "./report.js";
 export * from "./source-policy.js";
 export * from "./merge.js";
 export * from "./analytics.js";
+export * as catalog from "./catalog/index.js";
