@@ -4,6 +4,7 @@ export * from "./dates.js";
 export * from "./format.js";
 export * from "./sport.js";
 export * from "./hr-zones.js";
+export * from "./athlete-settings.js";
 export * from "./garmin-metrics.js";
 export * from "./matching.js";
 export * from "./summaries.js";
