@@ -59,8 +59,26 @@ describe("athlete app (demo)", () => {
 
     // Activities → check-in.
     await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
-    const links = await screen.findAllByRole("link", { name: /km/ });
-    await user.click(links[0]!);
+    // Filters: running → trail shows none in the demo; back to all runs.
+    await user.click(await screen.findByRole("button", { name: "Трчање" }));
+    await user.click(screen.getByRole("button", { name: "Трејл" }));
+    expect(await screen.findByText("Нема активности во овој период.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сите трчања" }));
+    await user.click(screen.getByRole("button", { name: /^Филтри/ }));
+    const filters = await screen.findByRole("dialog", { name: "Филтри" });
+    await user.click(within(filters).getByRole("button", { name: "10–21 km" }));
+    await user.click(within(filters).getByRole("button", { name: /^Прикажи/ }));
+    expect(screen.getByRole("button", { name: /^Филтри/ })).toHaveTextContent("1");
+    // A row expands in place with the route map; the same tap closes it.
+    const rows = await screen.findAllByRole("button", { name: /km/ });
+    const row = rows.find((r) => r.getAttribute("aria-expanded") !== null)!;
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByRole("img", { name: "Рута" })).toBeInTheDocument();
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    await user.click(row);
+    await user.click(await screen.findByRole("link", { name: /Детали/ }));
     expect(await screen.findByRole("heading", { name: "Како помина?" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Анализа" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Рута" })).toBeInTheDocument();
