@@ -4,6 +4,7 @@
  */
 import { ACTIVITY_TYPES, VENDORS, isLocalDate } from "@activen/domain";
 import { z } from "zod";
+import { CONSENT_SCOPES } from "./constants.js";
 
 const LOCALES = ["mk", "en"] as const;
 
@@ -130,7 +131,6 @@ export const ProgressQuery = z.object({
 
 // --- Coaching ------------------------------------------------------------------------------------
 
-export const CONSENT_SCOPES = ["activities", "sleep_recovery", "location", "comments"] as const;
 export const ConsentScopes = z.array(z.enum(CONSENT_SCOPES)).max(CONSENT_SCOPES.length);
 
 export const CoachInvite = z.object({ email: z.string().min(3).max(254) });

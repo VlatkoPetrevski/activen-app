@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { buildDemoTraining } from "../src/index.js";
 import {
-  buildDemoTraining,
   DateRange,
   FeedbackPut,
   PlanEntryCreate,
   PlanEntryUpdate,
   SettingsPatch,
-} from "../src/index.js";
+} from "../src/requests.js";
 
 describe("request schemas", () => {
   it("validates date ranges", () => {
@@ -83,5 +83,21 @@ describe("demo training", () => {
       expect(a.durationInSeconds).toBeGreaterThan(0);
       if (a.activityType === "RUNNING") expect(a.distanceInMeters).toBeGreaterThan(5000);
     }
+  });
+});
+
+describe("demo variations", () => {
+  it("shifts the week pattern and can omit the heavy day", () => {
+    const base = buildDemoTraining({ today: "2026-11-19", weeksBack: 1, weeksAhead: 0 });
+    const shifted = buildDemoTraining({
+      today: "2026-11-19",
+      weeksBack: 1,
+      weeksAhead: 0,
+      weekShift: 1,
+      heavyDay: false,
+    });
+    expect(base.planEntries[0]!.kind).toBe("rest");
+    expect(shifted.planEntries[1]!.kind).toBe("rest");
+    expect(shifted.feedback.some((f) => f.perceivedEffort === 9 && f.comment)).toBe(false);
   });
 });

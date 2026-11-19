@@ -1,6 +1,7 @@
 import type { LocalDate, UnitSystem } from "@activen/domain";
 import type { Locale } from "./locales.js";
 import type { Translator } from "./translate.js";
+import { formatMkDate, intlSupports, mkList, NUMBER_FALLBACK } from "./fallback.js";
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.280839895;
@@ -50,18 +51,27 @@ export interface Formatter {
 }
 
 /** Locale- and unit-aware formatting of training data. Storage stays metric (Garmin units). */
+export interface FormatterOptions {
+  /** Override detection of Intl locale data (tests). */
+  intlSupported?: boolean;
+}
+
 export function createFormatter(
   translator: Translator,
   unitSystem: UnitSystem = "metric",
+  options: FormatterOptions = {},
 ): Formatter {
   const locale = translator.locale;
+  const native = options.intlSupported ?? intlSupports(locale);
+  const numberLocale = native ? locale : (NUMBER_FALLBACK[locale] ?? locale);
+  const mkFallback = !native && locale === "mk";
   const num = (value: number, max = 2, min = 0) =>
-    new Intl.NumberFormat(locale, {
+    new Intl.NumberFormat(numberLocale, {
       maximumFractionDigits: max,
       minimumFractionDigits: min,
     }).format(value);
   const unit = (value: number, u: string, max: number) =>
-    new Intl.NumberFormat(locale, {
+    new Intl.NumberFormat(numberLocale, {
       style: "unit",
       unit: u,
       unitDisplay: "short",
@@ -95,16 +105,20 @@ export function createFormatter(
     },
     heartRate: (bpm) => translator.t("unit.bpm", { value: num(bpm, 0) }),
     percent: (value) =>
-      new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(
+      new Intl.NumberFormat(numberLocale, { style: "percent", maximumFractionDigits: 0 }).format(
         value / 100,
       ),
     date(calendarDate, style = "long") {
       const instant = new Date(`${calendarDate}T00:00:00Z`);
       if (Number.isNaN(instant.getTime())) throw new RangeError(`Invalid date: "${calendarDate}"`);
+      if (mkFallback) return formatMkDate(instant, style);
       return new Intl.DateTimeFormat(locale, { ...DATE_OPTIONS[style], timeZone: "UTC" }).format(
         instant,
       );
     },
-    list: (items) => new Intl.ListFormat(locale, { type: "conjunction" }).format(items),
+    list: (items) =>
+      mkFallback
+        ? mkList(items)
+        : new Intl.ListFormat(locale, { type: "conjunction" }).format(items),
   };
 }

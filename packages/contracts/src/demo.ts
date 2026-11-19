@@ -69,6 +69,12 @@ export interface DemoOptions {
   weeksAhead?: number;
   locale?: DemoLocale;
   seed?: number;
+  /** Share of planned sessions that are skipped (0–1). */
+  skipRate?: number;
+  /** Adds the heavy-legs check-in on the last easy day (a coach signal). Default true. */
+  heavyDay?: boolean;
+  /** Rotates the weekly pattern by this many days (athletes train on different days). */
+  weekShift?: number;
 }
 
 /** Small deterministic PRNG (mulberry32). */
@@ -161,7 +167,26 @@ function epochSeconds(date: LocalDate, hour: number): number {
 }
 
 export function buildDemoTraining(options: DemoOptions): DemoTraining {
-  const { today, weeksBack = 8, weeksAhead = 2, locale = "mk", seed = 7 } = options;
+  const {
+    today,
+    weeksBack = 8,
+    weeksAhead = 2,
+    locale = "mk",
+    seed = 7,
+    skipRate = 0.12,
+    heavyDay = true,
+    weekShift = 0,
+  } = options;
+  const shift = ((weekShift % 7) + 7) % 7;
+  const sessionOn = (date: LocalDate): Session =>
+    WEEK[(weekdayIndex(date) + 7 - shift) % 7] ?? "rest";
+  // The most recent easy day before today gets a heavy-legs check-in: a coach signal.
+  let heavyDate: LocalDate | null = null;
+  if (heavyDay) {
+    let d = addDays(today, -1);
+    for (let i = 0; i < 7 && !heavyDate; i++, d = addDays(d, -1))
+      if (sessionOn(d) === "easy") heavyDate = d;
+  }
   const t = TEXT[locale];
   const r = rng(seed);
   const firstMonday = addDays(weekStart(today), -7 * weeksBack);
@@ -176,7 +201,7 @@ export function buildDemoTraining(options: DemoOptions): DemoTraining {
   for (let i = 0; i < days; i++) {
     const date = addDays(firstMonday, i);
     const week = Math.floor(i / 7);
-    let session: Session = WEEK[weekdayIndex(date)] ?? "rest";
+    let session: Session = sessionOn(date);
     if (session === "recovery" && week % 2 === 1) session = "bike";
     const longKm = LONG_RUN_KM[week % LONG_RUN_KM.length] ?? 20;
     const quality = t.quality[week % t.quality.length] ?? t.quality[0];
@@ -254,7 +279,8 @@ export function buildDemoTraining(options: DemoOptions): DemoTraining {
     })();
     planEntries.push({ key: `plan-${date}`, calendarDate: date, sequence: 0, ...plan });
 
-    if (date < today && session !== "rest" && r.next() > 0.12) {
+    const skipped = r.next() < skipRate && date !== heavyDate;
+    if (date < today && session !== "rest" && !skipped) {
       const p = PROFILE[session];
       const externalId = `demo-${date}`;
       const hr = Math.round(p.hr + r.between(-4, 4));
@@ -299,7 +325,7 @@ export function buildDemoTraining(options: DemoOptions): DemoTraining {
         isRace: false,
       });
 
-      if (r.next() < 0.75) {
+      if (r.next() < 0.75 || date === heavyDate) {
         const base: Record<Exclude<Session, "rest">, [number, number]> = {
           quality: [7, 8],
           easy: [3, 4],
@@ -309,8 +335,7 @@ export function buildDemoTraining(options: DemoOptions): DemoTraining {
           bike: [3, 4],
         };
         const [lo, hi] = base[session];
-        // One heavy-legs easy day in the second-to-last completed week: a coach signal.
-        const heavy = session === "easy" && week === weeksBack - 1;
+        const heavy = date === heavyDate;
         const rpe = heavy ? 9 : r.int(lo, hi);
         const comment = heavy
           ? t.heavyLegs

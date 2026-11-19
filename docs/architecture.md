@@ -1,6 +1,6 @@
 # ActiveN — Архитектура
 
-> Статус: v0.3 (инкремент 2). Документот се ажурира со секој инкремент.
+> Статус: v0.4 (инкремент 3). Документот се ажурира со секој инкремент.
 > Технички термини, код и коментари во кодот се на англиски; документацијата е на македонски.
 
 ## 1. Цел
@@ -41,7 +41,7 @@ ActiveN е **сосема нова платформа, осмислена од �
 ```mermaid
 flowchart LR
   subgraph Clients
-    WEB[Web PWA<br/>Next.js]
+    WEB[Web PWA<br/>Vite + React]
     MOB[Mobile<br/>подоцна, Expo]
   end
   subgraph Platform[ActiveN API — модуларен монолит, NestJS]
@@ -167,9 +167,11 @@ erDiagram
 ```
 activen/
 ├── apps/
-│   └── api/           # NestJS REST API: auth, профил/поставки, health, reference, OpenAPI (web и worker — следни)
+│   ├── api/           # NestJS REST API: auth, профил, календар/план/активности/check-in, напредок, тренер, OpenAPI
+│   └── web/           # Vite + React PWA: спортист и тренер; HTTP и демо режим (ADR-0011)
 ├── packages/
 │   ├── domain/        # чисти бизнис правила (само кодови, без текст) + unit тестови
+│   ├── contracts/     # заеднички договор API ↔ клиенти: DTO, view builders, демо податоци; zod шеми (/requests)
 │   ├── i18n/          # јазици, ICU пораки mk/en, форматирање по јазик и единици
 │   └── db/            # Drizzle шема, миграции, repository слој + интеграциски тестови (ADR-0009)
 └── docs/

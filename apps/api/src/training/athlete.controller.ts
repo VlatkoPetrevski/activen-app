@@ -7,8 +7,8 @@ import {
   PlanEntryUpdate,
   ProgressQuery,
   UpdateConsent,
-  type CoachLinkDto,
-} from "@activen/contracts";
+} from "@activen/contracts/requests";
+import { type CoachLinkDto } from "@activen/contracts";
 import { NotFoundError, type ConsentScope, type Repositories } from "@activen/db";
 import {
   Controller,

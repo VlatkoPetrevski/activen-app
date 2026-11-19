@@ -12,4 +12,4 @@ export * from "./report.js";
 export * from "./analytics.js";
 export * from "./source-policy.js";
 export * from "./merge.js";
-export * as catalog from "./catalog/index.js";
+// The vendor data catalog is a separate entry point: `@activen/domain/catalog` (server-side use).

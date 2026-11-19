@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -19,6 +20,15 @@ export default tseslint.config(
     },
   },
   {
+    // React: hooks rules for the web app.
+    files: ["apps/web/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+    },
+  },
+  {
     // Node build scripts.
     files: ["**/scripts/**/*.mjs"],
     languageOptions: { globals: { URL: "readonly", console: "readonly" } },
@@ -26,7 +36,7 @@ export default tseslint.config(
   },
   {
     // Tests assert on known fixtures; `!` keeps them readable. Production code stays strict.
-    files: ["**/test/**/*.ts", "**/*.test.ts"],
+    files: ["**/test/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
     rules: { "@typescript-eslint/no-non-null-assertion": "off" },
   },
 );

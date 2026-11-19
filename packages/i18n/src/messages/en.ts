@@ -1,3 +1,4 @@
+import { uiEn } from "./ui-en.js";
 /**
  * English messages — the source catalog: it defines the set of keys. Garmin terms keep Garmin's
  * English wording. ICU MessageFormat syntax (plural, select, {placeholders}).
@@ -120,23 +121,14 @@ export const en = {
   "unit.bpm": "{value} bpm",
   "unit.pacePerKm": "{pace} /km",
   "unit.pacePerMile": "{pace} /mi",
-  "today.greeting.morning": "Good morning, {name}",
   "today.greeting.afternoon": "Good afternoon, {name}",
-  "today.greeting.evening": "Good evening, {name}",
   "today.workoutOnWatch": "On your watch",
-  "today.coachNote": "{coachName}, your coach",
   "today.week.completed": "This week · {done} of {planned} done",
-  "checkin.title": "How did it go?",
   "checkin.rpe.question": "How hard was it?",
   "checkin.rpe.scale": "(1 easy — 10 maximal)",
   "checkin.rpe.value":
     "{value, select, 1 {Very easy} 2 {Easy} 3 {Easy} 4 {Moderate} 5 {Moderate} 6 {Hard} 7 {Hard} 8 {Very hard} 9 {Near maximal} other {Maximal}}",
   "checkin.feel.question": "How did you feel?",
-  "checkin.feel.1": "Very weak",
-  "checkin.feel.2": "Weak",
-  "checkin.feel.3": "Normal",
-  "checkin.feel.4": "Strong",
-  "checkin.feel.5": "Very strong",
   "checkin.comment.label": "Comment for your coach",
   "checkin.comment.optional": "(optional)",
   "checkin.send": "Send to {coachName}",
@@ -151,16 +143,7 @@ export const en = {
   "coach.suggestEasy": "Suggest an easy run",
   "coach.keepPlan": "Keep the plan",
   "privacy.stravaOnly": "Strava · visible to the athlete only",
-  "nav.today": "Today",
-  "nav.plan": "Plan",
-  "nav.activities": "Activities",
-  "nav.progress": "Progress",
-  "nav.coach": "Coach",
-  "nav.athletes": "Athletes",
-  "nav.planner": "Planner",
   "nav.library": "Library",
-  "nav.messages": "Messages",
-  "nav.profile": "Profile",
   "settings.language": "Language",
   "settings.units": "Units",
   "settings.units.metric": "Metric (km, kg)",
@@ -179,6 +162,7 @@ export const en = {
     "Hi,\n\nUse this link to add this email as a sign-in method to your ActiveN account. It works once and expires in {minutes} minutes:\n\n{url}\n\nIf you did not ask for it, ignore this email.",
   "disclaimer.nutrition":
     "Recommendations are informational only and not medical advice. You are responsible for your choices.",
+  ...uiEn,
 } as const;
 
 export type MessageKey = keyof typeof en;

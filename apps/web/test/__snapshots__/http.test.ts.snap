@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HttpApi > builds the coach and training URLs 1`] = `
+[
+  "GET /v1/me/calendar?from=2026-11-16&to=2026-11-22",
+  "POST /v1/me/plan",
+  "PATCH /v1/me/plan/p",
+  "GET /v1/me/activities?from=2026-11-01&to=2026-11-19",
+  "GET /v1/me/activities/a",
+  "PUT /v1/me/activities/a/feedback",
+  "GET /v1/me/progress?weeks=12",
+  "POST /v1/me/coaches/l/accept",
+  "PUT /v1/me/coaches/l/scopes",
+  "DELETE /v1/me/coaches/l",
+  "POST /v1/me/comments",
+  "GET /v1/coach/athletes",
+  "POST /v1/coach/invites",
+  "GET /v1/coach/athletes/x/calendar?from=2026-11-16&to=2026-11-22",
+  "GET /v1/coach/athletes/x/progress?weeks=8",
+  "POST /v1/coach/athletes/x/plan",
+  "PATCH /v1/coach/athletes/x/plan/p",
+  "DELETE /v1/coach/athletes/x/plan/p",
+  "GET /v1/coach/athletes/x/comments",
+  "POST /v1/coach/athletes/x/comments",
+  "DELETE /v1/coach/athletes/x",
+  "PATCH /v1/me",
+  "PATCH /v1/me/settings",
+  "PUT /v1/me/roles/coach",
+  "DELETE /v1/me/roles/coach",
+  "GET /v1/me/sessions",
+  "DELETE /v1/me/sessions/s",
+  "POST /v1/me/sessions/revoke-others",
+  "DELETE /v1/me/identities/i",
+  "POST /v1/me/identities/email/start",
+]
+`;

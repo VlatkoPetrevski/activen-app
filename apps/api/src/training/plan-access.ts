@@ -1,4 +1,4 @@
-import type { PlanEntryCreate, PlanEntryUpdate } from "@activen/contracts";
+import type { PlanEntryCreate, PlanEntryUpdate } from "@activen/contracts/requests";
 import { NotFoundError, type PlanEntryPatch, type Repositories } from "@activen/db";
 import type { z } from "zod";
 

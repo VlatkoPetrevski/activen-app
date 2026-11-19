@@ -5,8 +5,8 @@ import {
   PlanEntryCreate,
   PlanEntryUpdate,
   ProgressQuery,
-  type CoachAthleteDto,
-} from "@activen/contracts";
+} from "@activen/contracts/requests";
+import { type CoachAthleteDto } from "@activen/contracts";
 import { NotFoundError, type ConsentScope, type Repositories } from "@activen/db";
 import {
   Controller,

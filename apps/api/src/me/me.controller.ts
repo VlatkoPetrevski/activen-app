@@ -8,7 +8,7 @@ import {
   ProfilePatch,
   SelfServiceRole as RoleParam,
   SettingsPatch,
-} from "@activen/contracts";
+} from "@activen/contracts/requests";
 import {
   Controller,
   Delete,

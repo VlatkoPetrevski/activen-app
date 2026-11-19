@@ -1,4 +1,5 @@
 import type { MessageKey } from "./en.js";
+import { uiMk } from "./ui-mk.js";
 
 /**
  * Macedonian messages. Must define every key of the English catalog (enforced by the type below
@@ -122,23 +123,14 @@ export const mk: Readonly<Record<MessageKey, string>> = {
   "unit.bpm": "{value} уд/мин",
   "unit.pacePerKm": "{pace} /km",
   "unit.pacePerMile": "{pace} /mi",
-  "today.greeting.morning": "Добро утро, {name}",
   "today.greeting.afternoon": "Добар ден, {name}",
-  "today.greeting.evening": "Добра вечер, {name}",
   "today.workoutOnWatch": "На часовникот",
-  "today.coachNote": "{coachName}, твојот тренер",
   "today.week.completed": "Оваа недела · {done} од {planned} завршени",
-  "checkin.title": "Како помина?",
   "checkin.rpe.question": "Колку тешко беше?",
   "checkin.rpe.scale": "(1 лесно — 10 максимално)",
   "checkin.rpe.value":
     "{value, select, 1 {Многу лесно} 2 {Лесно} 3 {Лесно} 4 {Умерено} 5 {Умерено} 6 {Напорно} 7 {Напорно} 8 {Многу напорно} 9 {Скоро максимално} other {Максимално}}",
   "checkin.feel.question": "Како се чувствуваше?",
-  "checkin.feel.1": "Многу слабо",
-  "checkin.feel.2": "Слабо",
-  "checkin.feel.3": "Нормално",
-  "checkin.feel.4": "Силно",
-  "checkin.feel.5": "Многу силно",
   "checkin.comment.label": "Коментар за тренерот",
   "checkin.comment.optional": "(незадолжително)",
   "checkin.send": "Испрати до {coachName}",
@@ -153,16 +145,7 @@ export const mk: Readonly<Record<MessageKey, string>> = {
   "coach.suggestEasy": "Предложи лесно трчање",
   "coach.keepPlan": "Остави по план",
   "privacy.stravaOnly": "Strava · видливо само за спортистот",
-  "nav.today": "Денес",
-  "nav.plan": "План",
-  "nav.activities": "Активности",
-  "nav.progress": "Напредок",
-  "nav.coach": "Тренер",
-  "nav.athletes": "Спортисти",
-  "nav.planner": "Планер",
   "nav.library": "Библиотека",
-  "nav.messages": "Пораки",
-  "nav.profile": "Профил",
   "settings.language": "Јазик",
   "settings.units": "Единици",
   "settings.units.metric": "Метрички (km, kg)",
@@ -181,4 +164,5 @@ export const mk: Readonly<Record<MessageKey, string>> = {
     "Здраво,\n\nПреку овој линк ја додаваш оваа е-пошта како начин за најава на твојата ActiveN сметка. Важи еднаш и истекува за {minutes} минути:\n\n{url}\n\nАко не си го побарал/а ова, игнорирај ја пораката.",
   "disclaimer.nutrition":
     "Препораките се само информативни и не се медицински совет. Одговорноста за изборот е твоја.",
+  ...uiMk,
 };

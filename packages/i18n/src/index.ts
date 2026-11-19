@@ -1,6 +1,7 @@
 export * from "./locales.js";
 export * from "./translate.js";
 export * from "./format.js";
+export { intlSupports } from "./fallback.js";
 export * from "./validate.js";
 export * from "./pseudo.js";
 export * from "./labels.js";

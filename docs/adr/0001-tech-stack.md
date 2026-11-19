@@ -12,7 +12,7 @@
 
 - **Јазик:** TypeScript насекаде (strict), Node.js 22+.
 - **Monorepo:** pnpm workspaces.
-- **Web:** Next.js (App Router), PWA. **Мобилна (подоцна):** Expo / React Native врз истиот API.
+- **Web:** ~~Next.js~~ → Vite + React SPA (PWA), види ADR-0011. **Мобилна (подоцна):** Expo / React Native врз истиот API.
 - **API:** NestJS (модули = граници на домени), OpenAPI спецификација.
 - **База:** PostgreSQL. ORM/миграции: Drizzle или Prisma — одлука во инкремент 1.
 - **Редици/worker-и:** Redis + BullMQ (sync, backfill, утрински брифинг).

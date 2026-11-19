@@ -20,7 +20,7 @@ import {
   IdTokenSignIn,
   LogoutBody,
   RefreshBody,
-} from "@activen/contracts";
+} from "@activen/contracts/requests";
 import type { AppConfig } from "../config.js";
 import { APP_CONFIG, TOKEN_SERVICE } from "../tokens.js";
 import { ApiZodBody, ValidBody } from "../validation.js";
