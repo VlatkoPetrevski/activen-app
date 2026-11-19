@@ -1,0 +1,25 @@
+{
+  "name": "@activen/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API contract shared by server and clients: request schemas (zod), response types, demo data",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@activen/domain": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import { activityFeedback, sourceActivities } from "../schema.js";
@@ -20,8 +20,30 @@ export interface Feedback extends FeedbackInput {
 
 const MAX_COMMENT = 2000;
 
+type Row = typeof activityFeedback.$inferSelect;
+
+const toFeedback = (row: Row): Feedback => ({
+  activityId: row.activityId,
+  athleteId: row.athleteId,
+  perceivedEffort: row.perceivedEffort,
+  feel: row.feel,
+  comment: row.comment,
+  language: row.language,
+  updatedAt: row.updatedAt,
+});
+
 export class FeedbackRepository {
   constructor(private readonly db: Db) {}
+
+  /** Check-ins of the given activities, keyed by activity id. */
+  async forActivities(activityIds: readonly string[]): Promise<Map<string, Feedback>> {
+    if (activityIds.length === 0) return new Map();
+    const rows = await this.db
+      .select()
+      .from(activityFeedback)
+      .where(inArray(activityFeedback.activityId, [...activityIds]));
+    return new Map(rows.map((r) => [r.activityId, toFeedback(r)]));
+  }
 
   /** The athlete's check-in for one of their own activities; saving again replaces it. */
   async upsert(athleteId: string, activityId: string, input: FeedbackInput): Promise<Feedback> {
@@ -57,14 +79,6 @@ export class FeedbackRepository {
       })
       .returning();
     if (!row) throw new Error("upsert activity_feedback returned no row");
-    return {
-      activityId: row.activityId,
-      athleteId: row.athleteId,
-      perceivedEffort: row.perceivedEffort,
-      feel: row.feel,
-      comment: row.comment,
-      language: row.language,
-      updatedAt: row.updatedAt,
-    };
+    return toFeedback(row);
   }
 }

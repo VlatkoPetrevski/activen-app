@@ -1,6 +1,7 @@
 import { isActivityType, type Activity, type LocalDate, type Vendor } from "@activen/domain";
 import { and, asc, between, eq, getTableColumns, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
+import { NotFoundError } from "../errors.js";
 import { sourceActivities } from "../schema.js";
 
 type Row = typeof sourceActivities.$inferSelect;
@@ -90,5 +91,15 @@ export class ActivitiesRepository {
       )
       .orderBy(asc(sourceActivities.startTimeInSeconds));
     return rows.map(toActivity);
+  }
+
+  /** One of the user's own activities (deleted ones included, flagged). */
+  async get(userId: string, id: string): Promise<Activity> {
+    const [row] = await this.db
+      .select()
+      .from(sourceActivities)
+      .where(and(eq(sourceActivities.id, id), eq(sourceActivities.userId, userId)));
+    if (!row) throw new NotFoundError("activity", id);
+    return toActivity(row);
   }
 }

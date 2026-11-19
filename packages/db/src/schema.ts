@@ -450,6 +450,30 @@ export const contentTranslations = pgTable(
   (t) => [primaryKey({ columns: [t.entityType, t.entityId, t.field, t.locale] })],
 );
 
+/**
+ * Conversation between an athlete and their coach: recommendations, replies, questions. Optionally
+ * about one activity or plan entry. Both sides read the athlete's thread.
+ */
+export const comments = pgTable(
+  "comments",
+  {
+    id: id(),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    activityId: uuid("activity_id").references(() => sourceActivities.id, { onDelete: "set null" }),
+    planEntryId: uuid("plan_entry_id").references(() => planEntries.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    language: text("language"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("comments_athlete_idx").on(t.athleteId, t.createdAt),
+    check("comments_body_ck", sql`length(${t.body}) between 1 and 4000`),
+  ],
+);
+
 /** Who looked at whose data (coach access to athlete data, admin support). */
 export const auditLog = pgTable(
   "audit_log",

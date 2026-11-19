@@ -1,0 +1,78 @@
+import { and, desc, eq, lt, sql } from "drizzle-orm";
+import type { Db } from "../client.js";
+import { ValidationError } from "../errors.js";
+import { comments } from "../schema.js";
+
+export interface Comment {
+  id: string;
+  athleteId: string;
+  authorId: string | null;
+  activityId: string | null;
+  planEntryId: string | null;
+  body: string;
+  language: string | null;
+  createdAt: Date;
+}
+
+export interface CommentInput {
+  body: string;
+  activityId?: string | null;
+  planEntryId?: string | null;
+  language?: string | null;
+}
+
+const MAX_BODY = 4000;
+
+/** The athlete ↔ coach thread. Authorization (who may read/write) is checked by the caller. */
+export class CommentsRepository {
+  constructor(private readonly db: Db) {}
+
+  async add(athleteId: string, authorId: string, input: CommentInput): Promise<Comment> {
+    const body = input.body.trim();
+    if (!body || body.length > MAX_BODY)
+      throw new ValidationError(`Comment must be 1–${MAX_BODY} characters`);
+    const [row] = await this.db
+      .insert(comments)
+      .values({
+        athleteId,
+        authorId,
+        body,
+        activityId: input.activityId ?? null,
+        planEntryId: input.planEntryId ?? null,
+        language: input.language ?? null,
+      })
+      .returning();
+    if (!row) throw new Error("insert comments returned no row");
+    return row;
+  }
+
+  /** Newest first; `before` pages backwards. */
+  async list(
+    athleteId: string,
+    options: { activityId?: string; before?: Date; limit?: number } = {},
+  ): Promise<Comment[]> {
+    return this.db
+      .select()
+      .from(comments)
+      .where(
+        and(
+          eq(comments.athleteId, athleteId),
+          options.activityId ? eq(comments.activityId, options.activityId) : undefined,
+          options.before ? lt(comments.createdAt, options.before) : undefined,
+        ),
+      )
+      .orderBy(desc(comments.createdAt), desc(comments.id))
+      .limit(Math.min(options.limit ?? 50, 200));
+  }
+
+  /** Latest comment per athlete, for inbox-style lists. */
+  async latestFor(athleteIds: readonly string[]): Promise<Map<string, Comment>> {
+    if (athleteIds.length === 0) return new Map();
+    const rows = await this.db
+      .selectDistinctOn([comments.athleteId])
+      .from(comments)
+      .where(sql`${comments.athleteId} in ${athleteIds}`)
+      .orderBy(comments.athleteId, desc(comments.createdAt));
+    return new Map(rows.map((r) => [r.athleteId, r]));
+  }
+}

@@ -13,7 +13,14 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
-import { z } from "zod";
+import type { z } from "zod";
+import {
+  EmailStart,
+  EmailVerify,
+  IdTokenSignIn,
+  LogoutBody,
+  RefreshBody,
+} from "@activen/contracts";
 import type { AppConfig } from "../config.js";
 import { APP_CONFIG, TOKEN_SERVICE } from "../tokens.js";
 import { ApiZodBody, ValidBody } from "../validation.js";
@@ -27,28 +34,6 @@ const REFRESH_COOKIE_PATH = "/v1/auth";
 /** Cookie-based refresh needs this header: a cross-site form cannot set it (CSRF defence). */
 export const CSRF_HEADER = "x-requested-with";
 export const CSRF_VALUE = "activen";
-
-/**
- * `web`: the refresh token lives only in an HttpOnly cookie (not readable by scripts).
- * `native`: the app stores it in the OS keychain, so it is returned in the body.
- */
-const client = z.enum(["web", "native"]).default("web");
-
-export const IdTokenSignIn = z.object({
-  idToken: z.string().min(20).max(8192),
-  /** Random value the client generated for this sign-in and passed to Google/Apple. */
-  nonce: z.string().min(16).max(256),
-  /** Apple gives the name to the client only on the first sign-in. */
-  displayName: z.string().max(100).optional(),
-  client,
-});
-export const EmailStart = z.object({
-  email: z.string().min(3).max(254),
-  locale: z.string().max(35).optional(),
-});
-export const EmailVerify = z.object({ token: z.string().min(20).max(128), client });
-const RefreshBody = z.object({ refreshToken: z.string().min(20).max(128).optional(), client });
-const LogoutBody = z.object({ refreshToken: z.string().min(20).max(128).optional() });
 
 const userAgent = (req: AppRequest) => req.headers["user-agent"] ?? null;
 

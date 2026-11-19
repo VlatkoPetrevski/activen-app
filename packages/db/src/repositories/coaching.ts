@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
 import { ConflictError, isUniqueViolation, NotFoundError, ValidationError } from "../errors.js";
 import { auditLog, coachAthletes, consentGrants } from "../schema.js";
@@ -122,6 +122,50 @@ export class CoachingRepository {
         details: { scope },
       });
     return allowed;
+  }
+
+  /** The athlete's open links (invitations and active coaches). */
+  async linksOfAthlete(athleteId: string): Promise<CoachLink[]> {
+    const rows = await this.db
+      .select()
+      .from(coachAthletes)
+      .where(and(eq(coachAthletes.athleteId, athleteId), ne(coachAthletes.status, "ended")));
+    return rows.map(toLink);
+  }
+
+  /** The coach's open links (invited and active athletes). */
+  async linksOfCoach(coachId: string): Promise<CoachLink[]> {
+    const rows = await this.db
+      .select()
+      .from(coachAthletes)
+      .where(
+        and(
+          eq(coachAthletes.coachId, coachId),
+          inArray(coachAthletes.status, ["invited", "active"]),
+        ),
+      );
+    return rows.map(toLink);
+  }
+
+  async get(linkId: string): Promise<CoachLink> {
+    const [row] = await this.db.select().from(coachAthletes).where(eq(coachAthletes.id, linkId));
+    if (!row) throw new NotFoundError("coach link", linkId);
+    return toLink(row);
+  }
+
+  /** Active link between the two, if any. */
+  async activeLink(coachId: string, athleteId: string): Promise<CoachLink | null> {
+    const [row] = await this.db
+      .select()
+      .from(coachAthletes)
+      .where(
+        and(
+          eq(coachAthletes.coachId, coachId),
+          eq(coachAthletes.athleteId, athleteId),
+          eq(coachAthletes.status, "active"),
+        ),
+      );
+    return row ? toLink(row) : null;
   }
 
   async athletesOf(coachId: string): Promise<CoachLink[]> {

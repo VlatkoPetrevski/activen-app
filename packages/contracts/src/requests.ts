@@ -1,0 +1,143 @@
+/**
+ * Request bodies and queries, validated on the server and reused by clients for forms.
+ * Field names follow the domain (Garmin) vocabulary.
+ */
+import { ACTIVITY_TYPES, VENDORS, isLocalDate } from "@activen/domain";
+import { z } from "zod";
+
+const LOCALES = ["mk", "en"] as const;
+
+export const localDate = z.string().refine(isLocalDate, "must be a date YYYY-MM-DD");
+const uuid = z.uuid();
+
+// --- Auth ----------------------------------------------------------------------------------------
+
+/**
+ * `web`: the refresh token lives only in an HttpOnly cookie (not readable by scripts).
+ * `native`: the app stores it in the OS keychain, so it is returned in the body.
+ */
+export const ClientKind = z.enum(["web", "native"]).default("web");
+
+export const IdTokenSignIn = z.object({
+  idToken: z.string().min(20).max(8192),
+  /** Random value the client generated for this sign-in and passed to Google/Apple. */
+  nonce: z.string().min(16).max(256),
+  /** Apple gives the name to the client only on the first sign-in. */
+  displayName: z.string().max(100).optional(),
+  client: ClientKind,
+});
+export const EmailStart = z.object({
+  email: z.string().min(3).max(254),
+  locale: z.string().max(35).optional(),
+});
+export const EmailVerify = z.object({ token: z.string().min(20).max(128), client: ClientKind });
+export const RefreshBody = z.object({
+  refreshToken: z.string().min(20).max(128).optional(),
+  client: ClientKind,
+});
+export const LogoutBody = z.object({ refreshToken: z.string().min(20).max(128).optional() });
+
+// --- Profile -------------------------------------------------------------------------------------
+
+export const ProfilePatch = z.object({ displayName: z.string().min(1).max(100) });
+
+type SourceVendor = Exclude<(typeof VENDORS)[number], "manual">;
+const sourceVendors = VENDORS.filter((v) => v !== "manual") as [SourceVendor, ...SourceVendor[]];
+
+/** Partial update of the athlete settings; omitted fields keep their value. */
+export const SettingsPatch = z
+  .object({
+    locale: z.enum(LOCALES).nullable(),
+    unitSystem: z.enum(["metric", "imperial"]),
+    timeZone: z.string().min(1).max(64),
+    sourcePriority: z.array(z.enum(VENDORS)).min(1).max(VENDORS.length),
+    hrZones: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("source") }),
+      z.object({ mode: z.literal("vendor"), vendor: z.enum(sourceVendors) }),
+      z.object({ mode: z.literal("manual") }),
+    ]),
+    maxHeartRate: z.number().int().min(100).max(250).nullable(),
+    birthDate: z.iso.date().nullable(),
+  })
+  .partial()
+  .strict();
+
+export const SelfServiceRole = z.enum(["athlete", "coach"]);
+export const LinkIdToken = z.object({
+  idToken: z.string().min(20).max(8192),
+  nonce: z.string().min(16).max(256),
+});
+export const LinkEmailStart = z.object({
+  email: z.string().min(3).max(254),
+  locale: z.string().max(35).optional(),
+});
+export const LinkEmailVerify = z.object({ token: z.string().min(20).max(128) });
+/** Deleting the account is confirmed by typing DELETE (the client asks explicitly). */
+export const DeleteAccount = z.object({ confirm: z.literal("DELETE") });
+
+// --- Calendar, plan, activities --------------------------------------------------------------------
+
+const MAX_RANGE_DAYS = 400;
+
+/** Inclusive date range; at most ~13 months per request. */
+export const DateRange = z
+  .object({ from: localDate, to: localDate })
+  .refine((r) => r.from <= r.to, "from must not be after to")
+  .refine(
+    (r) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 <= MAX_RANGE_DAYS,
+    `range must be at most ${MAX_RANGE_DAYS} days`,
+  );
+
+const planFields = {
+  calendarDate: localDate,
+  kind: z.enum(["workout", "rest"]),
+  description: z.string().trim().min(1).max(500),
+  plannedActivityType: z.enum(ACTIVITY_TYPES).nullable(),
+  plannedDistanceInMeters: z.number().min(0).max(1_000_000).nullable(),
+  plannedDurationInSeconds: z.number().int().min(0).max(172_800).nullable(),
+  /** Coach's advice for this session ("first two intervals a bit slower…"). */
+  notes: z.string().max(2000).nullable(),
+  sequence: z.number().int().min(0).max(9),
+};
+
+export const PlanEntryCreate = z.object({
+  ...planFields,
+  plannedActivityType: planFields.plannedActivityType.default(null),
+  plannedDistanceInMeters: planFields.plannedDistanceInMeters.default(null),
+  plannedDurationInSeconds: planFields.plannedDurationInSeconds.default(null),
+  notes: planFields.notes.default(null),
+  sequence: planFields.sequence.default(0),
+});
+
+/** Changes to a plan entry; `expectedVersion` detects concurrent edits (409 on conflict). */
+export const PlanEntryUpdate = z
+  .object(planFields)
+  .partial()
+  .extend({ expectedVersion: z.number().int().min(1) })
+  .strict();
+
+export const FeedbackPut = z.object({
+  /** 1 very easy … 10 maximal. */
+  perceivedEffort: z.number().int().min(1).max(10).nullable(),
+  /** 1 very weak … 5 very strong. */
+  feel: z.number().int().min(1).max(5).nullable(),
+  comment: z.string().max(2000).nullable().default(null),
+});
+
+export const ProgressQuery = z.object({
+  weeks: z.coerce.number().int().min(4).max(52).default(12),
+});
+
+// --- Coaching ------------------------------------------------------------------------------------
+
+export const CONSENT_SCOPES = ["activities", "sleep_recovery", "location", "comments"] as const;
+export const ConsentScopes = z.array(z.enum(CONSENT_SCOPES)).max(CONSENT_SCOPES.length);
+
+export const CoachInvite = z.object({ email: z.string().min(3).max(254) });
+export const AcceptInvite = z.object({ scopes: ConsentScopes });
+export const UpdateConsent = z.object({ scopes: ConsentScopes });
+export const CommentCreate = z.object({
+  body: z.string().trim().min(1).max(4000),
+  activityId: uuid.nullable().default(null),
+  planEntryId: uuid.nullable().default(null),
+});

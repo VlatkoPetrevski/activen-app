@@ -17,6 +17,9 @@ import { LogMailer, type Mailer } from "./auth/mailer.js";
 import { TokenService } from "./auth/token.service.js";
 import { HealthController } from "./health/health.controller.js";
 import { MeController } from "./me/me.controller.js";
+import { AthleteController } from "./training/athlete.controller.js";
+import { CoachController } from "./training/coach.controller.js";
+import { TrainingService } from "./training/training.service.js";
 import { ProblemFilter } from "./problem.filter.js";
 import { ReferenceController } from "./reference/reference.controller.js";
 import { APP_CONFIG, ID_TOKEN_VERIFIER, MAILER, TOKEN_SERVICE } from "./tokens.js";
@@ -71,6 +74,8 @@ export class AppModule {
         AuthController,
         WellKnownController,
         MeController,
+        AthleteController,
+        CoachController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -88,6 +93,7 @@ export class AppModule {
           useValue: overrides.mailer ?? new LogMailer(config.NODE_ENV !== "production"),
         },
         AuthService,
+        TrainingService,
         // Order matters: rate limiting runs before authentication.
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AuthGuard },

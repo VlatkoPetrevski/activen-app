@@ -127,6 +127,15 @@ export class PlansRepository {
     });
   }
 
+  async get(id: string): Promise<StoredPlanEntry> {
+    const [row] = await this.db
+      .select()
+      .from(planEntries)
+      .where(and(eq(planEntries.id, id), isNull(planEntries.deletedAt)));
+    if (!row) throw new NotFoundError("plan entry", id);
+    return toEntry(row);
+  }
+
   async remove(id: string): Promise<void> {
     const rows = await this.db
       .update(planEntries)

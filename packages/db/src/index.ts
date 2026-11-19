@@ -11,5 +11,7 @@ export * from "./repositories/sync-events.js";
 export * from "./repositories/coaching.js";
 export * from "./repositories/sessions.js";
 export * from "./repositories/login-tokens.js";
+export * from "./repositories/comments.js";
+export * from "./demo-seed.js";
 export { normalizeEmail } from "./repositories/tokens.js";
 export * from "./repositories/index.js";

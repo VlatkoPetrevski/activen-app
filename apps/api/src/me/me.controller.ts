@@ -1,6 +1,14 @@
-import { SELF_SERVICE_ROLES, type Repositories } from "@activen/db";
-import { VENDORS, type AthleteSettings } from "@activen/domain";
-import { SUPPORTED_LOCALES } from "@activen/i18n";
+import type { Repositories } from "@activen/db";
+import type { AthleteSettings } from "@activen/domain";
+import {
+  DeleteAccount,
+  LinkEmailStart,
+  LinkEmailVerify,
+  LinkIdToken,
+  ProfilePatch,
+  SelfServiceRole as RoleParam,
+  SettingsPatch,
+} from "@activen/contracts";
 import {
   Controller,
   Delete,
@@ -17,51 +25,13 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
-import { z } from "zod";
+import type { z } from "zod";
 import { AuthService } from "../auth/auth.service.js";
 import type { AuthContext } from "../auth/auth.types.js";
 import { CurrentAuth } from "../auth/decorators.js";
 import { REFRESH_COOKIE } from "../auth/auth.controller.js";
 import { REPOSITORIES } from "../tokens.js";
 import { ApiZodBody, ValidBody, ZodPipe } from "../validation.js";
-
-const ProfilePatch = z.object({ displayName: z.string().min(1).max(100) });
-
-const sourceVendors = VENDORS.filter((v) => v !== "manual") as [
-  Exclude<(typeof VENDORS)[number], "manual">,
-  ...Exclude<(typeof VENDORS)[number], "manual">[],
-];
-
-/** Partial update of the athlete settings; omitted fields keep their value. */
-export const SettingsPatch = z
-  .object({
-    locale: z.enum(SUPPORTED_LOCALES).nullable(),
-    unitSystem: z.enum(["metric", "imperial"]),
-    timeZone: z.string().min(1).max(64),
-    sourcePriority: z.array(z.enum(VENDORS)).min(1).max(VENDORS.length),
-    hrZones: z.discriminatedUnion("mode", [
-      z.object({ mode: z.literal("source") }),
-      z.object({ mode: z.literal("vendor"), vendor: z.enum(sourceVendors) }),
-      z.object({ mode: z.literal("manual") }),
-    ]),
-    maxHeartRate: z.number().int().min(100).max(250).nullable(),
-    birthDate: z.iso.date().nullable(),
-  })
-  .partial()
-  .strict();
-
-const RoleParam = z.enum(SELF_SERVICE_ROLES);
-const LinkIdToken = z.object({
-  idToken: z.string().min(20).max(8192),
-  nonce: z.string().min(16).max(256),
-});
-const LinkEmailStart = z.object({
-  email: z.string().min(3).max(254),
-  locale: z.string().max(35).optional(),
-});
-const LinkEmailVerify = z.object({ token: z.string().min(20).max(128) });
-/** Deleting the account is confirmed by typing DELETE (the client asks explicitly). */
-const DeleteAccount = z.object({ confirm: z.literal("DELETE") });
 
 @ApiTags("me")
 @ApiBearerAuth()

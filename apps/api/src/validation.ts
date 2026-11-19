@@ -1,5 +1,5 @@
 import { ValidationError } from "@activen/db";
-import { Body, type PipeTransform } from "@nestjs/common";
+import { Body, Query, type PipeTransform } from "@nestjs/common";
 import { ApiBody } from "@nestjs/swagger";
 import { z } from "zod";
 
@@ -27,3 +27,6 @@ export const ValidBody = (schema: z.ZodType) => Body(new ZodPipe(schema));
 /** OpenAPI request body generated from the same zod schema. */
 export const ApiZodBody = (schema: z.ZodType) =>
   ApiBody({ schema: z.toJSONSchema(schema, { io: "input" }) as SchemaObject });
+
+/** `@ValidQuery(schema)` — parsed query string. */
+export const ValidQuery = (schema: z.ZodType) => Query(new ZodPipe(schema));

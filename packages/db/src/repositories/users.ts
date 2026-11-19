@@ -262,6 +262,21 @@ export class UsersRepository {
     return row?.userId ?? null;
   }
 
+  /** The active account using this email, if any (for invitations; never shown to the inviter). */
+  async findIdByEmail(email: string): Promise<string | null> {
+    return this.userIdForEmail(normalizeEmail(email));
+  }
+
+  /** Display names for a set of users (for lists of coaches/athletes). */
+  async displayNames(ids: readonly string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db
+      .select({ id: users.id, displayName: users.displayName })
+      .from(users)
+      .where(inArray(users.id, [...ids]));
+    return new Map(rows.map((r) => [r.id, r.displayName]));
+  }
+
   private async userIdForEmail(email: string): Promise<string | null> {
     const [row] = await this.db
       .select({ id: users.id })

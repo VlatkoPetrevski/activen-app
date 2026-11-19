@@ -35,6 +35,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@activen/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@activen/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -100,8 +103,20 @@ importers:
         specifier: ^7.3.2
         version: 7.3.2
 
+  packages/contracts:
+    dependencies:
+      '@activen/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
   packages/db:
     dependencies:
+      '@activen/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@activen/domain':
         specifier: workspace:*
         version: link:../domain
