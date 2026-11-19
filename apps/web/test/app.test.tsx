@@ -9,7 +9,7 @@ function start() {
   localStorage.setItem("activen.locale", "mk");
   const api = new DemoApi(() => "mk");
   const user = userEvent.setup();
-  render(<App api={api} hashRouting />);
+  render(<App api={api} routing="memory" />);
   return { api, user };
 }
 
@@ -71,6 +71,26 @@ describe("athlete app (demo)", () => {
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Sign out/ }));
     expect(await screen.findByRole("heading", { name: "Sign in to ActiveN" })).toBeInTheDocument();
+  });
+});
+
+describe("confirmations", () => {
+  it("asks in-app before ending the coaching relationship", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
+    await screen.findByRole("heading", { level: 1, name: /Влатко/ });
+    await user.click(screen.getAllByRole("link", { name: "Тренер" })[0]!);
+    await user.click(await screen.findByRole("button", { name: "Прекини соработка" }));
+    const dialog = await screen.findByRole("dialog", { name: /Да ја прекинам соработката/ });
+    await user.click(within(dialog).getByRole("button", { name: "Откажи" }));
+    expect(screen.getByText("Ана Стојанова")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Прекини соработка" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: /Да ја прекинам/ })).getByRole("button", {
+        name: "Прекини соработка",
+      }),
+    );
+    expect(await screen.findByText(/Тренираш самостојно/)).toBeInTheDocument();
   });
 });
 

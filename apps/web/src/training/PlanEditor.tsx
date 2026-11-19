@@ -3,6 +3,7 @@ import type { ActivityType, LocalDate } from "@activen/domain";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, type PlanInput, type PlanPatch } from "../api/api.js";
 import { useI18n } from "../i18n/I18nContext.js";
+import { useConfirm } from "../ui/Confirm.js";
 import { Dialog } from "../ui/Dialog.js";
 import { PLAN_SPORTS, sportLabel } from "./labels.js";
 
@@ -56,6 +57,7 @@ export function PlanEditor({
   onConflict(): void;
 }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [draft, setDraft] = useState<Draft>(() => toDraft(entry, date));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function PlanEditor({
   };
 
   const remove = async () => {
-    if (!entry || !window.confirm(t("plan.deleteConfirm"))) return;
+    if (!entry || !(await confirm(t("plan.deleteConfirm")))) return;
     setBusy(true);
     try {
       await onDelete(entry.id);

@@ -5,8 +5,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 /**
  * `vite` / `vite build`: the real app against the API (dev server proxies /v1 to localhost:3000).
- * `vite build --mode demo`: a self-contained demo with sample data (no server), hash routing and
- * relative asset paths so it can be hosted on any path.
+ * `vite build --mode demo`: a self-contained demo with sample data (no server), in-memory routing
+ * and relative asset paths so it can be hosted on any path or embedded.
  */
 export default defineConfig(({ mode }) => ({
   base: mode === "demo" ? "./" : "/",

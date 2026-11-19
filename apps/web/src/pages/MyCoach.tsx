@@ -7,6 +7,7 @@ import { useI18n } from "../i18n/I18nContext.js";
 import { ScopePicker } from "../training/ScopePicker.js";
 import { Thread } from "../training/Thread.js";
 import { Avatar } from "../ui/Avatar.js";
+import { useConfirm } from "../ui/Confirm.js";
 import { Empty, QueryView } from "../ui/States.js";
 
 const DEFAULT_SCOPES: ConsentScope[] = ["activities", "comments"];
@@ -14,6 +15,7 @@ const DEFAULT_SCOPES: ConsentScope[] = ["activities", "comments"];
 function CoachCard({ link }: { link: CoachLinkDto }) {
   const api = useApi();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [scopes, setScopes] = useState<ConsentScope[]>(
     link.status === "active" ? link.scopes : DEFAULT_SCOPES,
@@ -87,10 +89,13 @@ function CoachCard({ link }: { link: CoachLinkDto }) {
               type="button"
               className="btn btn-danger"
               disabled={busy}
-              onClick={() => {
-                if (window.confirm(t("coach.stopConfirm", { name: link.coachName })))
-                  void act(() => api.endCoach(link.linkId));
-              }}
+              onClick={() =>
+                void confirm(t("coach.stopConfirm", { name: link.coachName }), {
+                  confirmLabel: t("coach.stop"),
+                }).then(async (ok) => {
+                  if (ok) await act(() => api.endCoach(link.linkId));
+                })
+              }
             >
               {t("coach.stop")}
             </button>

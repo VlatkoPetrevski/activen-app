@@ -9,6 +9,7 @@ import { PlanWeek } from "../../training/PlanWeek.js";
 import { ProgressView } from "../../training/ProgressView.js";
 import { athleteTarget } from "../../training/target.js";
 import { Avatar } from "../../ui/Avatar.js";
+import { useConfirm } from "../../ui/Confirm.js";
 import { Icon } from "../../ui/Icon.js";
 import { Loading, QueryView } from "../../ui/States.js";
 import { CoachThread } from "./CoachThread.js";
@@ -21,6 +22,7 @@ export function CoachAthletePage() {
   const me = useMe();
   const { t, f } = useI18n();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const rows = useCoachAthletes();
   const row = rows.data?.find((r) => r.athleteId === athleteId);
   const target = useMemo(() => athleteTarget(api, athleteId), [api, athleteId]);
@@ -66,10 +68,15 @@ export function CoachAthletePage() {
         <button
           type="button"
           className="btn btn-danger btn-small"
-          onClick={() => {
-            if (window.confirm(t("coachApp.endConfirm", { name: row.displayName })))
-              void api.endAthlete(athleteId).then(() => navigate("/coach"));
-          }}
+          onClick={() =>
+            void confirm(t("coachApp.endConfirm", { name: row.displayName }), {
+              confirmLabel: t("coachApp.end"),
+            }).then(async (ok) => {
+              if (!ok) return;
+              await api.endAthlete(athleteId);
+              navigate("/coach");
+            })
+          }
         >
           {t("coachApp.end")}
         </button>

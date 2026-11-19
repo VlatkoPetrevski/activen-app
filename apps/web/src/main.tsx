@@ -15,6 +15,6 @@ const root = document.getElementById("root");
 if (root)
   createRoot(root).render(
     <StrictMode>
-      <App api={api} hashRouting={demo} />
+      <App api={api} routing={demo ? "memory" : "browser"} />
     </StrictMode>,
   );

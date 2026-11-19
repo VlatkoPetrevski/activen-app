@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { createBrowserRouter, createHashRouter, RouterProvider } from "react-router";
+import { createBrowserRouter, createMemoryRouter, RouterProvider } from "react-router";
 import type { Api } from "../api/api.js";
 import { ApiProvider } from "../api/ApiContext.js";
 import { AuthProvider } from "../auth/AuthContext.js";
 import { I18nProvider } from "../i18n/I18nContext.js";
+import { ConfirmProvider } from "../ui/Confirm.js";
 import { routes } from "./routes.js";
 
 export function createQueryClient() {
@@ -15,18 +16,25 @@ export function createQueryClient() {
   });
 }
 
-/** App root: API (real or demo), data cache, language, session, routes. */
-export function App({ api, hashRouting }: { api: Api; hashRouting: boolean }) {
+/**
+ * App root: API (real or demo), data cache, language, session, routes. The demo keeps routes in
+ * memory: it runs embedded (e.g. in a hosted preview frame) where the URL cannot carry a path.
+ */
+export function App({ api, routing }: { api: Api; routing: "browser" | "memory" }) {
   const [queryClient] = useState(createQueryClient);
   const [router] = useState(() =>
-    hashRouting ? createHashRouter(routes) : createBrowserRouter(routes),
+    routing === "memory"
+      ? createMemoryRouter(routes, { initialEntries: ["/"] })
+      : createBrowserRouter(routes),
   );
   return (
     <ApiProvider api={api}>
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <ConfirmProvider>
+              <RouterProvider router={router} />
+            </ConfirmProvider>
           </AuthProvider>
         </I18nProvider>
       </QueryClientProvider>

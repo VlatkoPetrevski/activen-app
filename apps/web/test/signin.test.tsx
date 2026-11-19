@@ -32,7 +32,7 @@ function start(path: string) {
   window.history.pushState(null, "", path);
   localStorage.setItem("activen.locale", "mk");
   const api = new EmailFlowApi(() => "mk");
-  render(<App api={api} hashRouting={false} />);
+  render(<App api={api} routing="browser" />);
   return { api, user: userEvent.setup() };
 }
 
