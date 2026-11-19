@@ -418,12 +418,15 @@ export function buildDemoWeather(seed = 3): WeatherDto {
   };
 }
 
+type LL = [number, number];
+
 /** The Vardar through Skopje, west to east (approximate), used as the demo's river line. */
-export const DEMO_VARDAR: [number, number][] = [
+export const DEMO_VARDAR: LL[] = [
   [41.9905, 21.33],
   [41.9985, 21.355],
   [42.0055, 21.38],
   [42.005, 21.4],
+  [42.0028, 21.41],
   [42.001, 21.417],
   [41.9985, 21.428],
   [41.9976, 21.4337],
@@ -432,19 +435,75 @@ export const DEMO_VARDAR: [number, number][] = [
   [41.9895, 21.472],
   [41.986, 21.49],
 ];
+const BRIDGE = 7; // Stone Bridge, index in DEMO_VARDAR
+
+/** City Park (Градски парк), north of the river, west of the centre — perimeter path. */
+const CITY_PARK: LL[] = [
+  [42.0036, 21.4178],
+  [42.0062, 21.4196],
+  [42.0091, 21.4162],
+  [42.0104, 21.4098],
+  [42.0097, 21.4036],
+  [42.0071, 21.4012],
+  [42.0047, 21.4041],
+  [42.0034, 21.4109],
+  [42.0036, 21.4178],
+];
+
+/** A few main streets for orientation (approximate). */
+const ROADS: LL[][] = [
+  [
+    [42.0003, 21.4296],
+    [42.0028, 21.4218],
+    [42.0066, 21.4098],
+    [42.0098, 21.3965],
+    [42.0125, 21.38],
+  ], // Партизанска
+  [
+    [42.0018, 21.4335],
+    [42.0047, 21.4262],
+    [42.0083, 21.4214],
+    [42.0128, 21.4152],
+  ], // Илинден
+  [
+    [41.9958, 21.4318],
+    [41.9915, 21.4305],
+    [41.9862, 21.4282],
+    [41.9812, 21.4262],
+  ], // Климент Охридски → Водно
+  [
+    [41.9982, 21.4245],
+    [41.9952, 21.415],
+    [41.9922, 21.401],
+    [41.989, 21.386],
+  ], // кон Карпош/Тафталиџе
+  [
+    [41.9952, 21.4392],
+    [41.9993, 21.444],
+    [42.004, 21.447],
+  ], // Гоце Делчев
+];
+
+const LABELS = [
+  { text: "Вардар", at: [41.9952, 21.4462] as LL },
+  { text: "Градски парк", at: [42.0074, 21.4108] as LL },
+  { text: "Центар", at: [41.9938, 21.4335] as LL },
+  { text: "Карпош", at: [42.0035, 21.3925] as LL },
+];
 
 const EARTH_M_PER_DEG_LAT = 111_320;
-
-const pointAt = (line: [number, number][], i: number): [number, number] => line[i] ?? [0, 0];
+const pointAt = (line: LL[], i: number): LL => line[i] ?? [0, 0];
+const segMeters = (a: LL, b: LL) =>
+  Math.hypot(
+    (b[0] - a[0]) * EARTH_M_PER_DEG_LAT,
+    (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * Math.cos((a[0] * Math.PI) / 180),
+  );
+const lineMeters = (line: LL[]) =>
+  line.slice(1).reduce((sum, b, i) => sum + segMeters(pointAt(line, i), b), 0);
 
 /** Walks `meters` along a polyline from its point `startIndex`, in the given direction. */
-function walk(
-  line: [number, number][],
-  startIndex: number,
-  dir: 1 | -1,
-  meters: number,
-): [number, number][] {
-  const out: [number, number][] = [pointAt(line, startIndex)];
+function walk(line: LL[], startIndex: number, dir: 1 | -1, meters: number): LL[] {
+  const out: LL[] = [pointAt(line, startIndex)];
   let left = meters;
   let i = startIndex;
   while (left > 0) {
@@ -452,9 +511,7 @@ function walk(
     if (next < 0 || next >= line.length) break;
     const a = pointAt(line, i);
     const b = pointAt(line, next);
-    const dy = (b[0] - a[0]) * EARTH_M_PER_DEG_LAT;
-    const dx = (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * Math.cos((a[0] * Math.PI) / 180);
-    const seg = Math.hypot(dx, dy);
+    const seg = segMeters(a, b);
     if (seg >= left) {
       const f = left / seg;
       out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
@@ -467,59 +524,71 @@ function walk(
   return out;
 }
 
-/** Densifies a polyline to ~every 40 m, offset to one bank, with a little GPS-like wobble. */
-function densify(line: [number, number][], seed: number, side: number): [number, number][] {
+/** Shifts a line to one river bank (north +, south −), ~35 m. */
+const bank = (line: LL[], side: 1 | -1): LL[] =>
+  line.map(([lat, lon]) => [lat + side * 0.00032, lon]);
+
+/** Densifies to a point every ~25 m with a little GPS-like wobble (deterministic). */
+function gps(line: LL[], seed: number): LL[] {
   const r = rng(seed);
-  const out: [number, number][] = [];
+  const out: LL[] = [];
   for (let i = 0; i < line.length - 1; i++) {
     const a = pointAt(line, i);
     const b = pointAt(line, i + 1);
-    const meters = Math.hypot(
-      (b[0] - a[0]) * EARTH_M_PER_DEG_LAT,
-      (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * 0.744,
-    );
-    const steps = Math.max(1, Math.round(meters / 40));
+    const steps = Math.max(1, Math.round(segMeters(a, b) / 25));
     for (let k = 0; k < steps; k++) {
       const f = k / steps;
       out.push([
-        a[0] + (b[0] - a[0]) * f + side * 0.00028 + r.between(-0.00004, 0.00004),
-        a[1] + (b[1] - a[1]) * f + r.between(-0.00004, 0.00004),
+        a[0] + (b[0] - a[0]) * f + r.between(-0.000025, 0.000025),
+        a[1] + (b[1] - a[1]) * f + r.between(-0.000025, 0.000025),
       ]);
     }
   }
   const last = line.at(-1);
-  if (last) out.push([last[0] + side * 0.00028, last[1]]);
+  if (last) out.push(last);
   return out;
 }
 
-const lineMeters = (line: [number, number][]) =>
-  line.slice(1).reduce((sum, b, i) => {
-    const a = pointAt(line, i);
-    return (
-      sum +
-      Math.hypot(
-        (b[0] - a[0]) * EARTH_M_PER_DEG_LAT,
-        (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * Math.cos((a[0] * Math.PI) / 180),
-      )
-    );
-  }, 0);
+const DEMO_CONTEXT = { water: [DEMO_VARDAR], parks: [CITY_PARK], roads: ROADS, labels: LABELS };
+
+/** Out along the river from the Stone Bridge and back (south bank out, north bank back). */
+function quayOutAndBack(dir: 1 | -1, meters: number): LL[] {
+  if (meters < 100) return [];
+  const out = walk(DEMO_VARDAR, BRIDGE, dir, meters / 2);
+  return [...bank(out, -1), ...bank([...out].reverse(), 1)];
+}
 
 /**
- * Demo route along the Vardar quay from the Stone Bridge: out to the west (City Park and beyond)
- * on the north bank and back on the south bank; what does not fit to the west continues east and
- * back. Returns about `distanceInMeters` of line (capped by the river's length).
+ * Demo GPS route in Skopje that matches the distance:
+ * - short: along the quay to the west and back;
+ * - medium: south quay to the City Park, laps of the park, back on the north quay;
+ * - long: as far west along the Vardar as the river line goes and back;
+ * whatever is left over is an out-and-back along the quay to the east at the start.
  */
 export function buildDemoRoute(distanceInMeters: number, seed = 1): RouteDto {
-  const bridge = 6;
-  const westRoom = lineMeters(walk(DEMO_VARDAR, bridge, -1, Number.POSITIVE_INFINITY));
-  const eastRoom = lineMeters(walk(DEMO_VARDAR, bridge, 1, Number.POSITIVE_INFINITY));
-  const west = Math.min(distanceInMeters / 2, westRoom);
-  const east = Math.min((distanceInMeters - 2 * west) / 2, eastRoom);
-  const outWest = walk(DEMO_VARDAR, bridge, -1, west);
-  const points = [...densify(outWest, seed, 1), ...densify([...outWest].reverse(), seed + 1, -1)];
-  if (east > 50) {
-    const outEast = walk(DEMO_VARDAR, bridge, 1, east);
-    points.push(...densify(outEast, seed + 2, -1), ...densify([...outEast].reverse(), seed + 3, 1));
+  const toPark = walk(DEMO_VARDAR, BRIDGE, -1, Number.POSITIVE_INFINITY).slice(0, BRIDGE - 4);
+  const south = bank(toPark, -1);
+  const north = bank([...toPark].reverse(), 1);
+  const lap = lineMeters(CITY_PARK);
+  const quay = lineMeters(south) + lineMeters(north);
+  const westRoom = 2 * lineMeters(walk(DEMO_VARDAR, BRIDGE, -1, Number.POSITIVE_INFINITY));
+  const eastRoom = 2 * lineMeters(walk(DEMO_VARDAR, BRIDGE, 1, Number.POSITIVE_INFINITY));
+
+  let main: LL[];
+  let used: number;
+  if (distanceInMeters < quay + lap) {
+    used = Math.min(distanceInMeters, westRoom);
+    main = quayOutAndBack(-1, used);
+  } else if (distanceInMeters <= quay + 3 * lap + eastRoom * 0.4) {
+    const laps = Math.min(3, Math.floor((distanceInMeters - quay) / lap));
+    const park: LL[] = [];
+    for (let k = 0; k < laps; k++) park.push(...CITY_PARK);
+    main = [...south, ...park, ...north];
+    used = quay + laps * lap;
+  } else {
+    used = Math.min(distanceInMeters, westRoom);
+    main = quayOutAndBack(-1, used);
   }
-  return { points, water: [DEMO_VARDAR] };
+  const rest = Math.min(Math.max(0, distanceInMeters - used), eastRoom);
+  return { points: gps([...quayOutAndBack(1, rest), ...main], seed), context: DEMO_CONTEXT };
 }

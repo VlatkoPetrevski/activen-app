@@ -1598,3 +1598,63 @@ body {
   flex-wrap: wrap;
   overflow: visible;
 }
+
+/* Map context (no tiles) */
+.route-park {
+  fill: #d7e8c8;
+  stroke: #c3dbb0;
+  stroke-width: 1;
+}
+.route-road {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.route-label {
+  font: 600 12px var(--font);
+  fill: #7a7468;
+  paint-order: stroke;
+  stroke: #eef0e6;
+  stroke-width: 3;
+}
+@media (prefers-color-scheme: dark) {
+  .route-park {
+    fill: #263326;
+    stroke: #2e3d2e;
+  }
+  .route-road {
+    stroke: #34393d;
+  }
+  .route-label {
+    fill: #9aa0a6;
+    stroke: #23272a;
+  }
+}
+/* Compact preview in the activities list */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 8px 12px;
+}
+.preview .route-map {
+  box-shadow: none;
+  border-radius: 12px;
+}
+.preview-insight {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-2);
+}
+.preview-facts {
+  grid-template-columns: repeat(4, 1fr);
+}
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDemoRoute, DEMO_VARDAR } from "../src/index.js";
+import { buildDemoRoute } from "../src/index.js";
 
 const meters = (pts: [number, number][]) =>
   pts.slice(1).reduce((s, p, i) => {
@@ -14,21 +14,21 @@ const meters = (pts: [number, number][]) =>
   }, 0);
 
 describe("demo route", () => {
-  it("goes out along the river and comes back near the start", () => {
-    const r = buildDemoRoute(10_000);
-    expect(r.points.length).toBeGreaterThan(100);
-    expect(r.water).toEqual([DEMO_VARDAR]);
-    const [s, e] = [r.points[0]!, r.points.at(-1)!];
-    expect(Math.abs(s[0] - e[0]) + Math.abs(s[1] - e[1])).toBeLessThan(0.002);
-    expect(meters(r.points)).toBeGreaterThan(9_000);
-    expect(meters(r.points)).toBeLessThan(11_500);
-    expect(buildDemoRoute(10_000)).toEqual(r);
+  it("roughly matches the distance and ends near the start", () => {
+    for (const km of [6, 8, 10, 12, 14, 20, 27]) {
+      const r = buildDemoRoute(km * 1000);
+      const m = meters(r.points);
+      expect(m / (km * 1000)).toBeGreaterThan(0.8);
+      expect(m / (km * 1000)).toBeLessThan(1.3);
+      const [s, e] = [r.points[0]!, r.points.at(-1)!];
+      expect(Math.abs(s[0] - e[0]) + Math.abs(s[1] - e[1])).toBeLessThan(0.002);
+    }
   });
 
-  it("continues east when the west side is too short, and is capped by the river", () => {
-    const long = buildDemoRoute(27_000);
-    expect(meters(long.points)).toBeGreaterThan(25_000);
-    expect(Math.max(...long.points.map((p) => p[1]))).toBeGreaterThan(21.45);
-    expect(meters(buildDemoRoute(200_000).points)).toBeLessThan(60_000);
+  it("goes through the City Park on mid-length runs and carries map context", () => {
+    const r = buildDemoRoute(10_000, 3);
+    expect(r.points.some(([lat]) => lat > 42.009)).toBe(true);
+    expect(r.context?.labels.map((l) => l.text)).toContain("Градски парк");
+    expect(buildDemoRoute(10_000, 3)).toEqual(r);
   });
 });

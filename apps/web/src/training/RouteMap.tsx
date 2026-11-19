@@ -10,21 +10,25 @@ import {
 } from "../lib/geo.js";
 
 const W = 600;
-const H = 300;
 
 /**
  * Route map: the GPS line with start, finish and kilometre markers. With `tiles`, OpenStreetMap
- * tiles are drawn underneath; without (offline, embedded demo), a calm background with rivers.
+ * tiles are drawn underneath; without (offline, embedded demo), the route's own context: river,
+ * parks, main roads and place names.
  */
 export function RouteMap({
   route,
   tiles,
   distanceInMeters,
+  height = 300,
 }: {
   route: RouteDto;
   tiles: boolean;
   distanceInMeters: number | null;
+  /** Height in viewBox units (width is 600): 300 on the detail page, smaller in lists. */
+  height?: number;
 }) {
+  const H = height;
   const { t } = useI18n();
   const pts = route.points as LatLon[];
   if (pts.length < 2) return null;
@@ -53,6 +57,30 @@ export function RouteMap({
   const [sx, sy] = xy(pts[0] as LatLon);
   const [ex, ey] = xy(pts.at(-1) as LatLon);
   const loop = Math.hypot(sx - ex, sy - ey) < 14;
+  // Place names are context, never clutter: drop any that would be clipped by the frame
+  // or collide with a km marker, the start/finish dots or another name.
+  const trace = pts.map((p) => {
+    const [x, y] = xy(p);
+    return { x, y };
+  });
+  const obstacles = [...markers, { x: sx, y: sy }, { x: ex, y: ey }];
+  const placeLabels = (route.context?.labels ?? []).reduce<
+    { text: string; x: number; y: number }[]
+  >((kept, l) => {
+    const [x, y] = xy(l.at as LatLon);
+    const half = l.text.length * 3.6 + 4;
+    const inside = x - half > 0 && x + half < W && y - 12 > 0 && y + 4 < H;
+    const hits = (o: { x: number; y: number }, w: number) =>
+      Math.abs(o.x - x) < half + w && o.y - y < 16 && y - o.y < 20;
+    if (
+      inside &&
+      !obstacles.some((o) => hits(o, 10)) &&
+      !trace.some((o) => Math.abs(o.x - x) < half && y - o.y < 13 && o.y - y < 4) &&
+      !kept.some((k) => hits(k, k.text.length * 3.6 + 4))
+    )
+      kept.push({ text: l.text, x, y });
+    return kept;
+  }, []);
   return (
     <figure className="route-map">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t("map.title")}>
@@ -77,8 +105,19 @@ export function RouteMap({
               </pattern>
             </defs>
             <rect width={W} height={H} fill="url(#route-grid)" />
-            {(route.water ?? []).map((line, i) => (
-              <path key={i} d={path(line as LatLon[])} className="route-water" />
+            {(route.context?.parks ?? []).map((poly, i) => (
+              <path key={`p${i}`} d={`${path(poly as LatLon[])} Z`} className="route-park" />
+            ))}
+            {(route.context?.roads ?? []).map((line, i) => (
+              <path key={`r${i}`} d={path(line as LatLon[])} className="route-road" />
+            ))}
+            {(route.context?.water ?? []).map((line, i) => (
+              <path key={`w${i}`} d={path(line as LatLon[])} className="route-water" />
+            ))}
+            {placeLabels.map(({ text, x, y }) => (
+              <text key={text} x={x} y={y} textAnchor="middle" className="route-label">
+                {text}
+              </text>
             ))}
           </>
         )}

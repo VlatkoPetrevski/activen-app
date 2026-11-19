@@ -22,12 +22,12 @@ import {
 } from "../lib/activityFilters.js";
 import { relativeDay, todayIn } from "../lib/dates.js";
 import { groupOf } from "../lib/plan.js";
-import { Insights } from "../training/Insights.js";
+import { insightText } from "../training/Insights.js";
 import { activitySummary, paceOrSpeed } from "../training/labels.js";
 import { RouteMap } from "../training/RouteMap.js";
 import { Dialog } from "../ui/Dialog.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
-import { Empty, Loading, QueryView } from "../ui/States.js";
+import { Empty, QueryView } from "../ui/States.js";
 
 const GROUPS: (ActivityGroup | "all")[] = [
   "all",
@@ -73,7 +73,7 @@ function Chips<T extends string>({
   );
 }
 
-/** Expanded row: route map, automatic summary and key numbers; loads the detail on first open. */
+/** Expanded row: a small route map, one line of summary, key numbers and the actions. */
 function ActivityPreview({ activity }: { activity: ActivityDto }) {
   const api = useApi();
   const { t, f } = useI18n();
@@ -87,7 +87,7 @@ function ActivityPreview({ activity }: { activity: ActivityDto }) {
     [
       t("activity.avgHr"),
       activity.averageHeartRateInBeatsPerMinute
-        ? f.heartRate(activity.averageHeartRateInBeatsPerMinute)
+        ? String(Math.round(activity.averageHeartRateInBeatsPerMinute))
         : null,
     ],
     [
@@ -95,24 +95,19 @@ function ActivityPreview({ activity }: { activity: ActivityDto }) {
       activity.totalElevationGainInMeters ? f.elevation(activity.totalElevationGainInMeters) : null,
     ],
     [t("activity.load"), activity.trainingLoad ? f.number(activity.trainingLoad, 0) : null],
-    ["RPE", activity.feedback?.perceivedEffort ? String(activity.feedback.perceivedEffort) : null],
   ];
+  const first = detail.data?.insights[0];
   return (
-    <div className="preview stack">
-      {detail.isPending ? (
-        <Loading />
-      ) : detail.data ? (
-        <>
-          {detail.data.route && (
-            <RouteMap
-              route={detail.data.route}
-              tiles={api.mode === "http"}
-              distanceInMeters={activity.distanceInMeters}
-            />
-          )}
-          <Insights insights={detail.data.insights} />
-        </>
-      ) : null}
+    <div className="preview">
+      {detail.data?.route && (
+        <RouteMap
+          route={detail.data.route}
+          tiles={api.mode === "http"}
+          distanceInMeters={activity.distanceInMeters}
+          height={210}
+        />
+      )}
+      {first && <p className="preview-insight small">✦ {insightText(t, first)}</p>}
       <div className="preview-facts">
         {facts
           .filter(([, v]) => v)
@@ -123,16 +118,15 @@ function ActivityPreview({ activity }: { activity: ActivityDto }) {
             </div>
           ))}
       </div>
-      {activity.feedback?.comment && <p className="small muted">„{activity.feedback.comment}“</p>}
-      <div className="row">
-        <Link className="btn btn-secondary btn-small" to={`/activities/${activity.id}`}>
-          {t("activities.open")} <Icon name="chevronRight" size={16} />
-        </Link>
+      <div className="preview-actions">
         {!activity.feedback && (
           <Link className="btn btn-primary btn-small" to={`/activities/${activity.id}`}>
             {t("activities.rate")}
           </Link>
         )}
+        <Link className="btn btn-secondary btn-small" to={`/activities/${activity.id}`}>
+          {t("activities.open")} <Icon name="chevronRight" size={16} />
+        </Link>
       </div>
     </div>
   );

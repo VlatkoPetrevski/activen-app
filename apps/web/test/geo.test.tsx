@@ -57,6 +57,19 @@ describe("RouteMap", () => {
     expect(screen.getByRole("img", { name: "Рута" })).toBeInTheDocument();
     expect(container.querySelectorAll(".route-km").length).toBeGreaterThanOrEqual(4);
     expect(container.querySelector(".route-water")).not.toBeNull();
+    expect(container.querySelector(".route-park")).not.toBeNull();
+    // Place names are kept only where they fit: never on top of a km marker.
+    const labels = [...container.querySelectorAll<SVGTextElement>(".route-label")];
+    expect(labels.length).toBeGreaterThanOrEqual(1);
+    const kms = [...container.querySelectorAll(".route-km circle")].map((c) => ({
+      x: Number(c.getAttribute("cx")),
+      y: Number(c.getAttribute("cy")),
+    }));
+    for (const l of labels) {
+      const x = Number(l.getAttribute("x"));
+      const y = Number(l.getAttribute("y"));
+      expect(kms.some((k) => Math.abs(k.x - x) < 14 && Math.abs(k.y - y) < 10)).toBe(false);
+    }
     expect(container.querySelector("image")).toBeNull();
     rerender(
       <I18nProvider locale="mk">

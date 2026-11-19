@@ -123,10 +123,15 @@ export type ActivityInsight =
 export interface RouteDto {
   points: [number, number][];
   /**
-   * Context lines (rivers) drawn when map tiles are unavailable — the demo uses it so the route
-   * reads as a place without loading external tiles.
+   * Map context drawn when map tiles are unavailable (the embedded demo cannot load external
+   * images): rivers, parks, main roads and place names, so the route reads as a real place.
    */
-  water?: [number, number][][];
+  context?: {
+    water: [number, number][][];
+    parks: [number, number][][];
+    roads: [number, number][][];
+    labels: { text: string; at: [number, number] }[];
+  };
 }
 
 export interface ActivityDetailDto {
