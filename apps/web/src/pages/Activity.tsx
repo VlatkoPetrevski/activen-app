@@ -8,6 +8,7 @@ import { groupOf } from "../lib/plan.js";
 import { vendorName } from "../lib/vendors.js";
 import { CheckInForm } from "../training/CheckInForm.js";
 import { Insights } from "../training/Insights.js";
+import { RouteMap } from "../training/RouteMap.js";
 import { activitySummary, paceOrSpeed, plannedSummary, sportLabel } from "../training/labels.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
 import { QueryView } from "../ui/States.js";
@@ -76,7 +77,7 @@ export function ActivityPage() {
         <Icon name="chevronLeft" size={16} /> {t("nav.activities")}
       </Link>
       <QueryView query={query}>
-        {({ activity: a, planEntry, comments, insights }) => (
+        {({ activity: a, route, planEntry, comments, insights }) => (
           <>
             <header className="row">
               <SportIcon group={groupOf(a.activityType)} />
@@ -87,6 +88,13 @@ export function ActivityPage() {
                 </span>
               </div>
             </header>
+            {route && (
+              <RouteMap
+                route={route}
+                tiles={api.mode === "http"}
+                distanceInMeters={a.distanceInMeters}
+              />
+            )}
             <section className="card stack">
               <Insights insights={insights} />
               <Metrics a={a} />

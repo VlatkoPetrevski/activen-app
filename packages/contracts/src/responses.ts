@@ -119,8 +119,20 @@ export type ActivityInsight =
   | { code: "big_load" }
   | { code: "hilly"; meters: number };
 
+/** GPS route as [latitude, longitude] pairs (simplified for display). */
+export interface RouteDto {
+  points: [number, number][];
+  /**
+   * Context lines (rivers) drawn when map tiles are unavailable — the demo uses it so the route
+   * reads as a place without loading external tiles.
+   */
+  water?: [number, number][][];
+}
+
 export interface ActivityDetailDto {
   activity: ActivityDto;
+  /** Null without GPS, or when the viewer may not see locations. */
+  route: RouteDto | null;
   planEntry: PlanEntryDto | null;
   comments: CommentDto[];
   /** Automatic narrative: comparisons with the plan and the last 4 weeks (most relevant first). */

@@ -1,5 +1,6 @@
 import {
   activityInsights,
+  buildDemoRoute,
   buildDemoTraining,
   buildDemoWeather,
   calendarView,
@@ -547,8 +548,12 @@ export class DemoApi implements Api {
     const day = this.calendarFor(a, found.calendarDate, found.calendarDate, true);
     const link = day.links.find((l) => l.activityId === id);
     const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
+    const outdoors = found.distanceInMeters && found.activityType !== "TREADMILL_RUNNING";
     return this.delay({
       activity: day.activities.find((x) => x.id === id) as ActivityDto,
+      route: outdoors
+        ? buildDemoRoute(found.distanceInMeters ?? 0, found.startTimeInSeconds)
+        : null,
       planEntry,
       comments: a.comments.filter((c) => c.activityId === id),
       insights: activityInsights(found, a.activities, planEntry),

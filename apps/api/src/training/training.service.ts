@@ -98,6 +98,8 @@ export class TrainingService {
     );
     return {
       activity: day.activities.find((a) => a.id === activityId) ?? { ...activity, feedback: null },
+      // GPS streams arrive with the device integrations (FIT/vendor sync).
+      route: null,
       planEntry,
       comments: await this.comments(athleteId, { activityId }),
       insights: activityInsights(activity, recent, planEntry),

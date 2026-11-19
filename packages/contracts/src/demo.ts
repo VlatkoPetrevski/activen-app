@@ -11,7 +11,7 @@ import {
   type LocalDate,
   type Vendor,
 } from "@activen/domain";
-import type { WeatherDto, WellnessDto } from "./responses.js";
+import type { RouteDto, WeatherDto, WellnessDto } from "./responses.js";
 
 export type DemoLocale = "mk" | "en";
 
@@ -416,4 +416,110 @@ export function buildDemoWeather(seed = 3): WeatherDto {
     hourly,
     airQuality: { europeanAqi: now.europeanAqi ?? 60, pm2_5: 38, pm10: 52 },
   };
+}
+
+/** The Vardar through Skopje, west to east (approximate), used as the demo's river line. */
+export const DEMO_VARDAR: [number, number][] = [
+  [41.9905, 21.33],
+  [41.9985, 21.355],
+  [42.0055, 21.38],
+  [42.005, 21.4],
+  [42.001, 21.417],
+  [41.9985, 21.428],
+  [41.9976, 21.4337],
+  [41.996, 21.443],
+  [41.9935, 21.456],
+  [41.9895, 21.472],
+  [41.986, 21.49],
+];
+
+const EARTH_M_PER_DEG_LAT = 111_320;
+
+const pointAt = (line: [number, number][], i: number): [number, number] => line[i] ?? [0, 0];
+
+/** Walks `meters` along a polyline from its point `startIndex`, in the given direction. */
+function walk(
+  line: [number, number][],
+  startIndex: number,
+  dir: 1 | -1,
+  meters: number,
+): [number, number][] {
+  const out: [number, number][] = [pointAt(line, startIndex)];
+  let left = meters;
+  let i = startIndex;
+  while (left > 0) {
+    const next = i + dir;
+    if (next < 0 || next >= line.length) break;
+    const a = pointAt(line, i);
+    const b = pointAt(line, next);
+    const dy = (b[0] - a[0]) * EARTH_M_PER_DEG_LAT;
+    const dx = (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * Math.cos((a[0] * Math.PI) / 180);
+    const seg = Math.hypot(dx, dy);
+    if (seg >= left) {
+      const f = left / seg;
+      out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+      break;
+    }
+    out.push(b);
+    left -= seg;
+    i = next;
+  }
+  return out;
+}
+
+/** Densifies a polyline to ~every 40 m, offset to one bank, with a little GPS-like wobble. */
+function densify(line: [number, number][], seed: number, side: number): [number, number][] {
+  const r = rng(seed);
+  const out: [number, number][] = [];
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = pointAt(line, i);
+    const b = pointAt(line, i + 1);
+    const meters = Math.hypot(
+      (b[0] - a[0]) * EARTH_M_PER_DEG_LAT,
+      (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * 0.744,
+    );
+    const steps = Math.max(1, Math.round(meters / 40));
+    for (let k = 0; k < steps; k++) {
+      const f = k / steps;
+      out.push([
+        a[0] + (b[0] - a[0]) * f + side * 0.00028 + r.between(-0.00004, 0.00004),
+        a[1] + (b[1] - a[1]) * f + r.between(-0.00004, 0.00004),
+      ]);
+    }
+  }
+  const last = line.at(-1);
+  if (last) out.push([last[0] + side * 0.00028, last[1]]);
+  return out;
+}
+
+const lineMeters = (line: [number, number][]) =>
+  line.slice(1).reduce((sum, b, i) => {
+    const a = pointAt(line, i);
+    return (
+      sum +
+      Math.hypot(
+        (b[0] - a[0]) * EARTH_M_PER_DEG_LAT,
+        (b[1] - a[1]) * EARTH_M_PER_DEG_LAT * Math.cos((a[0] * Math.PI) / 180),
+      )
+    );
+  }, 0);
+
+/**
+ * Demo route along the Vardar quay from the Stone Bridge: out to the west (City Park and beyond)
+ * on the north bank and back on the south bank; what does not fit to the west continues east and
+ * back. Returns about `distanceInMeters` of line (capped by the river's length).
+ */
+export function buildDemoRoute(distanceInMeters: number, seed = 1): RouteDto {
+  const bridge = 6;
+  const westRoom = lineMeters(walk(DEMO_VARDAR, bridge, -1, Number.POSITIVE_INFINITY));
+  const eastRoom = lineMeters(walk(DEMO_VARDAR, bridge, 1, Number.POSITIVE_INFINITY));
+  const west = Math.min(distanceInMeters / 2, westRoom);
+  const east = Math.min((distanceInMeters - 2 * west) / 2, eastRoom);
+  const outWest = walk(DEMO_VARDAR, bridge, -1, west);
+  const points = [...densify(outWest, seed, 1), ...densify([...outWest].reverse(), seed + 1, -1)];
+  if (east > 50) {
+    const outEast = walk(DEMO_VARDAR, bridge, 1, east);
+    points.push(...densify(outEast, seed + 2, -1), ...densify([...outEast].reverse(), seed + 3, 1));
+  }
+  return { points, water: [DEMO_VARDAR] };
 }

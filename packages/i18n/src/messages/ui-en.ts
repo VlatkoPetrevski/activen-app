@@ -298,4 +298,9 @@ export const uiEn = {
   "insights.hilly": "Hilly: {meters} m of climbing.",
   "insights.none": "Not enough history yet to compare — it builds up with every session.",
   "activity.speed": "Speed",
+  "map.title": "Route",
+  "map.start": "Start",
+  "map.finish": "Finish",
+  "map.km": "{value} km",
+  "map.attribution": "© OpenStreetMap contributors",
 } as const;

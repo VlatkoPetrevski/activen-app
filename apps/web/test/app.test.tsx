@@ -63,6 +63,7 @@ describe("athlete app (demo)", () => {
     await user.click(links[0]!);
     expect(await screen.findByRole("heading", { name: "Како помина?" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Анализа" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Рута" })).toBeInTheDocument();
     const checkin = screen.getByRole("button", { name: /Како помина\?/ }).closest("form")!;
     await user.click(within(checkin).getByRole("button", { name: "5" }));
     await user.click(within(checkin).getByRole("button", { name: /Силно/ }));

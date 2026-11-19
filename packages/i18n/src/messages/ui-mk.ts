@@ -306,4 +306,9 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "insights.hilly": "Ридесто: {meters} m искачување.",
   "insights.none": "Сè уште нема доволно историја за споредба — се гради со секој тренинг.",
   "activity.speed": "Брзина",
+  "map.title": "Рута",
+  "map.start": "Старт",
+  "map.finish": "Финиш",
+  "map.km": "{value} km",
+  "map.attribution": "© OpenStreetMap соработници",
 };
