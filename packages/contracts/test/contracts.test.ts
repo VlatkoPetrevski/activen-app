@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDemoTraining } from "../src/index.js";
+import { buildDemoTraining, buildDemoWeather } from "../src/index.js";
 import {
   DateRange,
   FeedbackPut,
@@ -99,5 +99,16 @@ describe("demo variations", () => {
     expect(base.planEntries[0]!.kind).toBe("rest");
     expect(shifted.planEntries[1]!.kind).toBe("rest");
     expect(shifted.feedback.some((f) => f.perceivedEffort === 9 && f.comment)).toBe(false);
+  });
+});
+
+describe("demo weather", () => {
+  it("has a full day with a cold morning and a warmer afternoon", () => {
+    const w = buildDemoWeather();
+    expect(w.hourly).toHaveLength(24);
+    expect(w.hourly[14]!.temperature).toBeGreaterThan(w.hourly[6]!.temperature);
+    expect(w.today.min).toBeLessThan(w.today.max);
+    expect(w.airQuality!.europeanAqi).toBeGreaterThan(40);
+    expect(buildDemoWeather()).toEqual(w);
   });
 });

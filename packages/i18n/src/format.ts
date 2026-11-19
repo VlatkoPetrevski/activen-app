@@ -40,6 +40,8 @@ export interface Formatter {
   weight(grams: number): string;
   /** Pace from seconds per km: "5:25 /km" or "8:43 /mi". Empty for missing/invalid values. */
   pace(secondsPerKm: number | null): string;
+  /** Speed from metres per second: "28,4 km/h" or "17,6 mph". */
+  speed(metersPerSecond: number): string;
   /** Duration: "45:03" or "1:16:12". Empty for missing/invalid values. */
   duration(seconds: number | null): string;
   heartRate(bpm: number): string;
@@ -93,6 +95,10 @@ export function createFormatter(
         : unit(Math.round(meters), "meter", 0),
     weight: (grams) =>
       imperial ? unit(grams / GRAMS_PER_POUND, "pound", 1) : unit(grams / 1000, "kilogram", 1),
+    speed: (mps) =>
+      unitSystem === "imperial"
+        ? `${num(mps * 2.236936, 1, 1)} mph`
+        : `${num(mps * 3.6, 1, 1)} km/h`,
     pace(secondsPerKm) {
       if (secondsPerKm === null || !Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return "";
       return imperial

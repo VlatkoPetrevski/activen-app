@@ -15,6 +15,8 @@ describe("Macedonian without ICU data (Chrome)", () => {
 
   it("uses Macedonian separators and conjunction", () => {
     expect(fallback.distance(10370)).toBe("10,37 km");
+    expect(fallback.speed(7.9)).toBe("28,4 km/h");
+    expect(createFormatter(createTranslator("en"), "imperial").speed(7.9)).toBe("17.7 mph");
     expect(fallback.number(12345.6, 1)).toBe(native.number(12345.6, 1));
     expect(fallback.list(["а", "б", "в"])).toBe("а, б и в");
     expect(fallback.list(["а"])).toBe("а");

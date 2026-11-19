@@ -11,7 +11,7 @@ import {
   type LocalDate,
   type Vendor,
 } from "@activen/domain";
-import type { WellnessDto } from "./responses.js";
+import type { WeatherDto, WellnessDto } from "./responses.js";
 
 export type DemoLocale = "mk" | "en";
 
@@ -371,4 +371,49 @@ export function buildDemoTraining(options: DemoOptions): DemoTraining {
     }
   }
   return { planEntries, activities, feedback, wellness };
+}
+
+/**
+ * Demo weather: a typical November day in Skopje — cold morning with poor air (heating season),
+ * clearing up and warming to the early afternoon.
+ */
+export function buildDemoWeather(seed = 3): WeatherDto {
+  const r = rng(seed);
+  const min = Math.round(r.between(1, 4));
+  const max = Math.round(r.between(11, 14));
+  const hourly = Array.from({ length: 24 }, (_, hour) => {
+    // Coldest around 06:00, warmest around 14:00.
+    const phase = Math.cos(((hour - 14) / 24) * 2 * Math.PI);
+    const temperature = Math.round((min + ((max - min) * (phase + 1)) / 2) * 10) / 10;
+    const morningSmog = hour >= 6 && hour <= 10 ? 30 : hour >= 18 ? 20 : 0;
+    return {
+      hour,
+      temperature,
+      precipitationProbability:
+        hour >= 19 ? Math.round(r.between(10, 30)) : Math.round(r.between(0, 8)),
+      weatherCode: hour < 8 ? 45 : hour < 11 ? 2 : hour < 17 ? 1 : 3,
+      europeanAqi: Math.round(r.between(38, 48) + morningSmog),
+    };
+  });
+  const now = hourly[8] ?? { temperature: 6, europeanAqi: 60 };
+  return {
+    location: { name: "Скопје", latitude: 41.9981, longitude: 21.4254 },
+    current: {
+      temperature: now.temperature,
+      apparentTemperature: Math.round((now.temperature - 2) * 10) / 10,
+      weatherCode: 2,
+      isDay: true,
+      windSpeedKmh: Math.round(r.between(6, 12)),
+    },
+    today: {
+      min,
+      max,
+      sunrise: "06:52",
+      sunset: "16:13",
+      uvIndexMax: 2,
+      precipitationProbabilityMax: Math.max(...hourly.map((h) => h.precipitationProbability ?? 0)),
+    },
+    hourly,
+    airQuality: { europeanAqi: now.europeanAqi ?? 60, pm2_5: 38, pm10: 52 },
+  };
 }

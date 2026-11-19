@@ -7,12 +7,14 @@ import { useI18n } from "../i18n/I18nContext.js";
 import { groupOf } from "../lib/plan.js";
 import { vendorName } from "../lib/vendors.js";
 import { CheckInForm } from "../training/CheckInForm.js";
-import { activitySummary, plannedSummary, sportLabel } from "../training/labels.js";
+import { Insights } from "../training/Insights.js";
+import { activitySummary, paceOrSpeed, plannedSummary, sportLabel } from "../training/labels.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
 import { QueryView } from "../ui/States.js";
 
 function Metrics({ a }: { a: ActivityDto }) {
   const { t, f } = useI18n();
+  const ps = paceOrSpeed(f, a);
   const items: [string, string | null][] = [
     [t("activity.distance"), a.distanceInMeters ? f.distance(a.distanceInMeters) : null],
     [t("activity.duration"), a.durationInSeconds ? f.duration(a.durationInSeconds) : null],
@@ -20,12 +22,7 @@ function Metrics({ a }: { a: ActivityDto }) {
       t("activity.movingTime"),
       a.movingDurationInSeconds ? f.duration(a.movingDurationInSeconds) : null,
     ],
-    [
-      t("activity.pace"),
-      a.distanceInMeters && a.durationInSeconds && a.distanceInMeters > 500
-        ? f.pace(a.durationInSeconds / (a.distanceInMeters / 1000))
-        : null,
-    ],
+    [ps?.kind === "speed" ? t("activity.speed") : t("activity.pace"), ps?.text ?? null],
     [
       t("activity.avgHr"),
       a.averageHeartRateInBeatsPerMinute ? f.heartRate(a.averageHeartRateInBeatsPerMinute) : null,
@@ -66,6 +63,8 @@ export function ActivityPage() {
   const { t, f } = useI18n();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["me", "activity", id], queryFn: () => api.activity(id) });
+  const coaches = useQuery({ queryKey: ["me", "coaches"], queryFn: () => api.coaches() });
+  const coach = coaches.data?.find((c) => c.status === "active");
 
   return (
     <div className="stack-l">
@@ -77,7 +76,7 @@ export function ActivityPage() {
         <Icon name="chevronLeft" size={16} /> {t("nav.activities")}
       </Link>
       <QueryView query={query}>
-        {({ activity: a, planEntry, comments }) => (
+        {({ activity: a, planEntry, comments, insights }) => (
           <>
             <header className="row">
               <SportIcon group={groupOf(a.activityType)} />
@@ -89,6 +88,7 @@ export function ActivityPage() {
               </div>
             </header>
             <section className="card stack">
+              <Insights insights={insights} />
               <Metrics a={a} />
               <div className="row wrap tiny muted">
                 <span>{t("activity.source", { vendor: vendorName(a.source.vendor) })}</span>
@@ -113,17 +113,17 @@ export function ActivityPage() {
                 {planEntry.notes && <div className="coach-note small">💬 {planEntry.notes}</div>}
               </section>
             )}
-            <section className="card stack">
-              <h2>{t("checkin.title")}</h2>
-              <CheckInForm
-                key={a.id}
-                initial={a.feedback}
-                onSave={async (input) => {
-                  await api.saveFeedback(a.id, input);
-                  await queryClient.invalidateQueries({ queryKey: ["me"] });
-                }}
-              />
-            </section>
+            <CheckInForm
+              key={a.id}
+              title={t("checkin.title")}
+              initial={a.feedback}
+              coachName={coach?.coachName ?? null}
+              defaultOpen={a.feedback === null}
+              onSave={async (input) => {
+                await api.saveFeedback(a.id, input);
+                await queryClient.invalidateQueries({ queryKey: ["me"] });
+              }}
+            />
             {comments.length > 0 && (
               <section className="card stack">
                 <h2>{t("activity.comments")}</h2>

@@ -27,6 +27,8 @@ import {
   type PlanPatch,
   type SettingsInput,
 } from "./api.js";
+import type { Place } from "../lib/location.js";
+import { fetchWeather } from "./open-meteo.js";
 
 /** Header required by the API for cookie-based refresh (CSRF defence, ADR-0010). */
 const CSRF = { "X-Requested-With": "activen" };
@@ -170,6 +172,7 @@ export class HttpApi implements Api {
 
   // --- training -----------------------------------------------------------------------------------
 
+  weather = (place: Place) => fetchWeather(place).catch(() => null);
   /** Wellness sync arrives with the device integrations; until then there is none. */
   wellness = async () => null;
   calendar = (from: LocalDate, to: LocalDate) =>

@@ -1,5 +1,7 @@
 import {
+  activityInsights,
   buildDemoTraining,
+  buildDemoWeather,
   calendarView,
   coachRowRange,
   coachRowView,
@@ -263,6 +265,13 @@ export class DemoApi implements Api {
         },
         comments: [],
       };
+      if (i === 0) {
+        // Leave the most recent session (without a comment) unrated: Today asks for a check-in.
+        const latest = [...activities]
+          .sort((x, y) => y.startTimeInSeconds - x.startTimeInSeconds)
+          .find((x) => !feedback.get(x.id)?.comment);
+        if (latest) feedback.delete(latest.id);
+      }
       if (i === 0)
         athlete.comments = THREAD[locale]
           .map((m, n) => ({
@@ -516,6 +525,7 @@ export class DemoApi implements Api {
     return comment;
   }
 
+  weather = async () => this.delay(buildDemoWeather());
   wellness = async (date: LocalDate) =>
     this.delay(this.me_().wellness.find((w) => w.calendarDate === date) ?? null);
   calendar = async (from: LocalDate, to: LocalDate) =>
@@ -536,10 +546,12 @@ export class DemoApi implements Api {
     if (!found) return Promise.reject(new ApiError(404, "Activity not found"));
     const day = this.calendarFor(a, found.calendarDate, found.calendarDate, true);
     const link = day.links.find((l) => l.activityId === id);
+    const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
     return this.delay({
       activity: day.activities.find((x) => x.id === id) as ActivityDto,
-      planEntry: day.entries.find((e) => e.id === link?.planEntryId) ?? null,
+      planEntry,
       comments: a.comments.filter((c) => c.activityId === id),
+      insights: activityInsights(found, a.activities, planEntry),
     });
   };
   saveFeedback = async (activityId: string, input: FeedbackInput) => {

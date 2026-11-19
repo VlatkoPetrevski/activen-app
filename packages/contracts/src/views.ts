@@ -3,6 +3,7 @@
  * the web demo calls them with demo data — so both compute exactly the same thing.
  */
 import {
+  activityGroup,
   activityMix,
   addDays,
   emptySummary,
@@ -17,6 +18,7 @@ import {
 } from "@activen/domain";
 import type {
   ActivityDto,
+  ActivityInsight,
   CalendarDto,
   CoachAthleteDto,
   CoachSignal,
@@ -164,4 +166,87 @@ export function coachRowView(input: {
   }
   row.signals = signals;
   return row;
+}
+
+const INSIGHT_WINDOW_DAYS = 28;
+const MIN_SAMPLES = 3;
+
+const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+
+/**
+ * Automatic narrative for one activity (like Strava's summaries): how it compares with the plan and
+ * with the same kind of activity over the previous 4 weeks. At most `limit` observations, most
+ * relevant first; nothing is said without enough history to compare.
+ */
+export function activityInsights(
+  activity: Activity,
+  recent: readonly Activity[],
+  planEntry: Pick<PlanEntryDto, "plannedDistanceInMeters"> | null,
+  limit = 3,
+): ActivityInsight[] {
+  const out: ActivityInsight[] = [];
+  const from = addDays(activity.calendarDate, -INSIGHT_WINDOW_DAYS);
+  const group = activityGroup(activity.activityType);
+  const peers = recent.filter(
+    (a) =>
+      a.id !== activity.id &&
+      !a.deleted &&
+      a.calendarDate >= from &&
+      a.calendarDate <= activity.calendarDate &&
+      activityGroup(a.activityType) === group,
+  );
+
+  const planned = planEntry?.plannedDistanceInMeters ?? null;
+  if (planned && activity.distanceInMeters) {
+    const diff = Math.round(((activity.distanceInMeters - planned) / planned) * 100);
+    if (Math.abs(diff) <= 5) out.push({ code: "plan_on_target" });
+    else if (diff > 0) out.push({ code: "plan_over", percent: diff });
+    else out.push({ code: "plan_under", percent: -diff });
+  }
+
+  const distances = peers.map((a) => a.distanceInMeters ?? 0).filter((d) => d > 0);
+  if (
+    activity.distanceInMeters &&
+    distances.length >= MIN_SAMPLES &&
+    activity.distanceInMeters > Math.max(...distances)
+  )
+    out.push({ code: "longest_recent" });
+
+  const pace = (a: Activity) =>
+    a.distanceInMeters && a.durationInSeconds && a.distanceInMeters > 1000
+      ? a.durationInSeconds / (a.distanceInMeters / 1000)
+      : null;
+  const myPace = group === "running" ? pace(activity) : null;
+  const paces = peers.map(pace).filter((p): p is number => p !== null);
+  if (myPace !== null && paces.length >= MIN_SAMPLES) {
+    const delta = Math.round(avg(paces) - myPace);
+    if (delta >= 8) out.push({ code: "pace_faster", secondsPerKm: delta });
+    else if (delta <= -8) out.push({ code: "pace_slower", secondsPerKm: -delta });
+  }
+
+  const hrs = peers
+    .map((a) => a.averageHeartRateInBeatsPerMinute)
+    .filter((h): h is number => h !== null && h > 0);
+  const hr = activity.averageHeartRateInBeatsPerMinute;
+  if (hr && hrs.length >= MIN_SAMPLES) {
+    const delta = Math.round(hr - avg(hrs));
+    // Lower HR at the same or faster pace means better aerobic economy.
+    if (delta <= -5 && (myPace === null || paces.length < MIN_SAMPLES || myPace <= avg(paces)))
+      out.push({ code: "lower_hr", bpm: -delta });
+    else if (delta >= 6) out.push({ code: "higher_hr", bpm: delta });
+  }
+
+  const loads = peers.map((a) => a.trainingLoad).filter((l): l is number => l !== null && l > 0);
+  if (
+    activity.trainingLoad &&
+    loads.length >= MIN_SAMPLES &&
+    activity.trainingLoad >= 1.4 * avg(loads)
+  )
+    out.push({ code: "big_load" });
+
+  const climb = activity.totalElevationGainInMeters ?? 0;
+  if (climb >= (group === "cycling" ? 800 : 300))
+    out.push({ code: "hilly", meters: Math.round(climb) });
+
+  return out.slice(0, limit);
 }

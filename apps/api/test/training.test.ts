@@ -121,6 +121,8 @@ describe("athlete training", () => {
     const detail = await http().get(`/v1/me/activities/${run.id}`).set(me.auth).expect(200);
     expect(detail.body.activity).toMatchObject({ id: run.id, feedback: { perceivedEffort: 7 } });
     expect(detail.body.planEntry).toMatchObject({ calendarDate: run.calendarDate });
+    expect(Array.isArray(detail.body.insights)).toBe(true);
+    expect(detail.body.insights.length).toBeGreaterThan(0);
     expect(detail.body.comments).toEqual([
       expect.objectContaining({ body: "Колено ок.", authorId: me.id }),
     ]);

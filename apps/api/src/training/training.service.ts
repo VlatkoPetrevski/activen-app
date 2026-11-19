@@ -1,4 +1,5 @@
 import {
+  activityInsights,
   calendarView,
   coachRowRange,
   coachRowView,
@@ -88,10 +89,18 @@ export class TrainingService {
       "owner",
     );
     const link = day.links.find((l) => l.activityId === activityId);
+    const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
+    const recent = await this.visibleActivities(
+      athleteId,
+      addDays(activity.calendarDate, -28),
+      activity.calendarDate,
+      "owner",
+    );
     return {
       activity: day.activities.find((a) => a.id === activityId) ?? { ...activity, feedback: null },
-      planEntry: day.entries.find((e) => e.id === link?.planEntryId) ?? null,
+      planEntry,
       comments: await this.comments(athleteId, { activityId }),
+      insights: activityInsights(activity, recent, planEntry),
     };
   }
 

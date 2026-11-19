@@ -106,10 +106,25 @@ export interface CommentDto {
   createdAt: IsoDateTime;
 }
 
+/** One observation for the automatic activity summary (rendered as a sentence by the client). */
+export type ActivityInsight =
+  | { code: "plan_on_target" }
+  | { code: "plan_over"; percent: number }
+  | { code: "plan_under"; percent: number }
+  | { code: "longest_recent" }
+  | { code: "pace_faster"; secondsPerKm: number }
+  | { code: "pace_slower"; secondsPerKm: number }
+  | { code: "lower_hr"; bpm: number }
+  | { code: "higher_hr"; bpm: number }
+  | { code: "big_load" }
+  | { code: "hilly"; meters: number };
+
 export interface ActivityDetailDto {
   activity: ActivityDto;
   planEntry: PlanEntryDto | null;
   comments: CommentDto[];
+  /** Automatic narrative: comparisons with the plan and the last 4 weeks (most relevant first). */
+  insights: ActivityInsight[];
 }
 
 export interface ProgressDto {
@@ -165,4 +180,33 @@ export interface WellnessDto {
   sleepDurationInSeconds: number | null;
   restingHeartRate: number | null;
   recoveryTimeInMinutes: number | null;
+}
+
+/** Today's weather at the athlete's location (provider: Open-Meteo). Temperatures in °C. */
+export interface WeatherDto {
+  location: { name: string | null; latitude: number; longitude: number };
+  current: {
+    temperature: number;
+    apparentTemperature: number;
+    weatherCode: number;
+    isDay: boolean;
+    windSpeedKmh: number;
+  };
+  today: {
+    min: number;
+    max: number;
+    sunrise: string; // local "HH:MM"
+    sunset: string;
+    uvIndexMax: number | null;
+    precipitationProbabilityMax: number | null;
+  };
+  /** Hourly forecast for today, local hours 0–23. */
+  hourly: {
+    hour: number;
+    temperature: number;
+    precipitationProbability: number | null;
+    weatherCode: number;
+    europeanAqi: number | null;
+  }[];
+  airQuality: { europeanAqi: number; pm2_5: number | null; pm10: number | null } | null;
 }

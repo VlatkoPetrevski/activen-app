@@ -1169,3 +1169,261 @@ body {
     gap: 0;
   }
 }
+
+/* --- Today segments (compact rows that expand in place) ---------------------------------------- */
+
+.segments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.segment {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.segment.skeleton {
+  height: 62px;
+  background: linear-gradient(90deg, var(--surface), var(--bg-sunken), var(--surface));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.segment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 12px 10px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.segment-head.static {
+  cursor: default;
+}
+.segment-summary {
+  flex: 1;
+  min-width: 0;
+}
+.segment-chevron {
+  color: var(--muted);
+  transition: transform 0.2s;
+  flex: none;
+}
+.segment.open .segment-chevron {
+  transform: rotate(180deg);
+}
+.segment-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.segment.open .segment-body {
+  grid-template-rows: 1fr;
+}
+.segment-inner {
+  overflow: hidden;
+}
+.segment-content {
+  padding: 4px 14px 16px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+  max-height: 58dvh;
+  overflow-y: auto;
+}
+.weather-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.weather-icon {
+  display: inline-grid;
+}
+.weather-temp {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+}
+.weather-chips {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+@media (max-width: 420px) {
+  .weather-chips {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.stats-row {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(4, 1fr);
+  gap: 4px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.stat:first-child {
+  align-items: flex-start;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.stat:first-child .stat-value {
+  font-size: 24px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hourly {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 6px;
+}
+.hourly text {
+  fill: var(--muted);
+  font-size: 13px;
+  font-family: var(--font);
+}
+.hourly .hourly-temp {
+  fill: var(--text);
+  font-weight: 700;
+}
+.hourly .hourly-now {
+  fill: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+}
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.mini-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  text-align: center;
+}
+.mini-stats .num {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Check-in: quick rows always visible, the rest expands */
+.checkin .segment-head h2 {
+  font-size: 17px;
+}
+.checkin-quick {
+  padding: 0 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checkin-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.checkin-label .muted {
+  font-weight: 500;
+}
+.rpe.compact {
+  gap: 3px;
+}
+.rpe.compact button {
+  min-height: 34px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+.feel.compact {
+  gap: 4px;
+}
+.feel.compact button {
+  flex-direction: row;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 2px;
+  font-size: 10px;
+  border-radius: 10px;
+  min-height: 36px;
+}
+.feel.compact button span:first-child {
+  font-size: 17px;
+}
+@media (max-width: 420px) {
+  .feel.compact button {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+.checkin-more {
+  padding: 4px 14px 16px;
+}
+.checkin-comment {
+  min-height: 132px;
+}
+
+.insights {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary-soft), var(--teal-soft));
+}
+.insights-mark {
+  color: var(--primary);
+  font-size: 16px;
+  line-height: 1.4;
+}
+/* Feel row: one line, small labels (labels truncate rather than wrap). */
+.feel.compact button,
+.feel.compact button span:last-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 420px) {
+  .feel.compact button {
+    padding: 5px 1px;
+  }
+  .feel.compact button span:last-child {
+    font-size: 9px;
+    max-width: 100%;
+  }
+}

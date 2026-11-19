@@ -16,10 +16,12 @@ import type {
   SessionDto,
   SignInResponse,
   UserDto,
+  WeatherDto,
   WellnessDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate } from "@activen/domain";
 import type { z } from "zod";
+import type { Place } from "../lib/location.js";
 
 export type PlanInput = z.input<typeof PlanEntryCreate>;
 export type PlanPatch = z.input<typeof PlanEntryUpdate>;
@@ -83,6 +85,8 @@ export interface Api {
   deleteAccount(): Promise<void>;
 
   wellness(date: LocalDate): Promise<WellnessDto | null>;
+  /** Today's weather and air quality at a place (null when the provider is unreachable). */
+  weather(place: Place): Promise<WeatherDto | null>;
   calendar(from: LocalDate, to: LocalDate): Promise<CalendarDto>;
   createPlan(input: PlanInput): Promise<PlanEntryDto>;
   updatePlan(id: string, patch: PlanPatch): Promise<PlanEntryDto>;

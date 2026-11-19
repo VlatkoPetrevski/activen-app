@@ -13,3 +13,4 @@ export * from "./analytics.js";
 export * from "./source-policy.js";
 export * from "./merge.js";
 // The vendor data catalog is a separate entry point: `@activen/domain/catalog` (server-side use).
+export * from "./weather.js";

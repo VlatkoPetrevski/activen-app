@@ -23,7 +23,27 @@ describe("athlete app (demo)", () => {
     await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
     expect(await screen.findByRole("heading", { level: 1, name: /Влатко/ })).toBeInTheDocument();
     expect(await screen.findByText("План за денес")).toBeInTheDocument();
+    // Compact segments expand and collapse on the same tap.
+    const readiness = await screen.findByRole("button", { name: /Спремност за тренинг: 72/ });
+    expect(readiness).toHaveAttribute("aria-expanded", "false");
+    await user.click(readiness);
+    expect(readiness).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Умерена")).toBeInTheDocument();
+    await user.click(readiness);
+    expect(readiness).toHaveAttribute("aria-expanded", "false");
+    const weather = await screen.findByRole("button", { name: /Делумно облачно/ });
+    await user.click(weather);
+    expect(screen.getByRole("img", { name: /Денес по часови/ })).toBeInTheDocument();
+    // Quick check-in from Today: tapping a number opens the form.
+    const quick = screen
+      .getByRole("button", { name: /Како помина последниот тренинг/ })
+      .closest("form")!;
+    await user.click(within(quick).getByRole("button", { name: "4" }));
+    expect(
+      within(quick).getByRole("button", { name: /Како помина последниот тренинг/ }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await user.click(within(quick).getByRole("button", { name: "Испрати до Ана" }));
+    expect(await within(quick).findByText("Зачувано ✓")).toBeInTheDocument();
 
     // Plan: edit a session.
     await user.click(screen.getAllByRole("link", { name: "План" })[0]!);
@@ -42,9 +62,12 @@ describe("athlete app (demo)", () => {
     const links = await screen.findAllByRole("link", { name: /km/ });
     await user.click(links[0]!);
     expect(await screen.findByRole("heading", { name: "Како помина?" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "5" }));
-    await user.click(screen.getByRole("button", { name: /Силно/ }));
-    await user.click(screen.getByRole("button", { name: "Зачувај оценка" }));
+    expect(screen.getByRole("region", { name: "Анализа" })).toBeInTheDocument();
+    const checkin = screen.getByRole("button", { name: /Како помина\?/ }).closest("form")!;
+    await user.click(within(checkin).getByRole("button", { name: "5" }));
+    await user.click(within(checkin).getByRole("button", { name: /Силно/ }));
+    await user.type(within(checkin).getByLabelText("Коментар за тренерот"), "Добро");
+    await user.click(within(checkin).getByRole("button", { name: "Испрати до Ана" }));
     expect(await screen.findByText("Благодарам! Оценката е зачувана.")).toBeInTheDocument();
 
     // Coach tab → message.

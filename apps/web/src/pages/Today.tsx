@@ -1,7 +1,8 @@
-import type { CoachLinkDto, WellnessDto } from "@activen/contracts";
-import { trainingReadinessLevel, type LocalDate } from "@activen/domain";
+import type { CoachLinkDto } from "@activen/contracts";
+import { addDays, type LocalDate } from "@activen/domain";
 import type { MessageKey } from "@activen/i18n";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
@@ -13,8 +14,10 @@ import { Structure } from "../training/Structure.js";
 import { WeekStrip } from "../training/WeekStrip.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
-import { Ring } from "../ui/Ring.js";
-import { Loading, QueryView } from "../ui/States.js";
+import { QueryView } from "../ui/States.js";
+import { ReadinessSegment } from "../training/ReadinessSegment.js";
+import { WeatherSegment } from "../training/WeatherSegment.js";
+import { CheckInForm } from "../training/CheckInForm.js";
 
 function greetingKey(now: Date): MessageKey {
   const h = now.getHours();
@@ -23,84 +26,6 @@ function greetingKey(now: Date): MessageKey {
     : h < 18
       ? "today.greeting.day"
       : "today.greeting.evening";
-}
-
-function Readiness({ wellness }: { wellness: WellnessDto | null }) {
-  const { t, f } = useI18n();
-  if (!wellness || wellness.trainingReadiness === null)
-    return (
-      <section className="card warm stack">
-        <div className="row">
-          <Icon name="battery" />
-          <h2>{t("trainingReadiness.title")}</h2>
-        </div>
-        <p className="muted">{t("today.readiness.noData")}</p>
-        <div className="row wrap">
-          {["Garmin", "Polar", "Suunto", "COROS"].map((v) => (
-            <span key={v} className="chip">
-              {v}
-            </span>
-          ))}
-        </div>
-      </section>
-    );
-  const level = trainingReadinessLevel(Math.max(1, wellness.trainingReadiness));
-  const hrvKey =
-    `hrvStatus.${wellness.hrvStatus === "none" ? "NO_STATUS" : wellness.hrvStatus.toUpperCase()}` as MessageKey;
-  return (
-    <section className="card stack">
-      <div className="readiness">
-        <Ring
-          value={wellness.trainingReadiness}
-          label={`${t("trainingReadiness.title")}: ${wellness.trainingReadiness}`}
-        />
-        <div className="stack" style={{ gap: 4 }}>
-          <span className="eyebrow">{t("trainingReadiness.title")}</span>
-          <h2>{t(`trainingReadiness.level.${level}`)}</h2>
-          <p className="muted small">{t(`trainingReadiness.message.${level}`)}</p>
-        </div>
-      </div>
-      <div className="tiles">
-        <div className="tile">
-          <div className="row small muted">
-            <Icon name="sleep" size={16} /> {t("today.sleep")}
-          </div>
-          <div className="value">
-            {f.duration(wellness.sleepDurationInSeconds).replace(/:\d\d$/, "")} h
-          </div>
-          {wellness.sleepScore !== null && (
-            <div className="tiny muted">
-              {t("today.sleepScore", { score: wellness.sleepScore })}
-            </div>
-          )}
-        </div>
-        <div className="tile">
-          <div className="row small muted">
-            <Icon name="hrv" size={16} /> {t("today.hrv")}
-          </div>
-          <div className="value">{wellness.lastNightHrvMs ?? "—"} ms</div>
-          <div className="tiny muted">{t(hrvKey)}</div>
-        </div>
-        <div className="tile">
-          <div className="row small muted">
-            <Icon name="heart" size={16} /> {t("today.restingHr")}
-          </div>
-          <div className="value">{wellness.restingHeartRate ?? "—"}</div>
-          <div className="tiny muted">bpm</div>
-        </div>
-        <div className="tile">
-          <div className="row small muted">
-            <Icon name="battery" size={16} /> {t("today.recovery")}
-          </div>
-          <div className="value">
-            {wellness.recoveryTimeInMinutes !== null
-              ? `${Math.round(wellness.recoveryTimeInMinutes / 60)} h`
-              : "—"}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
 }
 
 function TodayEntry({ d, coach }: { d: DayEntry; coach: CoachLinkDto | undefined }) {
@@ -159,8 +84,16 @@ export function TodayPage() {
     queryKey: ["me", "calendar", week.from, week.to],
     queryFn: () => api.calendar(week.from, week.to),
   });
+  // The latest unrated session of the last 3 days (also yesterday's on a Monday).
+  const recent = useQuery({
+    queryKey: ["me", "activities", addDays(today, -3), addDays(today, -1)],
+    queryFn: () => api.activities(addDays(today, -3), addDays(today, -1)),
+  });
   const coaches = useQuery({ queryKey: ["me", "coaches"], queryFn: () => api.coaches() });
   const coach = coaches.data?.find((c) => c.status === "active");
+  const queryClient = useQueryClient();
+  const [rated, setRated] = useState<string | null>(null);
+  const pending = recent.data?.find((a) => !a.feedback || a.id === rated);
   const firstName = me.user.displayName.split(" ")[0] ?? me.user.displayName;
 
   return (
@@ -170,7 +103,14 @@ export function TodayPage() {
         <h1>{t(greetingKey(new Date()), { name: firstName })}</h1>
       </header>
 
-      {wellness.isPending ? <Loading /> : <Readiness wellness={wellness.data ?? null} />}
+      <div className="segments">
+        <WeatherSegment timeZone={me.settings.timeZone} />
+        {wellness.isPending ? (
+          <div className="segment skeleton" aria-hidden />
+        ) : (
+          <ReadinessSegment wellness={wellness.data ?? null} />
+        )}
+      </div>
 
       <QueryView query={calendar}>
         {(cal) => {
@@ -181,9 +121,7 @@ export function TodayPage() {
           const distance = cal.activities
             .filter((a) => a.calendarDate <= today)
             .reduce((s, a) => s + (a.distanceInMeters ?? 0), 0);
-          const pending = [...cal.activities]
-            .filter((a) => a.calendarDate < today && !a.feedback)
-            .sort((a, b) => b.startTimeInSeconds - a.startTimeInSeconds)[0];
+
           return (
             <>
               <section className="card stack">
@@ -206,17 +144,18 @@ export function TodayPage() {
               </section>
 
               {pending && (
-                <section className="card warm row-between">
-                  <div className="stack" style={{ gap: 2 }}>
-                    <h3>{t("today.checkInPrompt")}</h3>
-                    <span className="small muted">
-                      {f.date(pending.calendarDate, "long")} · {activitySummary(f, pending)}
-                    </span>
-                  </div>
-                  <Link className="btn btn-primary btn-small" to={`/activities/${pending.id}`}>
-                    {t("today.checkIn")}
-                  </Link>
-                </section>
+                <CheckInForm
+                  key={pending.id}
+                  title={t("today.checkInPrompt")}
+                  subtitle={`${f.date(pending.calendarDate, "long")} · ${activitySummary(f, pending)}`}
+                  initial={pending.feedback}
+                  coachName={coach?.coachName ?? null}
+                  onSave={async (input) => {
+                    setRated(pending.id);
+                    await api.saveFeedback(pending.id, input);
+                    await queryClient.invalidateQueries({ queryKey: ["me"] });
+                  }}
+                />
               )}
 
               <section className="card stack">
