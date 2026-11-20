@@ -2470,3 +2470,42 @@ button.cmp-cell:hover {
   width: 120px;
   height: 10px;
 }
+
+/* Coach athletes: list of expandable rows with column labels above. */
+.dash-head,
+.dash-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) 150px 1.2fr 170px 110px;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+.dash-head {
+  padding: 0 52px 0 18px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dash-name {
+  gap: 10px;
+  min-width: 0;
+}
+.seg-snippet {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .dash-head,
+  .dash-row {
+    grid-template-columns: 1fr auto;
+  }
+  .dash-head > span:nth-child(2),
+  .dash-row > span:nth-child(2) {
+    display: none;
+  }
+}

@@ -11,6 +11,7 @@ import { athleteTarget } from "../../training/target.js";
 import { Avatar } from "../../ui/Avatar.js";
 import { useConfirm } from "../../ui/Confirm.js";
 import { Icon } from "../../ui/Icon.js";
+import { Segment } from "../../ui/Segment.js";
 import { Loading, QueryView } from "../../ui/States.js";
 import { CoachThread } from "./CoachThread.js";
 import { signalText } from "./Dashboard.js";
@@ -87,10 +88,28 @@ export function CoachAthletePage() {
           <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />
         </div>
         <div className="stack-l">
-          <section className="card stack">
-            <h2>{t("nav.messages")}</h2>
-            <CoachThread athleteId={athleteId} />
-          </section>
+          <div className="segments">
+            <Segment
+              defaultOpen={row.signals.some((x) => x.code === "awaiting_reply")}
+              label={t("nav.messages")}
+              summary={
+                <span className="seg-line">
+                  <strong>{t("nav.messages")}</strong>
+                  {row.lastComment && (
+                    <span className="small muted seg-snippet">„{row.lastComment.body}“</span>
+                  )}
+                </span>
+              }
+            >
+              <CoachThread athleteId={athleteId} />
+            </Segment>
+          </div>
+          {shared && (
+            <Link to={`/coach/analytics/${athleteId}`} className="btn btn-secondary">
+              <Icon name="progress" size={16} />{" "}
+              {t("analytics.openAthlete", { name: row.displayName })}
+            </Link>
+          )}
           {shared ? (
             <QueryView query={progress}>{(data) => <ProgressView data={data} />}</QueryView>
           ) : (

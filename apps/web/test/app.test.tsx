@@ -199,12 +199,21 @@ describe("coach workplace (demo)", () => {
     expect(await screen.findByRole("heading", { name: "Бара внимание" })).toBeInTheDocument();
     expect(screen.getAllByText("Порака").length).toBeGreaterThan(0);
     // Weekly totals sit between the last activity and the source: "34,5 km / 3 ч 12 мин".
-    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    const headers = [...document.querySelectorAll(".dash-head > span")].map((h) => h.textContent);
     expect(headers.indexOf("Вкупно оваа недела")).toBe(headers.indexOf("Последна активност") + 1);
     expect(headers.indexOf("Извор")).toBe(headers.indexOf("Вкупно оваа недела") + 1);
     expect(screen.getAllByText(/^\/ \d+ (ч \d+ )?мин$/).length).toBeGreaterThan(0);
-    await user.click(screen.getAllByRole("link", { name: /Влатко Петревски/ })[0]!);
+    // Each athlete is a row that expands to signals, the last message and shortcuts.
+    const row = screen.getByRole("button", { name: "Влатко Петревски" });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    const details = screen.getByRole("region", { name: "Влатко Петревски" });
+    expect(within(details).getByRole("link", { name: "Анализи" })).toBeInTheDocument();
+    await user.click(within(details).getByRole("link", { name: "Профил" }));
     expect(await screen.findByRole("heading", { name: "План за Влатко" })).toBeInTheDocument();
+    // Messages open by themselves when the athlete is waiting for a reply.
+    expect(screen.getByRole("button", { name: "Пораки" })).toHaveAttribute("aria-expanded", "true");
     await user.click(await screen.findByRole("button", { name: "Утре полесно" }));
     await waitFor(() => expect(screen.getAllByText("Утре полесно").length).toBeGreaterThan(1));
 

@@ -10,7 +10,9 @@ import { vendorName } from "../../lib/vendors.js";
 import { Avatar } from "../../ui/Avatar.js";
 import { Dialog } from "../../ui/Dialog.js";
 import { Icon, SportIcon } from "../../ui/Icon.js";
+import { Segment } from "../../ui/Segment.js";
 import { Empty, QueryView } from "../../ui/States.js";
+import { ConsentInfo } from "../../training/ConsentInfo.js";
 import { useCoachAthletes } from "./hooks.js";
 
 export function signalText(t: T, f: Formatter, s: CoachSignal): string {
@@ -106,6 +108,94 @@ function WeekTotal({ row }: { row: CoachAthleteDto }) {
   );
 }
 
+/** One athlete: the week in a row; signals, the last message and shortcuts on expand. */
+function AthleteRow({ r }: { r: CoachAthleteDto }) {
+  const { t, f } = useI18n();
+  const last = r.lastActivity;
+  return (
+    <Segment
+      label={r.displayName}
+      summary={
+        <span className="dash-row">
+          <span className="row dash-name">
+            <Avatar name={r.displayName} />
+            <span>
+              <strong>{r.displayName}</strong>
+              {r.status === "invited" && (
+                <span className="chip" style={{ marginLeft: 6 }}>
+                  {t("coachApp.invited")}
+                </span>
+              )}
+            </span>
+          </span>
+          <span>{r.status === "active" ? <WeekBar row={r} /> : "—"}</span>
+          <span className="hide-mobile small">
+            {last ? (
+              <span className="row">
+                <SportIcon group={groupOf(last.activityType)} />
+                <span>
+                  <span style={{ display: "block" }}>{f.date(last.calendarDate, "dayMonth")}</span>
+                  <span className="muted">
+                    {last.distanceInMeters
+                      ? f.distance(last.distanceInMeters, 1)
+                      : f.duration(last.durationInSeconds)}
+                    {last.perceivedEffort ? ` · RPE ${last.perceivedEffort}` : ""}
+                  </span>
+                </span>
+              </span>
+            ) : (
+              <span className="muted">
+                {r.status === "active" && !r.scopes.includes("activities")
+                  ? t("coachApp.noShared")
+                  : "—"}
+              </span>
+            )}
+          </span>
+          <span className="nowrap">
+            <WeekTotal row={r} />
+          </span>
+          <span className="hide-mobile">
+            {r.primarySource ? <span className="chip">{vendorName(r.primarySource)}</span> : "—"}
+          </span>
+        </span>
+      }
+    >
+      <div className="stack">
+        {r.signals.length > 0 && (
+          <div className="row wrap">
+            {r.signals.map((s) => (
+              <span
+                key={s.code}
+                className={`chip ${s.code === "awaiting_reply" ? "teal" : "warn"}`}
+              >
+                {signalText(t, f, s)}
+              </span>
+            ))}
+          </div>
+        )}
+        {r.lastComment && (
+          <p className="small muted">
+            {r.lastComment.fromAthlete ? "" : `${t("coach.you")}: `}„{r.lastComment.body}“
+          </p>
+        )}
+        {r.status === "active" && (
+          <div className="row wrap">
+            <Link to={`/coach/athletes/${r.athleteId}`} className="btn btn-primary btn-small">
+              <Icon name="profile" size={16} /> {t("coachApp.openProfile")}
+            </Link>
+            {r.scopes.includes("activities") && (
+              <Link to={`/coach/analytics/${r.athleteId}`} className="btn btn-secondary btn-small">
+                <Icon name="progress" size={16} /> {t("nav.analytics")}
+              </Link>
+            )}
+            <ConsentInfo name={r.displayName} scopes={r.scopes} withLabel />
+          </div>
+        )}
+      </div>
+    </Segment>
+  );
+}
+
 export function CoachDashboard() {
   const { t, f } = useI18n();
   const query = useCoachAthletes();
@@ -167,82 +257,19 @@ export function CoachDashboard() {
                   </div>
                 )}
               </section>
-              <section className="card" style={{ overflowX: "auto" }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>{t("coachApp.col.athlete")}</th>
-                      <th>{t("coachApp.col.week")}</th>
-                      <th className="hide-mobile">{t("coachApp.col.last")}</th>
-                      <th>{t("coachApp.col.weekTotal")}</th>
-                      <th className="hide-mobile">{t("coachApp.col.source")}</th>
-                      <th aria-label={t("common.edit")} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.linkId}>
-                        <td>
-                          <div className="row">
-                            <Avatar name={r.displayName} />
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{r.displayName}</div>
-                              {r.status === "invited" && (
-                                <span className="chip">{t("coachApp.invited")}</span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>{r.status === "active" ? <WeekBar row={r} /> : "—"}</td>
-                        <td className="hide-mobile">
-                          {r.lastActivity ? (
-                            <div className="row">
-                              <SportIcon group={groupOf(r.lastActivity.activityType)} />
-                              <div className="small">
-                                <div>{f.date(r.lastActivity.calendarDate, "dayMonth")}</div>
-                                <div className="muted">
-                                  {r.lastActivity.distanceInMeters
-                                    ? f.distance(r.lastActivity.distanceInMeters, 1)
-                                    : f.duration(r.lastActivity.durationInSeconds)}
-                                  {r.lastActivity.perceivedEffort
-                                    ? ` · RPE ${r.lastActivity.perceivedEffort}`
-                                    : ""}
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="small muted">
-                              {r.status === "active" && !r.scopes.includes("activities")
-                                ? t("coachApp.noShared")
-                                : "—"}
-                            </span>
-                          )}
-                        </td>
-                        <td className="nowrap">
-                          <WeekTotal row={r} />
-                        </td>
-                        <td className="hide-mobile">
-                          {r.primarySource ? (
-                            <span className="chip">{vendorName(r.primarySource)}</span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td>
-                          {r.status === "active" && (
-                            <Link
-                              to={`/coach/athletes/${r.athleteId}`}
-                              className="icon-btn"
-                              aria-label={`${t("common.edit")}: ${r.displayName}`}
-                            >
-                              <Icon name="chevronRight" />
-                            </Link>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <section className="stack">
+                <div className="dash-head" aria-hidden="true">
+                  <span>{t("coachApp.col.athlete")}</span>
+                  <span>{t("coachApp.col.week")}</span>
+                  <span className="hide-mobile">{t("coachApp.col.last")}</span>
+                  <span>{t("coachApp.col.weekTotal")}</span>
+                  <span className="hide-mobile">{t("coachApp.col.source")}</span>
+                </div>
+                <div className="segments">
+                  {rows.map((r) => (
+                    <AthleteRow key={r.linkId} r={r} />
+                  ))}
+                </div>
               </section>
             </>
           );
