@@ -31,6 +31,8 @@ export interface AthleteSettings {
   maxHeartRate: number | null;
   /** Used to estimate max HR (220 − age) when none is known. */
   birthDate: LocalDate | null;
+  /** Suggest workout steps automatically while a plan text is written (off: manual button). */
+  workoutSuggestions: boolean;
 }
 
 export const DEFAULT_ATHLETE_SETTINGS: Readonly<AthleteSettings> = Object.freeze<AthleteSettings>({
@@ -41,6 +43,7 @@ export const DEFAULT_ATHLETE_SETTINGS: Readonly<AthleteSettings> = Object.freeze
   hrZones: { mode: "source" },
   maxHeartRate: null,
   birthDate: null,
+  workoutSuggestions: true,
 });
 
 /** Order in which zone profiles are looked up for the given setting. */

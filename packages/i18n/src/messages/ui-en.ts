@@ -558,7 +558,8 @@ export const uiEn = {
   "workout.structure": "Structure",
   "workout.structurize": "Structure it",
   "workout.structurizing": "Structuring…",
-  "workout.accept": "Accept",
+  "workout.accept": "Accept steps",
+  "workout.orText": "Or just Save: the plan goes exactly as written.",
   "workout.discard": "Discard",
   "workout.remove": "Remove structure",
   "workout.notRecognized": "The text is not recognised as a structured workout. It stays as text.",
@@ -578,4 +579,11 @@ export const uiEn = {
   "workout.unit.min": "min",
   "workout.unit.s": "s",
   "workout.zone": "Z{zone}",
+  "workout.hintManual": "Write freely. “Structure it” turns the text into steps.",
+  "profile.planning": "Planning",
+  "profile.suggestions": "Suggest steps automatically while I write a workout",
+  "profile.suggestions.on": "Automatic suggestions: on",
+  "profile.suggestions.off": "Automatic suggestions: off",
+  "profile.suggestionsHint":
+    "Off: workouts go as text, and steps are requested with the “Structure it” button.",
 } as const;

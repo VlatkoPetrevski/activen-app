@@ -184,6 +184,7 @@ export const athleteSettings = pgTable(
     hrZoneVendor: vendorEnum("hr_zone_vendor"),
     maxHeartRate: smallint("max_heart_rate"),
     birthDate: date("birth_date", { mode: "string" }),
+    workoutSuggestions: boolean("workout_suggestions").notNull().default(true),
     updatedAt: updatedAt(),
   },
   (t) => [

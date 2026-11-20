@@ -119,6 +119,21 @@ function SettingsForm({ settings }: { settings: AthleteSettings }) {
           </div>
         </div>
       </Section>
+      <Section
+        title={t("profile.planning")}
+        info={t(settings.workoutSuggestions ? "profile.suggestions.on" : "profile.suggestions.off")}
+      >
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.workoutSuggestions}
+            disabled={saving}
+            onChange={(e) => void save({ workoutSuggestions: e.target.checked })}
+          />
+          {t("profile.suggestions")}
+        </label>
+        <p className="small muted">{t("profile.suggestionsHint")}</p>
+      </Section>
       <Section title={t("profile.sources")} info={order.map((v) => VENDOR_NAMES[v]).join(" › ")}>
         <p className="small muted">{t("profile.sourcesHint")}</p>
         <ol className="list" style={{ padding: 0, margin: 0, listStyle: "none" }}>

@@ -1,8 +1,9 @@
 import type { PlanEntryDto } from "@activen/contracts";
 import type { ActivityType, LocalDate, WorkoutStructure } from "@activen/domain";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, type PlanInput, type PlanPatch } from "../api/api.js";
 import { useApi } from "../api/ApiContext.js";
+import { useMe } from "../auth/AuthContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
 import { useConfirm } from "../ui/Confirm.js";
 import { Dialog } from "../ui/Dialog.js";
@@ -78,6 +79,10 @@ export function PlanEditor({
   const [structuring, setStructuring] = useState<"idle" | "busy" | "none" | "error">("idle");
   /** The description the accepted structure was made from (to flag later edits). */
   const [structuredFrom, setStructuredFrom] = useState<string | null>(null);
+  /** A text whose suggestion the coach discarded: not suggested again until it changes. */
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const request = useRef(0);
+  const auto = useMe().settings.workoutSuggestions;
 
   // A fresh entry (e.g. reloaded after a conflict) replaces the draft; the message stays.
   useEffect(() => {
@@ -88,19 +93,56 @@ export function PlanEditor({
       setError(null);
       setSuggestion(null);
       setStructuring("idle");
+      setDismissedFor(null);
       setStructuredFrom(entry?.structure ? entry.description : null);
     }
   }, [open, entry]);
 
+  // Steps are suggested by themselves while the coach writes (after a short pause). Saving
+  // without accepting keeps the plan as plain text.
+  const text = draft.description.trim();
+  useEffect(() => {
+    const id = ++request.current;
+    if (
+      !open ||
+      !auto ||
+      draft.kind !== "workout" ||
+      text.length < 4 ||
+      text === structuredFrom?.trim() ||
+      text === dismissedFor
+    ) {
+      setSuggestion(null);
+      setStructuring("idle");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStructuring("busy");
+      api
+        .structureWorkout(text, f.locale)
+        .then(({ structure }) => {
+          if (id !== request.current) return;
+          setSuggestion(structure);
+          setStructuring(structure ? "idle" : "none");
+        })
+        .catch(() => {
+          if (id === request.current) setStructuring("error");
+        });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [open, auto, draft.kind, text, structuredFrom, dismissedFor, api, f.locale]);
+
+  /** With automatic suggestions off (Profile → Planning), the coach asks for them. */
   const structurize = async () => {
+    const id = ++request.current;
     setStructuring("busy");
     setSuggestion(null);
     try {
-      const { structure } = await api.structureWorkout(draft.description, f.locale);
+      const { structure } = await api.structureWorkout(text, f.locale);
+      if (id !== request.current) return;
       setSuggestion(structure);
       setStructuring(structure ? "idle" : "none");
     } catch {
-      setStructuring("error");
+      if (id === request.current) setStructuring("error");
     }
   };
 
@@ -218,16 +260,19 @@ export function PlanEditor({
                         {t("workout.remove")}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-small"
-                      disabled={!draft.description.trim() || structuring === "busy"}
-                      onClick={() => void structurize()}
-                    >
-                      {structuring === "busy"
-                        ? t("workout.structurizing")
-                        : t("workout.structurize")}
-                    </button>
+                    {structuring === "busy" && (
+                      <span className="small muted">{t("workout.structurizing")}</span>
+                    )}
+                    {!auto && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        disabled={!text || structuring === "busy"}
+                        onClick={() => void structurize()}
+                      >
+                        {t("workout.structurize")}
+                      </button>
+                    )}
                   </span>
                 </div>
                 {suggestion ? (
@@ -255,11 +300,15 @@ export function PlanEditor({
                       <button
                         type="button"
                         className="btn btn-ghost btn-small"
-                        onClick={() => setSuggestion(null)}
+                        onClick={() => {
+                          setDismissedFor(text);
+                          setSuggestion(null);
+                        }}
                       >
                         {t("workout.discard")}
                       </button>
                     </div>
+                    <span className="tiny muted">{t("workout.orText")}</span>
                   </div>
                 ) : draft.structure ? (
                   <>
@@ -274,7 +323,7 @@ export function PlanEditor({
                       ? t("workout.notRecognized")
                       : structuring === "error"
                         ? t("common.error")
-                        : t("workout.hint")}
+                        : t(auto ? "workout.hint" : "workout.hintManual")}
                   </span>
                 )}
               </div>

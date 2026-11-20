@@ -26,6 +26,7 @@ function toDomain(row: Row): AthleteSettings {
     hrZones,
     maxHeartRate: row.maxHeartRate,
     birthDate: row.birthDate,
+    workoutSuggestions: row.workoutSuggestions,
   };
 }
 
@@ -67,6 +68,7 @@ export class SettingsRepository {
       hrZoneVendor: settings.hrZones.mode === "vendor" ? settings.hrZones.vendor : null,
       maxHeartRate: settings.maxHeartRate,
       birthDate: settings.birthDate,
+      workoutSuggestions: settings.workoutSuggestions,
     };
     const [row] = await this.db
       .insert(athleteSettings)

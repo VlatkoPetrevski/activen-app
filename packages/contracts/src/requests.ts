@@ -59,6 +59,7 @@ export const SettingsPatch = z
     ]),
     maxHeartRate: z.number().int().min(100).max(250).nullable(),
     birthDate: z.iso.date().nullable(),
+    workoutSuggestions: z.boolean(),
   })
   .partial()
   .strict();

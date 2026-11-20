@@ -567,7 +567,8 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "workout.structure": "Структура",
   "workout.structurize": "Структурирај",
   "workout.structurizing": "Се структурира…",
-  "workout.accept": "Прифати",
+  "workout.accept": "Прифати чекори",
+  "workout.orText": "Или само „Зачувај“: планот оди точно како што е напишан.",
   "workout.discard": "Отфрли",
   "workout.remove": "Отстрани структура",
   "workout.notRecognized":
@@ -588,4 +589,11 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "workout.unit.min": "мин",
   "workout.unit.s": "сек",
   "workout.zone": "Z{zone}",
+  "workout.hintManual": "Пиши слободно. Со „Структурирај“ текстот се претвора во чекори.",
+  "profile.planning": "Планирање",
+  "profile.suggestions": "Автоматски предлог на чекори додека пишувам тренинг",
+  "profile.suggestions.on": "Автоматски предлог: вклучен",
+  "profile.suggestions.off": "Автоматски предлог: исклучен",
+  "profile.suggestionsHint":
+    "Исклучено: тренингот оди како текст, а чекорите се бараат со копчето „Структурирај“.",
 };

@@ -103,8 +103,10 @@ describe("settings", () => {
       hrZones: { mode: "vendor", vendor: "polar" },
       maxHeartRate: 186,
       birthDate: "1984-03-09",
+      workoutSuggestions: false,
     });
     expect(await repos().settings.get(u.id)).toEqual(saved);
+    expect(saved.workoutSuggestions).toBe(false);
     await repos().settings.save(u.id, { ...saved, hrZones: { mode: "manual" } });
     expect((await repos().settings.get(u.id)).hrZones).toEqual({ mode: "manual" });
   });
