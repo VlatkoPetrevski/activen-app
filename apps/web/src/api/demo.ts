@@ -33,6 +33,7 @@ import {
   addDays,
   DEFAULT_ATHLETE_SETTINGS,
   localDateOf,
+  parseWorkout,
   type Activity,
   type AthleteSettings,
   type LocalDate,
@@ -262,6 +263,8 @@ export class DemoApi implements Api {
         settings: { ...DEFAULT_ATHLETE_SETTINGS, locale },
         entries: demo.planEntries.map(({ key, ...e }) => ({
           ...e,
+          // The coach accepted the structure of the interval sessions.
+          structure: e.description.includes("×") ? parseWorkout(e.description) : null,
           id: `${r.id}-${key}`,
           athleteId: r.id,
           version: 1,
@@ -497,6 +500,7 @@ export class DemoApi implements Api {
       plannedDurationInSeconds: input.plannedDurationInSeconds ?? null,
       notes: input.notes ?? null,
       sequence: input.sequence ?? 0,
+      structure: input.structure ?? null,
       version: 1,
     };
     a.entries.push(entry);
@@ -641,6 +645,8 @@ export class DemoApi implements Api {
       wellness: scopes.includes("sleep_recovery") ? a.wellness : null,
     });
   }
+  /** Demo: the rule-based parser only (no AI in the demo). */
+  structureWorkout = async (text: string) => this.delay({ structure: parseWorkout(text) });
   coachAnalytics = async (): Promise<AnalyticsSummaryDto[]> => {
     this.me_();
     const rows = [...this.athletes.values()]

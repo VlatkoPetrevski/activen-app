@@ -1,0 +1,177 @@
+import type {
+  StepDuration,
+  StepTarget,
+  WorkoutItem,
+  WorkoutStep,
+  WorkoutStructure,
+} from "@activen/domain";
+import type { Formatter } from "@activen/i18n";
+import { useI18n, type T } from "../i18n/I18nContext.js";
+import { Icon } from "../ui/Icon.js";
+
+export function durationText(f: Formatter, t: T, d: StepDuration): string {
+  if (d.type === "open") return t("workout.open");
+  if (d.type === "time") return f.duration(d.seconds);
+  return d.meters < 1000 && f.unitSystem === "metric" ? `${d.meters} m` : f.distance(d.meters, 2);
+}
+
+export function targetText(f: Formatter, t: T, x: StepTarget): string {
+  switch (x.type) {
+    case "pace":
+      return x.low === x.high || Math.abs(x.high - x.low) <= 10
+        ? f.pace((x.low + x.high) / 2)
+        : `${f.pace(x.low).split(" ")[0]}–${f.pace(x.high)}`;
+    case "hr_zone":
+      return t("workout.zone", { zone: x.zone });
+    case "label":
+      return x.text;
+    case "none":
+      return "";
+  }
+}
+
+function stepText(f: Formatter, t: T, s: WorkoutStep): string {
+  const target = targetText(f, t, s.target);
+  return `${durationText(f, t, s.duration)}${target ? ` @ ${target}` : ""}`;
+}
+
+/** One line: "Загревање 2 km · 6 × 1000 m @ 5K темпо / 2:00 · Смирување 6 km". */
+export function workoutSummary(f: Formatter, t: T, s: WorkoutStructure): string {
+  return s.items
+    .map((i) => {
+      if (i.kind === "repeat") {
+        const [work, ...rest] = i.steps;
+        const recovery = rest.map((r) => durationText(f, t, r.duration)).join(" / ");
+        return `${t("workout.repeat", { count: i.count })} ${work ? stepText(f, t, work) : ""}${
+          recovery ? ` / ${recovery}` : ""
+        }`;
+      }
+      if (i.intensity === "active") return stepText(f, t, i);
+      return `${t(`lap.${i.intensity}`)} ${stepText(f, t, i)}`;
+    })
+    .join(" · ");
+}
+
+function StepRow({
+  step,
+  onChange,
+}: {
+  step: WorkoutStep;
+  onChange?: ((s: WorkoutStep) => void) | undefined;
+}) {
+  const { t, f } = useI18n();
+  const d = step.duration;
+  const value =
+    d.type === "distance"
+      ? d.meters >= 1000
+        ? d.meters / 1000
+        : d.meters
+      : d.type === "time"
+        ? d.seconds >= 60
+          ? d.seconds / 60
+          : d.seconds
+        : null;
+  const unit =
+    d.type === "distance"
+      ? d.meters >= 1000
+        ? "km"
+        : "m"
+      : d.type === "time"
+        ? d.seconds >= 60
+          ? "min"
+          : "s"
+        : null;
+  const label = t(`lap.${step.intensity}`);
+  return (
+    <li className={`wstep wstep-${step.intensity}`}>
+      <span className="wstep-kind">{label}</span>
+      {onChange && value !== null && unit ? (
+        <span className="row" style={{ gap: 6 }}>
+          <input
+            className="input num wstep-input"
+            inputMode="decimal"
+            aria-label={`${label}: ${t("workout.value")} (${t(`workout.unit.${unit}` as never)})`}
+            defaultValue={String(Math.round(value * 100) / 100)}
+            onBlur={(e) => {
+              const v = Number(e.target.value.replace(",", "."));
+              if (!Number.isFinite(v) || v <= 0) return;
+              const k = unit === "km" ? 1000 : unit === "m" ? 1 : unit === "min" ? 60 : 1;
+              onChange({
+                ...step,
+                duration:
+                  d.type === "distance"
+                    ? { type: "distance", meters: Math.round(v * k) }
+                    : { type: "time", seconds: Math.round(v * k) },
+              });
+            }}
+          />
+          <span className="small muted">{t(`workout.unit.${unit}` as never)}</span>
+        </span>
+      ) : (
+        <span className="num">{durationText(f, t, d)}</span>
+      )}
+      {step.target.type !== "none" && (
+        <span className="chip teal">{targetText(f, t, step.target)}</span>
+      )}
+    </li>
+  );
+}
+
+/** The steps, repeats grouped; editable durations when `onChange` is given. */
+export function WorkoutStepsView({
+  structure,
+  onChange,
+}: {
+  structure: WorkoutStructure;
+  onChange?: (s: WorkoutStructure) => void;
+}) {
+  const { t } = useI18n();
+  const replace = (index: number, item: WorkoutItem) =>
+    onChange?.({
+      source: "manual",
+      items: structure.items.map((x, i) => (i === index ? item : x)),
+    });
+  return (
+    <ol className="wsteps">
+      {structure.items.map((item, i) =>
+        item.kind === "step" ? (
+          <StepRow key={i} step={item} onChange={onChange ? (s) => replace(i, s) : undefined} />
+        ) : (
+          <li key={i} className="wrepeat">
+            <span className="wrepeat-count">
+              <Icon name="swap" size={14} /> {t("workout.repeat", { count: item.count })}
+            </span>
+            <ol className="wsteps">
+              {item.steps.map((s, j) => (
+                <StepRow
+                  key={j}
+                  step={s}
+                  onChange={
+                    onChange
+                      ? (next) =>
+                          replace(i, {
+                            ...item,
+                            steps: item.steps.map((x, k) => (k === j ? next : x)),
+                          })
+                      : undefined
+                  }
+                />
+              ))}
+            </ol>
+          </li>
+        ),
+      )}
+    </ol>
+  );
+}
+
+/** Compact steps line under a plan entry (only when a structure was accepted). */
+export function StructureLine({ structure }: { structure: WorkoutStructure | null | undefined }) {
+  const { t, f } = useI18n();
+  if (!structure) return null;
+  return (
+    <div className="small workout-line num" title={t("workout.structure")}>
+      <Icon name="activities" size={14} /> {workoutSummary(f, t, structure)}
+    </div>
+  );
+}

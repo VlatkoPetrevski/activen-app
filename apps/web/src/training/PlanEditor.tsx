@@ -1,11 +1,13 @@
 import type { PlanEntryDto } from "@activen/contracts";
-import type { ActivityType, LocalDate } from "@activen/domain";
+import type { ActivityType, LocalDate, WorkoutStructure } from "@activen/domain";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, type PlanInput, type PlanPatch } from "../api/api.js";
+import { useApi } from "../api/ApiContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
 import { useConfirm } from "../ui/Confirm.js";
 import { Dialog } from "../ui/Dialog.js";
 import { PLAN_SPORTS, sportLabel } from "./labels.js";
+import { WorkoutStepsView } from "./WorkoutSteps.js";
 
 interface Draft {
   calendarDate: LocalDate;
@@ -16,6 +18,8 @@ interface Draft {
   distance: string;
   durationMin: string;
   notes: string;
+  /** Accepted steps; the description stays the source of truth. */
+  structure: WorkoutStructure | null;
 }
 
 const toDraft = (
@@ -34,6 +38,7 @@ const toDraft = (
     ? String(Math.round(e.plannedDurationInSeconds / 60))
     : "",
   notes: e?.notes ?? "",
+  structure: e?.structure ?? null,
 });
 
 const num = (s: string): number | null => {
@@ -68,14 +73,36 @@ export function PlanEditor({
   const [draft, setDraft] = useState<Draft>(() => toDraft(entry, date, f.distanceValue));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const api = useApi();
+  const [suggestion, setSuggestion] = useState<WorkoutStructure | null>(null);
+  const [structuring, setStructuring] = useState<"idle" | "busy" | "none" | "error">("idle");
+  /** The description the accepted structure was made from (to flag later edits). */
+  const [structuredFrom, setStructuredFrom] = useState<string | null>(null);
 
   // A fresh entry (e.g. reloaded after a conflict) replaces the draft; the message stays.
   useEffect(() => {
     if (open) setDraft(toDraft(entry, date, f.distanceValue));
   }, [open, entry, date, f.distanceValue]);
   useEffect(() => {
-    if (open) setError(null);
-  }, [open]);
+    if (open) {
+      setError(null);
+      setSuggestion(null);
+      setStructuring("idle");
+      setStructuredFrom(entry?.structure ? entry.description : null);
+    }
+  }, [open, entry]);
+
+  const structurize = async () => {
+    setStructuring("busy");
+    setSuggestion(null);
+    try {
+      const { structure } = await api.structureWorkout(draft.description, f.locale);
+      setSuggestion(structure);
+      setStructuring(structure ? "idle" : "none");
+    } catch {
+      setStructuring("error");
+    }
+  };
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -97,6 +124,7 @@ export function PlanEditor({
         ? null
         : Math.round((num(draft.durationMin) ?? 0) * 60) || null,
       ...(canEditNotes ? { notes: draft.notes.trim() || null } : {}),
+      structure: rest ? null : draft.structure,
     };
     try {
       if (entry) await onUpdate(entry.id, { ...fields, expectedVersion: entry.version });
@@ -164,14 +192,91 @@ export function PlanEditor({
             <>
               <div className="field full">
                 <label htmlFor="plan-desc">{t("plan.field.description")}</label>
-                <input
+                <textarea
                   id="plan-desc"
                   className="input"
                   required
+                  rows={2}
                   maxLength={500}
                   value={draft.description}
                   onChange={(e) => set("description", e.target.value)}
                 />
+              </div>
+              <div className="field full workout-box">
+                <div className="row-between">
+                  <span className="label">{t("workout.structure")}</span>
+                  <span className="row" style={{ gap: 6 }}>
+                    {draft.structure && !suggestion && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        onClick={() => {
+                          set("structure", null);
+                          setStructuredFrom(null);
+                        }}
+                      >
+                        {t("workout.remove")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      disabled={!draft.description.trim() || structuring === "busy"}
+                      onClick={() => void structurize()}
+                    >
+                      {structuring === "busy"
+                        ? t("workout.structurizing")
+                        : t("workout.structurize")}
+                    </button>
+                  </span>
+                </div>
+                {suggestion ? (
+                  <div
+                    className="workout-suggestion stack-s"
+                    role="region"
+                    aria-label={t("workout.suggestion")}
+                  >
+                    <span className={`small ${suggestion.source === "ai" ? "warn-text" : "muted"}`}>
+                      {t(`workout.source.${suggestion.source}`)}
+                    </span>
+                    <WorkoutStepsView structure={suggestion} onChange={setSuggestion} />
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-small"
+                        onClick={() => {
+                          set("structure", suggestion);
+                          setStructuredFrom(draft.description);
+                          setSuggestion(null);
+                        }}
+                      >
+                        {t("workout.accept")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        onClick={() => setSuggestion(null)}
+                      >
+                        {t("workout.discard")}
+                      </button>
+                    </div>
+                  </div>
+                ) : draft.structure ? (
+                  <>
+                    <WorkoutStepsView structure={draft.structure} />
+                    {structuredFrom !== null && structuredFrom !== draft.description && (
+                      <span className="small warn-text">{t("workout.stale")}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="small muted">
+                    {structuring === "none"
+                      ? t("workout.notRecognized")
+                      : structuring === "error"
+                        ? t("common.error")
+                        : t("workout.hint")}
+                  </span>
+                )}
               </div>
               <div className="field full">
                 <label htmlFor="plan-sport">{t("plan.field.activityType")}</label>

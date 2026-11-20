@@ -11,6 +11,7 @@ import { QueryView } from "../ui/States.js";
 import { activitySummary, plannedSummary } from "./labels.js";
 import { PlanEditor } from "./PlanEditor.js";
 import type { PlanTarget } from "./target.js";
+import { StructureLine } from "./WorkoutSteps.js";
 
 /** Week of plan entries with their linked activities; entries open the editor. */
 export function PlanWeek({
@@ -132,6 +133,7 @@ export function PlanWeek({
                               ? activitySummary(f, d.activity)
                               : plannedSummary(f, d.entry)}
                           </div>
+                          <StructureLine structure={d.entry.structure} />
                           {d.entry.notes && (
                             <div className="small" style={{ marginTop: 4 }}>
                               💬 {d.entry.notes}

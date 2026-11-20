@@ -369,3 +369,44 @@ describe("share an activity (demo)", () => {
     expect(screen.getByRole("checkbox", { name: /Скриј почеток и крај/ })).toBeChecked();
   });
 });
+
+describe("structured workouts (demo)", () => {
+  it("structures a coach's text, lets the coach adjust it, and shows it on the plan", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
+    await user.click(await screen.findByRole("link", { name: "Планер" }));
+    await user.click(await screen.findByRole("button", { name: "Додај тренинг" }));
+    const dialog = await screen.findByRole("dialog", { name: "Додај тренинг" });
+    const text = within(dialog).getByLabelText("Опис");
+    await user.type(text, "Загревање 3 km, 8 × 400 m на 3:30, одмор 200 m, смирување 2 km");
+    await user.click(within(dialog).getByRole("button", { name: "Структурирај" }));
+    const suggestion = await within(dialog).findByRole("region", { name: "Предлог" });
+    expect(within(suggestion).getByText("Препознаено автоматски од текстот")).toBeInTheDocument();
+    expect(within(suggestion).getByText("8 ×")).toBeInTheDocument();
+    // The coach adjusts a step before accepting: the source becomes "manual".
+    const warm = within(suggestion).getByLabelText(/^Загревање: Вредност/);
+    await user.clear(warm);
+    await user.type(warm, "2,5");
+    await user.tab();
+    await user.click(within(dialog).getByRole("button", { name: "Прифати" }));
+    expect(within(dialog).queryByRole("region", { name: "Предлог" })).toBeNull();
+    // Editing the text afterwards flags the structure as possibly stale.
+    await user.type(text, "!");
+    expect(within(dialog).getByText(/Текстот е изменет/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Зачувај" }));
+    expect(
+      await screen.findByText(/Загревање 2,5 km · 8 × 400 m @ 3:30 \/km \/ 200 m · Смирување 2 km/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps free text as text", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
+    await user.click(await screen.findByRole("link", { name: "Планер" }));
+    await user.click(await screen.findByRole("button", { name: "Додај тренинг" }));
+    const dialog = await screen.findByRole("dialog", { name: "Додај тренинг" });
+    await user.type(within(dialog).getByLabelText("Опис"), "Слободно по чувство");
+    await user.click(within(dialog).getByRole("button", { name: "Структурирај" }));
+    expect(await within(dialog).findByText(/не е препознаен/)).toBeInTheDocument();
+  });
+});

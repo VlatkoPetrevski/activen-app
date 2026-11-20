@@ -2595,3 +2595,85 @@ button.cmp-cell:hover {
   flex: 1;
   justify-content: center;
 }
+
+/* --- Structured workouts ----------------------------------------------------------- */
+.workout-box {
+  padding: 12px;
+  border-radius: var(--radius-s);
+  background: var(--bg-sunken);
+  display: grid;
+  gap: 8px;
+}
+.workout-suggestion {
+  padding: 10px;
+  border-radius: var(--radius-s);
+  border: 1.5px dashed var(--teal);
+  background: var(--surface);
+}
+.warn-text {
+  color: var(--warn);
+}
+.wsteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.wstep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  border-left: 4px solid var(--border);
+}
+.wstep-warmup {
+  border-left-color: var(--zone-2);
+}
+.wstep-active {
+  border-left-color: var(--primary);
+}
+.wstep-recovery {
+  border-left-color: var(--zone-3);
+}
+.wstep-cooldown {
+  border-left-color: var(--teal);
+}
+.wstep-kind {
+  min-width: 96px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.wstep-input {
+  width: 76px;
+  padding: 4px 8px;
+}
+.wrepeat {
+  padding: 8px;
+  border-radius: var(--radius-s);
+  background: var(--primary-soft);
+  display: grid;
+  gap: 6px;
+}
+.wrepeat-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--primary-deep);
+}
+.workout-line {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 4px;
+  color: var(--teal);
+  font-weight: 600;
+}
+.workout-line > svg {
+  flex: none;
+  margin-top: 2px;
+}

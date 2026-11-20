@@ -5,6 +5,7 @@ import { useI18n } from "../i18n/I18nContext.js";
 import { buildDays, groupOf, type DayEntry } from "../lib/plan.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
 import { activitySummary, plannedSummary } from "./labels.js";
+import { StructureLine } from "./WorkoutSteps.js";
 
 /** One line of a day: what was planned, and what was done for it. */
 interface Pair {
@@ -80,6 +81,7 @@ export function PlanCompare({
         <div className="grow">
           <div className="cmp-title">{e.description}</div>
           {!rest && <div className="small muted num">{plannedSummary(f, e)}</div>}
+          {!rest && <StructureLine structure={e.structure} />}
           {e.notes && <div className="small cmp-note">💬 {e.notes}</div>}
         </div>
       </button>

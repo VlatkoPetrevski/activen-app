@@ -22,12 +22,16 @@ import { CoachController } from "./training/coach.controller.js";
 import { TrainingService } from "./training/training.service.js";
 import { ProblemFilter } from "./problem.filter.js";
 import { ReferenceController } from "./reference/reference.controller.js";
-import { APP_CONFIG, ID_TOKEN_VERIFIER, MAILER, TOKEN_SERVICE } from "./tokens.js";
+import { APP_CONFIG, ID_TOKEN_VERIFIER, MAILER, TOKEN_SERVICE, WORKOUT_AI } from "./tokens.js";
+import { AnthropicWorkoutAi, type WorkoutAi } from "./workouts/structurer.js";
+import { WorkoutsController } from "./workouts/workouts.controller.js";
 
 /** Replaceable collaborators (tests use local keys and a capturing mailer). */
 export interface AppOverrides {
   idTokenKeys?: IdTokenKeys;
   mailer?: Mailer;
+  /** Workout AI for tests (null = off). */
+  workoutAi?: WorkoutAi | null;
 }
 
 @Module({})
@@ -76,6 +80,7 @@ export class AppModule {
         MeController,
         AthleteController,
         CoachController,
+        WorkoutsController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -94,6 +99,15 @@ export class AppModule {
         },
         AuthService,
         TrainingService,
+        {
+          provide: WORKOUT_AI,
+          useValue:
+            overrides.workoutAi !== undefined
+              ? overrides.workoutAi
+              : config.ACTIVEN_AI_API_KEY && config.ACTIVEN_AI_MODEL
+                ? new AnthropicWorkoutAi(config.ACTIVEN_AI_API_KEY, config.ACTIVEN_AI_MODEL)
+                : null,
+        },
         // Order matters: rate limiting runs before authentication.
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AuthGuard },

@@ -18,6 +18,7 @@ import { QueryView } from "../ui/States.js";
 import { ReadinessSegment } from "../training/ReadinessSegment.js";
 import { WeatherSegment } from "../training/WeatherSegment.js";
 import { CheckInForm } from "../training/CheckInForm.js";
+import { StructureLine } from "../training/WorkoutSteps.js";
 
 function greetingKey(now: Date): MessageKey {
   const h = now.getHours();
@@ -46,7 +47,10 @@ function TodayEntry({ d, coach }: { d: DayEntry; coach: CoachLinkDto | undefined
       {entry.kind === "rest" ? (
         <p className="small muted">{t("today.restDay")}</p>
       ) : (
-        <Structure entry={entry} />
+        <>
+          <Structure entry={entry} />
+          <StructureLine structure={entry.structure} />
+        </>
       )}
       {entry.notes && (
         <div className="coach-note">

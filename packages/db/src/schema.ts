@@ -3,7 +3,7 @@
  * (Garmin) vocabulary. Timestamps are `timestamptz`; calendar dates are `date` in the athlete's
  * timezone; vendor instants keep Garmin's Unix seconds.
  */
-import { VENDORS } from "@activen/domain";
+import { VENDORS, type WorkoutStructure } from "@activen/domain";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -301,6 +301,8 @@ export const planEntries = pgTable(
     plannedDistanceInMeters: doublePrecision("planned_distance_in_meters"),
     plannedDurationInSeconds: integer("planned_duration_in_seconds"),
     notes: text("notes"),
+    /** Accepted workout steps (WorkoutStructure); the description stays the source of truth. */
+    structure: jsonb("structure").$type<WorkoutStructure>(),
     /** BCP-47 language the description was written in (user content is not auto-translated). */
     language: text("language"),
     sequence: smallint("sequence").notNull().default(0),

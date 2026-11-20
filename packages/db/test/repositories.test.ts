@@ -1,5 +1,6 @@
 import {
   DEFAULT_ATHLETE_SETTINGS,
+  parseWorkout,
   garminHeartRateZones,
   matchPlanToActivities,
 } from "@activen/domain";
@@ -259,7 +260,12 @@ describe("plans", () => {
     const athlete = await createUser(repos());
     const coach = await createUser(repos(), "Ана", ["coach"]);
     const created = await repos().plans.create(athlete.id, entry, coach.id);
-    expect(created).toMatchObject({ version: 1, language: "mk", plannedActivityType: "RUNNING" });
+    expect(created).toMatchObject({
+      version: 1,
+      language: "mk",
+      plannedActivityType: "RUNNING",
+      structure: null,
+    });
     const updated = await repos().plans.update(
       created.id,
       { description: "12 km лесно" },
@@ -281,6 +287,18 @@ describe("plans", () => {
     expect(
       await repos().plans.listByDateRange(athlete.id, "2026-11-16", "2026-11-22"),
     ).toHaveLength(1);
+  });
+
+  it("stores an accepted workout structure and clears it", async () => {
+    const athlete = await createUser(repos());
+    const structure = parseWorkout(entry.description);
+    expect(structure).not.toBeNull();
+    const created = await repos().plans.create(athlete.id, { ...entry, structure }, athlete.id);
+    expect(created.structure).toEqual(structure);
+    const [listed] = await repos().plans.listByDateRange(athlete.id, "2026-11-19", "2026-11-19");
+    expect(listed?.structure).toEqual(structure);
+    const cleared = await repos().plans.update(created.id, { structure: null }, 1, athlete.id);
+    expect(cleared.structure).toBeNull();
   });
 
   it("detects concurrent edits and missing entries", async () => {

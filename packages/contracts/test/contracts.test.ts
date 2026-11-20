@@ -28,8 +28,26 @@ describe("request schemas", () => {
       plannedDurationInSeconds: null,
       notes: null,
       sequence: 0,
+      structure: null,
     });
     expect(PlanEntryUpdate.safeParse({ description: "x" }).success).toBe(false);
+    // Structures are validated: a bad step or an empty workout is rejected.
+    const step = {
+      kind: "step",
+      intensity: "active",
+      duration: { type: "time", seconds: 600 },
+      target: { type: "hr_zone", zone: 2 },
+    };
+    expect(
+      PlanEntryUpdate.safeParse({ expectedVersion: 1, structure: { source: "ai", items: [step] } })
+        .success,
+    ).toBe(true);
+    for (const structure of [
+      { source: "ai", items: [] },
+      { source: "ai", items: [{ ...step, target: { type: "hr_zone", zone: 9 } }] },
+      { source: "robot", items: [step] },
+    ])
+      expect(PlanEntryUpdate.safeParse({ expectedVersion: 1, structure }).success).toBe(false);
     expect(PlanEntryUpdate.safeParse({ expectedVersion: 2, foo: 1 }).success).toBe(false);
     expect(
       PlanEntryCreate.safeParse({

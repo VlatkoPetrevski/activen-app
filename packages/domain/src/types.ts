@@ -1,3 +1,4 @@
+import type { WorkoutStructure } from "./workout.js";
 /**
  * Vendor-agnostic domain model. In the initial phase the vocabulary follows Garmin: field names and
  * units mirror the Garmin Health/Activity API (e.g. `distanceInMeters`, `durationInSeconds`,
@@ -77,6 +78,11 @@ export interface PlanEntry {
   notes: string | null;
   /** Ordering when several sessions are planned on the same date (AM/PM). Lower first. */
   sequence: number;
+  /**
+   * Steps of the session (warm-up, repeats, cool-down) accepted by the coach or athlete;
+   * the description stays the source of truth. Absent or null: free text only.
+   */
+  structure?: WorkoutStructure | null;
 }
 
 /** User decision that overrides automatic plan-to-activity matching (rule 5). */

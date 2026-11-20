@@ -35,6 +35,7 @@ function toEntry(row: Row): StoredPlanEntry {
     plannedDurationInSeconds: row.plannedDurationInSeconds,
     notes: row.notes,
     sequence: row.sequence,
+    structure: row.structure ?? null,
     version: row.version,
     language: row.language,
   };

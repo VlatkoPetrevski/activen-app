@@ -19,7 +19,7 @@ import type {
   AthleteAnalyticsDto,
   ActivityDto,
 } from "@activen/contracts";
-import type { AthleteSettings, LocalDate } from "@activen/domain";
+import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import {
   ApiError,
   type Api,
@@ -204,6 +204,11 @@ export class HttpApi implements Api {
   inviteAthlete = async (email: string) => {
     await this.request("POST", "/v1/coach/invites", { email });
   };
+  structureWorkout = (text: string, locale: string) =>
+    this.request<{ structure: WorkoutStructure | null }>("POST", "/v1/workouts/structure", {
+      text,
+      locale,
+    });
   coachAnalytics = () => this.request<AnalyticsSummaryDto[]>("GET", "/v1/coach/analytics");
   athleteAnalytics = (athleteId: string) =>
     this.request<AthleteAnalyticsDto>("GET", `/v1/coach/athletes/${athleteId}/analytics`);

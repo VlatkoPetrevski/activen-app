@@ -55,6 +55,9 @@ const ConfigSchema = z
     APPLE_CLIENT_IDS: list,
     /** `log` writes emails to the log (links only outside production). */
     EMAIL_TRANSPORT: z.enum(["log"]).default("log"),
+    /** AI for "Структурирај" (optional): both set = on; the parser works without it. */
+    ACTIVEN_AI_API_KEY: z.string().min(1).optional(),
+    ACTIVEN_AI_MODEL: z.string().min(1).optional(),
   })
   .superRefine((c, ctx) => {
     if (c.NODE_ENV === "production" && !c.AUTH_SIGNING_KEY)

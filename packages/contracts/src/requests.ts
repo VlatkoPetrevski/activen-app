@@ -89,6 +89,51 @@ export const DateRange = z
     `range must be at most ${MAX_RANGE_DAYS} days`,
   );
 
+const stepDuration = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("distance"), meters: z.number().min(1).max(500_000) }),
+  z.object({ type: z.literal("time"), seconds: z.number().int().min(1).max(86_400) }),
+  z.object({ type: z.literal("open") }),
+]);
+const stepTarget = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("none") }),
+  z.object({
+    type: z.literal("pace"),
+    low: z.number().int().min(90).max(1200),
+    high: z.number().int().min(90).max(1200),
+  }),
+  z.object({ type: z.literal("hr_zone"), zone: z.number().int().min(1).max(5) }),
+  z.object({ type: z.literal("label"), text: z.string().trim().min(1).max(60) }),
+]);
+const workoutStep = z.object({
+  kind: z.literal("step"),
+  intensity: z.enum(["warmup", "active", "recovery", "rest", "cooldown"]),
+  duration: stepDuration,
+  target: stepTarget,
+});
+/** A structured workout (Garmin Training API model), validated on the way in. */
+export const WorkoutStructureSchema = z.object({
+  items: z
+    .array(
+      z.discriminatedUnion("kind", [
+        workoutStep,
+        z.object({
+          kind: z.literal("repeat"),
+          count: z.number().int().min(1).max(50),
+          steps: z.array(workoutStep).min(1).max(10),
+        }),
+      ]),
+    )
+    .min(1)
+    .max(40),
+  source: z.enum(["parser", "ai", "manual"]),
+});
+
+/** Text to structure: the coach's (or athlete's) plan description. */
+export const WorkoutStructureRequest = z.object({
+  text: z.string().trim().min(1).max(500),
+  locale: z.string().max(10).optional(),
+});
+
 const planFields = {
   calendarDate: localDate,
   kind: z.enum(["workout", "rest"]),
@@ -99,6 +144,7 @@ const planFields = {
   /** Coach's advice for this session ("first two intervals a bit slower…"). */
   notes: z.string().max(2000).nullable(),
   sequence: z.number().int().min(0).max(9),
+  structure: WorkoutStructureSchema.nullable(),
 };
 
 export const PlanEntryCreate = z.object({
@@ -108,6 +154,7 @@ export const PlanEntryCreate = z.object({
   plannedDurationInSeconds: planFields.plannedDurationInSeconds.default(null),
   notes: planFields.notes.default(null),
   sequence: planFields.sequence.default(0),
+  structure: planFields.structure.default(null),
 });
 
 /** Changes to a plan entry; `expectedVersion` detects concurrent edits (409 on conflict). */

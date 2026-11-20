@@ -21,7 +21,7 @@ import type {
   WeatherDto,
   WellnessDto,
 } from "@activen/contracts";
-import type { AthleteSettings, LocalDate } from "@activen/domain";
+import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import type { z } from "zod";
 import type { Place } from "../lib/location.js";
 
@@ -97,6 +97,8 @@ export interface Api {
   activity(id: string): Promise<ActivityDetailDto>;
   saveFeedback(activityId: string, input: FeedbackInput): Promise<FeedbackDto>;
   progress(weeks: number): Promise<ProgressDto>;
+  /** "Структурирај": steps suggested for a plan text (null when nothing is structured). */
+  structureWorkout(text: string, locale: string): Promise<{ structure: WorkoutStructure | null }>;
   coaches(): Promise<CoachLinkDto[]>;
   acceptCoach(linkId: string, scopes: ConsentScope[]): Promise<void>;
   updateCoachScopes(linkId: string, scopes: ConsentScope[]): Promise<void>;
