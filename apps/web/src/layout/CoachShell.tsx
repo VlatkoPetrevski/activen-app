@@ -1,3 +1,4 @@
+import { initials } from "../lib/dates.js";
 import { NavLink, Outlet } from "react-router";
 import { useMe } from "../auth/AuthContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
@@ -33,12 +34,20 @@ export function CoachShell() {
         </nav>
         <div className="row" style={{ marginLeft: "auto" }}>
           {me.user.roles.includes("athlete") && (
-            <NavLink to="/" className="btn btn-secondary btn-small">
+            <NavLink
+              to="/"
+              className="btn btn-secondary btn-small"
+              aria-label={t("nav.athleteView")}
+            >
               <Icon name="swap" size={16} />
               <span className="hide-mobile">{t("nav.athleteView")}</span>
             </NavLink>
           )}
-          <NavLink to="/profile" aria-label={t("nav.profile")} style={{ textDecoration: "none" }}>
+          <NavLink
+            to="/profile"
+            aria-label={`${t("nav.profile")} ${initials(me.user.displayName)}`}
+            style={{ textDecoration: "none" }}
+          >
             <Avatar name={me.user.displayName} />
           </NavLink>
         </div>

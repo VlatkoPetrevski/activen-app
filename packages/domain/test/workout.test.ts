@@ -84,3 +84,41 @@ describe("parseWorkout", () => {
     expect(parseWorkout("1.5 h ride")?.items[0]).toMatchObject({ duration: { seconds: 5400 } });
   });
 });
+
+describe("parseWorkout edge cases", () => {
+  it("handles miles, hours, seconds and words after the number", () => {
+    expect(parseWorkout("5 mi easy")?.items[0]).toMatchObject({
+      duration: { type: "distance", meters: 8047 },
+      target: { type: "hr_zone", zone: 2 },
+    });
+    const s = parseWorkout("2 km warm up, 10 x 30 sec hard / 90 s jog, 1 km cool down");
+    expect(s?.items[0]).toMatchObject({ duration: { meters: 2000 } });
+    const rep = s?.items[1] as WorkoutRepeat;
+    expect(rep.steps.map((x) => x.duration)).toEqual([
+      { type: "time", seconds: 30 },
+      { type: "time", seconds: 90 },
+    ]);
+    expect(s?.items[2]).toMatchObject({ duration: { meters: 1000 } });
+    expect(parseWorkout("2 ч велосипед")?.items[0]).toMatchObject({ duration: { seconds: 7200 } });
+  });
+
+  it("uses a short default cool-down without a total, and a rest step in flatten", () => {
+    const s = parseWorkout("4 × 1 km на 4:00/km, одмор 2 мин");
+    expect(s?.items.at(-1)).toMatchObject({ intensity: "cooldown", duration: { meters: 1000 } });
+    expect(flattenWorkout(s!).map((x) => x.intensity)).toEqual([
+      "warmup",
+      "active",
+      "recovery",
+      "active",
+      "recovery",
+      "active",
+      "recovery",
+      "active",
+      "cooldown",
+    ]);
+    // A total too small for a cool-down falls back to the default 1 km.
+    expect(parseWorkout("5 km со 4 × 1 km")?.items.at(-1)).toMatchObject({
+      duration: { meters: 1000 },
+    });
+  });
+});

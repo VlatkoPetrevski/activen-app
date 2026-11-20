@@ -1,5 +1,12 @@
 import type { ActivityDto, CalendarDto, PlanEntryDto } from "@activen/contracts";
-import { activityGroup, type ActivityGroup, type LocalDate } from "@activen/domain";
+import {
+  activityGroup,
+  type ActivityGroup,
+  type LocalDate,
+  type StepDuration,
+  type WorkoutStep,
+  type WorkoutStructure,
+} from "@activen/domain";
 
 export type EntryStatus = "done" | "missed" | "planned" | "rest";
 
@@ -64,17 +71,54 @@ export function groupOf(type: string | null): ActivityGroup | "rest" {
 
 export type Intensity = 1 | 2 | 3 | 4 | 5;
 
+/** Block length for the diagram: distance as km, time as ~6 min/km, open as 1. */
+function blockWeight(d: StepDuration): number {
+  if (d.type === "distance") return Math.max(0.3, d.meters / 1000);
+  if (d.type === "time") return Math.max(0.3, d.seconds / 360);
+  return 1;
+}
+
+/** Zone-like intensity (1–5) of an accepted step. */
+function stepIntensity(s: WorkoutStep): Intensity {
+  if (s.target.type === "hr_zone") return Math.min(5, Math.max(1, s.target.zone)) as Intensity;
+  switch (s.intensity) {
+    case "warmup":
+    case "cooldown":
+      return 2;
+    case "recovery":
+    case "rest":
+      return 1;
+    default:
+      return s.target.type === "pace" && s.target.low < 270 ? 5 : 4;
+  }
+}
+
+/** Diagram blocks from an accepted structure (repeats expanded, capped at 12 reps). */
+export function structureBlocks(s: WorkoutStructure): { intensity: Intensity; weight: number }[] {
+  return s.items.flatMap((item) => {
+    if (item.kind === "step")
+      return [{ intensity: stepIntensity(item), weight: blockWeight(item.duration) }];
+    const n = Math.min(item.count, 12);
+    return Array.from({ length: n }, (_, i) =>
+      item.steps
+        .filter((st) => i < n - 1 || st.intensity !== "recovery")
+        .map((st) => ({ intensity: stepIntensity(st), weight: blockWeight(st.duration) })),
+    ).flat();
+  });
+}
+
 /**
- * Rough session structure for the plan card, derived from the description until structured
- * workouts exist: "6 × 1000 m" becomes warm-up, six hard reps with recoveries and a cool-down.
+ * Session structure for the plan card: the accepted steps when there are any, otherwise a
+ * rough reading of the description ("6 × 1000 m" → warm-up, hard reps, cool-down).
  */
 export function workoutStructure(
-  entry: Pick<PlanEntryDto, "kind" | "description" | "plannedActivityType">,
+  entry: Pick<PlanEntryDto, "kind" | "description" | "plannedActivityType" | "structure">,
 ): {
   intensity: Intensity;
   weight: number;
 }[] {
   if (entry.kind === "rest") return [];
+  if (entry.structure) return structureBlocks(entry.structure);
   const group = groupOf(entry.plannedActivityType);
   if (group !== "running" && group !== "cycling" && group !== "swimming" && group !== "rowing")
     return [];

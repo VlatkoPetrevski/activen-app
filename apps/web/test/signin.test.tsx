@@ -69,7 +69,7 @@ describe("email sign-in", () => {
     await user.click(await screen.findByRole("button", { name: "Почни" }));
     await user.click((await screen.findAllByRole("link", { name: "Напредок" }))[0]!);
     expect(
-      await screen.findByRole("button", { name: "Неделно растојание (km)" }),
+      await screen.findByRole("button", { name: /^Неделно растојание \(km\)/ }),
     ).toBeInTheDocument();
     window.history.pushState(null, "", "/does-not-exist");
     window.dispatchEvent(new PopStateEvent("popstate"));

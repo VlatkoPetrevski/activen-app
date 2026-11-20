@@ -8,6 +8,7 @@ import { ScopePicker } from "../training/ScopePicker.js";
 import { Thread } from "../training/Thread.js";
 import { Link } from "react-router";
 import { todayIn, weekOf } from "../lib/dates.js";
+import { distanceOfPlan } from "../training/labels.js";
 import { WeekStats, weekTotals } from "../training/WeekStats.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Dialog } from "../ui/Dialog.js";
@@ -26,15 +27,19 @@ function FormatSettings() {
   const { reload } = useAuth();
   const { t } = useI18n();
   const [saving, setSaving] = useState(false);
+  const [unit, setUnit] = useState<"metric" | "imperial" | null>(null);
   const save = async (patch: Parameters<typeof api.updateSettings>[0]) => {
     setSaving(true);
+    if (patch.unitSystem) setUnit(patch.unitSystem);
     try {
       await api.updateSettings(patch);
       await reload();
     } finally {
+      setUnit(null);
       setSaving(false);
     }
   };
+  const unitSystem = unit ?? me.settings.unitSystem;
   return (
     <div className="form-grid">
       <div className="field">
@@ -48,7 +53,7 @@ function FormatSettings() {
             <button
               key={u}
               type="button"
-              aria-pressed={me.settings.unitSystem === u}
+              aria-pressed={unitSystem === u}
               disabled={saving}
               onClick={() => void save({ unitSystem: u })}
             >
@@ -210,9 +215,7 @@ function ProgressSegment() {
               {t("coach.progressSummary", {
                 done: w.sessions.done,
                 planned: w.sessions.planned,
-                distance: w.distance.planned
-                  ? `${f.number(f.distanceValue(w.distance.done), 0)}/${f.distance(w.distance.planned, 0)}`
-                  : f.distance(w.distance.done, 1),
+                distance: distanceOfPlan(f, w.distance.done, w.distance.planned),
               })}
             </span>
           )}

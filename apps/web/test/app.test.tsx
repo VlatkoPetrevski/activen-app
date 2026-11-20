@@ -24,7 +24,7 @@ describe("athlete app (demo)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: /Влатко/ })).toBeInTheDocument();
     expect(await screen.findByText("План за денес")).toBeInTheDocument();
     // Compact segments expand and collapse on the same tap.
-    const readiness = await screen.findByRole("button", { name: /Спремност за тренинг: 72/ });
+    const readiness = await screen.findByRole("button", { name: /^Спремност за тренинг\s*72/ });
     expect(readiness).toHaveAttribute("aria-expanded", "false");
     await user.click(readiness);
     expect(readiness).toHaveAttribute("aria-expanded", "true");
@@ -100,9 +100,9 @@ describe("athlete app (demo)", () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
     await screen.findByRole("heading", { level: 1, name: /Влатко/ });
-    await user.click(screen.getAllByRole("link", { name: "Профил" })[0]!);
+    await user.click(screen.getAllByRole("link", { name: /^Профил \S+$/ })[0]!);
     // Profile sections are collapsed rows with the current value; a tap opens the form.
-    const language = await screen.findByRole("button", { name: "Јазик" });
+    const language = await screen.findByRole("button", { name: /^Јазик/ });
     expect(language).toHaveAttribute("aria-expanded", "false");
     expect(within(language).getByText("MK · Метрички (km, °C)")).toBeInTheDocument();
     await user.click(language);
@@ -119,8 +119,8 @@ describe("athlete app (demo)", () => {
     await user.click(screen.getByRole("button", { name: /Филтри/ }));
     expect(await screen.findByRole("button", { name: "3–6 mi" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
-    await user.click(screen.getAllByRole("link", { name: "Профил" })[0]!);
-    await user.click(screen.getByRole("button", { name: "Извори на податоци" }));
+    await user.click(screen.getAllByRole("link", { name: /^Профил \S+$/ })[0]!);
+    await user.click(screen.getByRole("button", { name: /^Извори на податоци/ }));
     await user.click(screen.getByRole("button", { name: "Нагоре: Polar" }));
     await user.click(screen.getAllByRole("button", { name: "EN" })[0]!);
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe("athlete coach tab", () => {
     expect(await screen.findByText("Ана Стојанова")).toBeInTheDocument();
     expect(screen.getByText(/^Споделуваш: /)).toBeInTheDocument();
     // Progress: one line collapsed, the week's statistics on expand, collapsed again on tap.
-    const progress = screen.getByRole("button", { name: "Прогрес" });
+    const progress = screen.getByRole("button", { name: /^Прогрес/ });
     expect(progress).toHaveAttribute("aria-expanded", "false");
     expect(
       await within(progress).findByText(/^Оваа недела: \d+\/\d+ тренинзи/),
@@ -204,7 +204,7 @@ describe("coach workplace (demo)", () => {
     expect(headers.indexOf("Извор")).toBe(headers.indexOf("Вкупно оваа недела") + 1);
     expect(screen.getAllByText(/^\/ \d+ (ч \d+ )?мин$/).length).toBeGreaterThan(0);
     // Each athlete is a row that expands to signals, the last message and shortcuts.
-    const row = screen.getByRole("button", { name: "Влатко Петревски" });
+    const row = screen.getByRole("button", { name: /^Влатко Петревски/ });
     expect(row).toHaveAttribute("aria-expanded", "false");
     await user.click(row);
     expect(row).toHaveAttribute("aria-expanded", "true");
@@ -213,7 +213,10 @@ describe("coach workplace (demo)", () => {
     await user.click(within(details).getByRole("link", { name: "Профил" }));
     expect(await screen.findByRole("heading", { name: "План за Влатко" })).toBeInTheDocument();
     // Messages open by themselves when the athlete is waiting for a reply.
-    expect(screen.getByRole("button", { name: "Пораки" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Пораки/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     await user.click(await screen.findByRole("button", { name: "Утре полесно" }));
     await waitFor(() => expect(screen.getAllByText("Утре полесно").length).toBeGreaterThan(1));
 
@@ -282,7 +285,8 @@ describe("coach analytics (demo)", () => {
     await user.click(await screen.findByRole("link", { name: "Анализи" }));
     expect(await screen.findByText("Активни спортисти")).toBeInTheDocument();
     // Each athlete is a compact row that expands in place.
-    const rows = await screen.findAllByRole("button", { name: /^Анализа: / });
+    await screen.findByText("Активни спортисти");
+    const rows = [...document.querySelectorAll<HTMLButtonElement>(".roster .segment-head")];
     expect(rows.length).toBe(6);
     expect(rows[0]).toHaveAttribute("aria-expanded", "false");
     // The athlete who shares no activities is not judged.
@@ -297,11 +301,11 @@ describe("coach analytics (demo)", () => {
     await user.click(screen.getAllByRole("link", { name: /^Анализа: / })[0]!);
     // Athlete page: key numbers first, charts on demand.
     expect(await screen.findByText("Исполнет план (28 д.)")).toBeInTheDocument();
-    const weekly = screen.getByRole("button", { name: "Неделен волумен (12 нед.)" });
+    const weekly = screen.getByRole("button", { name: /^Неделен волумен \(12 нед\.\)/ });
     await user.click(weekly);
     expect(weekly).toHaveAttribute("aria-expanded", "true");
     expect(screen.getAllByRole("img", { name: /Растојание по недела/ }).length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: "Кондиција, замор и форма (12 нед.)" }));
+    await user.click(screen.getByRole("button", { name: /^Кондиција, замор и форма/ }));
     expect(
       screen.getAllByRole("img", { name: "Кондиција, замор и форма (12 нед.)" }).length,
     ).toBeGreaterThan(0);
@@ -318,7 +322,8 @@ describe("coach analytics (demo)", () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
     await user.click(await screen.findByRole("link", { name: "Анализи" }));
-    const rows = await screen.findAllByRole("button", { name: /^Анализа: / });
+    await screen.findByText("Активни спортисти");
+    const rows = [...document.querySelectorAll<HTMLButtonElement>(".roster .segment-head")];
     await user.click(rows[0]!);
     await user.click(screen.getAllByRole("link", { name: /^Анализа: / })[0]!);
     await screen.findByText("Исполнет план (28 д.)");
@@ -436,8 +441,8 @@ describe("structured workouts (demo)", () => {
   it("can be switched off in the profile; then steps come on request", async () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
-    await user.click(await screen.findByRole("link", { name: "Профил" }));
-    const planning = await screen.findByRole("button", { name: "Планирање" });
+    await user.click((await screen.findAllByRole("link", { name: /^Профил \S+$/ }))[0]!);
+    const planning = await screen.findByRole("button", { name: /^Планирање/ });
     expect(within(planning).getByText("Автоматски предлог: вклучен")).toBeInTheDocument();
     await user.click(planning);
     await user.click(screen.getByRole("checkbox", { name: /Автоматски предлог на чекори/ }));
@@ -454,5 +459,23 @@ describe("structured workouts (demo)", () => {
     expect(within(dialog).getByText(/Со „Структурирај“/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Структурирај" }));
     expect(await within(dialog).findByRole("region", { name: "Предлог" })).toBeInTheDocument();
+  });
+});
+
+describe("settings resilience", () => {
+  it("shows a change at once and rolls it back when saving fails", async () => {
+    const { user, api } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
+    await screen.findByRole("heading", { level: 1, name: /Влатко/ });
+    await user.click(screen.getAllByRole("link", { name: /^Профил \S+$/ })[0]!);
+    await user.click(await screen.findByRole("button", { name: /^Планирање/ }));
+    let fail: (e: Error) => void = () => undefined;
+    api.updateSettings = () => new Promise((_, reject) => (fail = reject));
+    const box = screen.getByRole("checkbox", { name: /Автоматски предлог на чекори/ });
+    await user.click(box);
+    expect(box).not.toBeChecked(); // optimistic
+    fail(new Error("offline"));
+    await waitFor(() => expect(box).toBeChecked()); // rolled back
+    expect(screen.getByText("Нешто тргна наопаку. Обиди се повторно.")).toBeInTheDocument();
   });
 });

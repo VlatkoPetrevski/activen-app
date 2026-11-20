@@ -5,23 +5,13 @@ import {
   type ExerciseDto,
   type LapIntensity,
 } from "@activen/contracts";
-import { activityGroup, type ActivityType } from "@activen/domain";
 import type { Formatter } from "@activen/i18n";
 import { useI18n, type T } from "../i18n/I18nContext.js";
 import { vendorName } from "../lib/vendors.js";
 import { groupOf } from "../lib/plan.js";
 import { SportIcon } from "../ui/Icon.js";
+import { readsPace } from "./labels.js";
 import { Segment } from "../ui/Segment.js";
-
-/** Running and walking are read in pace; everything else in speed. */
-function usesPace(type: string): boolean {
-  try {
-    const g = activityGroup(type as ActivityType);
-    return g === "running" || g === "walking";
-  } catch {
-    return false;
-  }
-}
 
 /** Pace or speed of a stretch: elapsed time over distance (project rule: elapsed, not moving). */
 function rate(f: Formatter, pace: boolean, meters: number | null, seconds: number): string {
@@ -183,7 +173,7 @@ export function ActivityStats({
 }) {
   const { t, f } = useI18n();
   const { activity: a, laps, device, exercises } = detail;
-  const pace = usesPace(a.activityType);
+  const pace = readsPace(a.activityType);
   const structured = laps.some((l) => l.intensity !== "active");
   const groups = lapBreakdown(laps);
   const sensor = device.heartRateSensor ?? "unknown";
@@ -319,7 +309,12 @@ export function ActivityStats({
                     ))}
                   </div>
                 )}
-                <div className="table-scroll">
+                <div
+                  className="table-scroll"
+                  tabIndex={0}
+                  role="region"
+                  aria-label={t("stats.laps")}
+                >
                   <table className="table lap-table">
                     <thead>
                       <tr>

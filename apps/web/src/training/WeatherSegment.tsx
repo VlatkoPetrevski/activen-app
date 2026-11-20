@@ -203,6 +203,7 @@ export function WeatherSegment({ timeZone }: { timeZone: string }) {
   return (
     <Segment
       label={`${condition}, ${f.temperature(w.current.temperature)}`}
+      srTitle={condition}
       summary={
         <span className="weather-row">
           <WeatherIcon code={w.current.weatherCode} isDay={w.current.isDay} />

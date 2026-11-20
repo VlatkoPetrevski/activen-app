@@ -101,8 +101,8 @@ export function WeekStats({
           <dt>{t("planner.stats.sessions")}</dt>
           <dd className="num">
             <strong>{w.sessions.done}</strong> / {w.sessions.planned}
+            <Meter done={w.sessions.done} planned={w.sessions.planned} />
           </dd>
-          <Meter done={w.sessions.done} planned={w.sessions.planned} />
         </div>
         {calendar.activitiesVisible && (
           <>
@@ -113,8 +113,8 @@ export function WeekStats({
                 <span className="muted">
                   {of(w.distance.planned ? f.distance(w.distance.planned, 1) : "")}
                 </span>
+                <Meter done={w.distance.done} planned={w.distance.planned} />
               </dd>
-              <Meter done={w.distance.done} planned={w.distance.planned} />
             </div>
             <div>
               <dt>{t("planner.stats.time")}</dt>
@@ -123,22 +123,20 @@ export function WeekStats({
                 <span className="muted">
                   {of(w.time.planned ? f.totalTime(w.time.planned) : "")}
                 </span>
+                <Meter done={w.time.done} planned={w.time.planned} />
               </dd>
-              <Meter done={w.time.done} planned={w.time.planned} />
             </div>
-            <div className="week-stats-row">
-              <div>
-                <dt>{t("planner.stats.elevation")}</dt>
-                <dd className="num">{f.elevation(w.elevation)}</dd>
-              </div>
-              <div>
-                <dt>{t("planner.stats.load")}</dt>
-                <dd className="num">{w.load}</dd>
-              </div>
-              <div>
-                <dt>{t("planner.stats.avgHr")}</dt>
-                <dd className="num">{w.averageHeartRate ?? "—"}</dd>
-              </div>
+            <div className="third">
+              <dt>{t("planner.stats.elevation")}</dt>
+              <dd className="num">{f.elevation(w.elevation)}</dd>
+            </div>
+            <div className="third">
+              <dt>{t("planner.stats.load")}</dt>
+              <dd className="num">{w.load}</dd>
+            </div>
+            <div className="third">
+              <dt>{t("planner.stats.avgHr")}</dt>
+              <dd className="num">{w.averageHeartRate ?? "—"}</dd>
             </div>
             {w.byGroup.length > 0 && (
               <div>

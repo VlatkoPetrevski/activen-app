@@ -10,10 +10,13 @@ export function Segment({
   label,
   children,
   defaultOpen = false,
+  srTitle,
 }: {
   summary: ReactNode;
-  /** Accessible name of the toggle. */
+  /** Name of the details region (the toggle is named by what it shows). */
   label: string;
+  /** Read first by screen readers when the summary is only icons and numbers. */
+  srTitle?: string;
   children: ReactNode;
   defaultOpen?: boolean;
 }) {
@@ -26,9 +29,9 @@ export function Segment({
         className="segment-head"
         aria-expanded={open}
         aria-controls={id}
-        aria-label={label}
         onClick={() => setOpen((o) => !o)}
       >
+        {srTitle && <span className="sr-only">{srTitle} </span>}
         <span className="segment-summary">{summary}</span>
         <span className="segment-chevron" aria-hidden>
           <Icon name="chevronDown" size={20} />

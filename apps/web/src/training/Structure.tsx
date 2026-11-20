@@ -7,7 +7,7 @@ const HEIGHT = { 1: 30, 2: 45, 3: 62, 4: 82, 5: 100 } as const;
 export function Structure({
   entry,
 }: {
-  entry: Pick<PlanEntryDto, "kind" | "description" | "plannedActivityType">;
+  entry: Pick<PlanEntryDto, "kind" | "description" | "plannedActivityType" | "structure">;
 }) {
   const blocks = workoutStructure(entry);
   if (blocks.length === 0) return null;

@@ -26,8 +26,8 @@ export function ConsentInfo({
       <button
         type="button"
         className={`${withLabel ? "btn btn-secondary btn-small" : "icon-btn"} consent-btn${missing.length ? " partial" : ""}`}
-        aria-label={t("consent.infoOf", { name })}
-        title={t("consent.info")}
+        aria-label={withLabel ? undefined : t("consent.infoOf", { name })}
+        title={t("consent.infoOf", { name })}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();

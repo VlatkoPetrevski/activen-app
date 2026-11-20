@@ -2,6 +2,7 @@ import type { CoachAthleteDto } from "@activen/contracts";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useI18n } from "../../i18n/I18nContext.js";
+import { distanceOfPlan } from "../../training/labels.js";
 import { Avatar } from "../../ui/Avatar.js";
 import { Icon } from "../../ui/Icon.js";
 import { Empty, QueryView } from "../../ui/States.js";
@@ -16,12 +17,7 @@ function WeekProgress({ row }: { row: CoachAthleteDto }) {
   ];
   const done = row.weekTotals?.distanceInMeters;
   const planned = row.week.plannedDistanceInMeters;
-  if (done !== undefined)
-    parts.push(
-      planned > 0
-        ? `${f.number(f.distanceValue(done), 0)}/${f.distance(planned, 0)}`
-        : f.distance(done, 1),
-    );
+  if (done !== undefined) parts.push(distanceOfPlan(f, done, planned));
   return <div className="small muted num">{parts.join(" · ")}</div>;
 }
 

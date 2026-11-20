@@ -19,9 +19,9 @@
   --accent: #e08a4e;
   --teal: #1e5a5e;
   --teal-soft: #e3f0ef;
-  --good: #2f7d4f;
+  --good: #276b43;
   --good-soft: #e3f2e8;
-  --warn: #b7791f;
+  --warn: #8f5e12;
   --warn-soft: #fff1dd;
   --bad: #b5482b;
   --bad-soft: #fde7df;
@@ -1237,8 +1237,6 @@ body {
   padding: 4px 14px 16px;
   border-top: 1px solid var(--border-soft);
   padding-top: 14px;
-  max-height: 58dvh;
-  overflow-y: auto;
 }
 .weather-row {
   display: flex;
@@ -1860,7 +1858,7 @@ button.cmp-cell:hover {
 }
 .month-day.out {
   color: var(--muted);
-  opacity: 0.55;
+  font-weight: 400;
 }
 .month-day.today span {
   font-weight: 800;
@@ -1915,8 +1913,15 @@ button.cmp-cell:hover {
 }
 .week-stats-list {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 8px;
   margin: 0;
+}
+.week-stats-list > div {
+  grid-column: 1 / -1;
+}
+.week-stats-list > div.third {
+  grid-column: auto;
 }
 .week-stats-list dt {
   font-size: 0.78rem;
@@ -1924,11 +1929,6 @@ button.cmp-cell:hover {
 }
 .week-stats-list dd {
   margin: 2px 0 4px;
-}
-.week-stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
 }
 
 /* --- Activity stats --------------------------------------------------------------------- */

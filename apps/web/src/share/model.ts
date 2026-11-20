@@ -7,6 +7,8 @@ import type { ActivityDetailDto } from "@activen/contracts";
 import { activityGroup, type ActivityType } from "@activen/domain";
 import type { Formatter } from "@activen/i18n";
 import type { T } from "../i18n/I18nContext.js";
+import { meters } from "../lib/geo.js";
+import { readsPace } from "../training/labels.js";
 
 export type StatKey =
   | "distance"
@@ -68,8 +70,7 @@ export function isStructured(d: ActivityDetailDto): boolean {
 /** Every number this activity has, in display order. */
 export function availableStats(d: ActivityDetailDto, f: Formatter, t: T): StatItem[] {
   const a = d.activity;
-  const g = group(a.activityType);
-  const pace = g === "running" || g === "walking";
+  const pace = readsPace(a.activityType);
   const out: StatItem[] = [];
   const add = (key: StatKey, label: string, value: string | null) => {
     if (value) out.push({ key, label, value });
@@ -147,17 +148,6 @@ export function toggleStat(selected: StatKey[], key: StatKey, all: StatKey[]): S
 }
 
 type LatLon = [number, number];
-
-function meters(a: LatLon, b: LatLon): number {
-  const R = 6_371_000;
-  const toRad = Math.PI / 180;
-  const dLat = (b[0] - a[0]) * toRad;
-  const dLon = (b[1] - a[1]) * toRad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
 
 /**
  * Privacy: removes the first and last `trim` metres so a shared route does not show where the

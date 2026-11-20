@@ -105,8 +105,8 @@ export function PlanCompare({
         type="button"
         className={`cmp-cell cmp-done${p.plan ? "" : " extra"}`}
         onClick={() => onOpenActivity(a)}
-        aria-label={t("planner.openStats", { name: a.activityName })}
       >
+        <span className="sr-only">{t("planner.openStats", { name: "" })}</span>
         <SportIcon group={groupOf(a.activityType)} />
         <div className="grow">
           <div className="row-between">

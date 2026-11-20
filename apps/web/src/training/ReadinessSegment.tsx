@@ -51,6 +51,7 @@ export function ReadinessSegment({ wellness }: { wellness: WellnessDto | null })
   return (
     <Segment
       label={`${t("trainingReadiness.title")}: ${score}, ${levelText}`}
+      srTitle={t("trainingReadiness.title")}
       summary={
         <span className="stats-row">
           <span className="stat">

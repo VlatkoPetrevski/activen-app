@@ -46,21 +46,26 @@ function Section({
   );
 }
 
-function SettingsForm({ settings }: { settings: AthleteSettings }) {
+function SettingsForm({ settings: stored }: { settings: AthleteSettings }) {
   const api = useApi();
   const { reload } = useAuth();
   const { t, locale } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  // Optimistic: the change shows at once and is rolled back when saving fails.
+  const [pending, setPending] = useState<SettingsInput | null>(null);
+  const settings = { ...stored, ...pending } as AthleteSettings;
   const save = async (patch: SettingsInput) => {
     setSaving(true);
     setError(false);
+    setPending((p) => ({ ...p, ...patch }));
     try {
       await api.updateSettings(patch);
       await reload();
     } catch {
       setError(true);
     } finally {
+      setPending(null);
       setSaving(false);
     }
   };

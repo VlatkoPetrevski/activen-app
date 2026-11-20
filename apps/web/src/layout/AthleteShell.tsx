@@ -1,3 +1,4 @@
+import { initials } from "../lib/dates.js";
 import { NavLink, Outlet } from "react-router";
 import { useMe } from "../auth/AuthContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
@@ -69,7 +70,7 @@ export function AthleteShell() {
                 )}
                 <NavLink
                   to="/profile"
-                  aria-label={t("nav.profile")}
+                  aria-label={`${t("nav.profile")} ${initials(me.user.displayName)}`}
                   style={{ textDecoration: "none" }}
                 >
                   <Avatar name={me.user.displayName} />
