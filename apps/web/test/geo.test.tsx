@@ -33,7 +33,18 @@ describe("geo", () => {
       ],
       1000,
     );
-    expect(marks.map((m) => m.km)).toEqual([1, 2]);
+    expect(marks.map((m) => m.value)).toEqual([1, 2]);
+    // Mile markers: 1 mi ≈ 1609 m, so the ~2.2 km route gets one.
+    const mile = 1609.344;
+    const miles = distanceMarkers(
+      [
+        [41.99, 21.43],
+        [42.01, 21.43],
+      ],
+      mile,
+      mile,
+    );
+    expect(miles.map((m) => m.value)).toEqual([1]);
     expect(
       distanceMarkers(
         [

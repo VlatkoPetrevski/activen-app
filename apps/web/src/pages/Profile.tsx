@@ -78,6 +78,7 @@ function SettingsForm({ settings }: { settings: AthleteSettings }) {
                 </button>
               ))}
             </div>
+            <span className="small muted">{t("profile.units.hint")}</span>
           </div>
           <div className="field full">
             <label htmlFor="tz">{t("profile.timeZone")}</label>

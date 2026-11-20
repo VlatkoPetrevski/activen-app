@@ -25,7 +25,6 @@ const ICON: Record<WeatherCondition, IconName> = {
   thunderstorm: "storm",
 };
 
-const deg = (v: number) => `${Math.round(v)}°`;
 const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 export function WeatherIcon({
@@ -54,7 +53,7 @@ export function WeatherIcon({
 
 /** Temperature line with night shading, rain bars and an air-quality strip, hour by hour. */
 function HourlyChart({ w, nowHour }: { w: WeatherDto; nowHour: number }) {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const W = 600;
   const H = 170;
   const top = 26;
@@ -74,7 +73,7 @@ function HourlyChart({ w, nowHour }: { w: WeatherDto; nowHour: number }) {
   const maxI = temps.indexOf(Math.max(...temps));
   const minI = temps.indexOf(Math.min(...temps));
   const nowI = hours.findIndex((h) => h.hour === nowHour);
-  const label = hours.map((h) => `${hh(h.hour)} ${deg(h.temperature)}`).join(", ");
+  const label = hours.map((h) => `${hh(h.hour)} ${f.temperature(h.temperature)}`).join(", ");
   return (
     <svg
       className="hourly"
@@ -114,7 +113,7 @@ function HourlyChart({ w, nowHour }: { w: WeatherDto; nowHour: number }) {
         <g key={`m${i}`}>
           <circle cx={x(i)} cy={y(temps[i] ?? 0)} r={3.5} fill="var(--accent)" />
           <text x={x(i)} y={y(temps[i] ?? 0) - 8} textAnchor="middle" className="hourly-temp">
-            {deg(temps[i] ?? 0)}
+            {f.temperature(temps[i] ?? 0)}
           </text>
         </g>
       ))}
@@ -129,7 +128,7 @@ function HourlyChart({ w, nowHour }: { w: WeatherDto; nowHour: number }) {
             strokeDasharray="3 3"
           />
           <text x={x(nowI)} y={top - 10} textAnchor="middle" className="hourly-now">
-            {t("weather.now")} {deg(hours[nowI]?.temperature ?? 0)}
+            {t("weather.now")} {f.temperature(hours[nowI]?.temperature ?? 0)}
           </text>
         </g>
       )}
@@ -203,13 +202,13 @@ export function WeatherSegment({ timeZone }: { timeZone: string }) {
 
   return (
     <Segment
-      label={`${condition}, ${deg(w.current.temperature)}`}
+      label={`${condition}, ${f.temperature(w.current.temperature)}`}
       summary={
         <span className="weather-row">
           <WeatherIcon code={w.current.weatherCode} isDay={w.current.isDay} />
-          <span className="weather-temp num">{deg(w.current.temperature)}</span>
+          <span className="weather-temp num">{f.temperature(w.current.temperature)}</span>
           <span className="small muted num">
-            ↓{deg(w.today.min)} ↑{deg(w.today.max)}
+            ↓{f.temperature(w.today.min)} ↑{f.temperature(w.today.max)}
           </span>
           <span className="weather-chips">
             {aqiText && (
@@ -229,7 +228,7 @@ export function WeatherSegment({ timeZone }: { timeZone: string }) {
         <div className="row-between wrap">
           <span className="small">
             <strong>{condition}</strong> ·{" "}
-            {t("weather.feelsLike", { value: deg(w.current.apparentTemperature) })}
+            {t("weather.feelsLike", { value: f.temperature(w.current.apparentTemperature) })}
           </span>
           <button type="button" className="btn btn-ghost btn-small" onClick={() => void locateMe()}>
             <Icon name="pin" size={16} /> {w.location.name ?? t("weather.here")}
@@ -247,7 +246,7 @@ export function WeatherSegment({ timeZone }: { timeZone: string }) {
         <div className="mini-stats">
           <div>
             <Icon name="wind" size={18} />
-            <span className="num">{Math.round(w.current.windSpeedKmh)} km/h</span>
+            <span className="num">{f.windSpeed(w.current.windSpeedKmh)}</span>
             <span className="tiny muted">{t("weather.wind")}</span>
           </div>
           <div>

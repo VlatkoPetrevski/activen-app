@@ -102,6 +102,7 @@ export function coachRowView(input: {
     scopes: input.scopes,
     primarySource: input.status === "active" ? input.primarySource : null,
     week: { planned: 0, completed: 0 },
+    weekTotals: null,
     lastActivity: null,
     signals: [],
     lastComment: null,
@@ -127,6 +128,14 @@ export function coachRowView(input: {
         e.calendarDate < today &&
         !linked.get(e.id),
     ).length;
+    const recorded = calendar.activities.filter(
+      (a) => a.calendarDate >= monday && a.calendarDate <= today,
+    );
+    row.weekTotals = {
+      distanceInMeters: recorded.reduce((sum, a) => sum + (a.distanceInMeters ?? 0), 0),
+      durationInSeconds: recorded.reduce((sum, a) => sum + (a.durationInSeconds ?? 0), 0),
+      count: recorded.length,
+    };
     if (missed > 0) signals.push({ code: "missed_sessions", count: missed });
     const hard = calendar.activities.find(
       (a: ActivityDto) =>

@@ -93,6 +93,19 @@ function WeekBar({ row }: { row: CoachAthleteDto }) {
   );
 }
 
+/** "34,5 km / 3 ч 12 мин": everything recorded Monday to today. */
+function WeekTotal({ row }: { row: CoachAthleteDto }) {
+  const { f } = useI18n();
+  const w = row.weekTotals;
+  if (!w || w.count === 0) return <span className="small muted">—</span>;
+  return (
+    <span className="num">
+      <strong>{w.distanceInMeters > 0 ? f.distance(w.distanceInMeters, 1) : "—"}</strong>
+      <span className="muted"> / {f.totalTime(w.durationInSeconds)}</span>
+    </span>
+  );
+}
+
 export function CoachDashboard() {
   const { t, f } = useI18n();
   const query = useCoachAthletes();
@@ -161,6 +174,7 @@ export function CoachDashboard() {
                       <th>{t("coachApp.col.athlete")}</th>
                       <th>{t("coachApp.col.week")}</th>
                       <th className="hide-mobile">{t("coachApp.col.last")}</th>
+                      <th>{t("coachApp.col.weekTotal")}</th>
                       <th className="hide-mobile">{t("coachApp.col.source")}</th>
                       <th aria-label={t("common.edit")} />
                     </tr>
@@ -203,6 +217,9 @@ export function CoachDashboard() {
                                 : "—"}
                             </span>
                           )}
+                        </td>
+                        <td className="nowrap">
+                          <WeekTotal row={r} />
                         </td>
                         <td className="hide-mobile">
                           {r.primarySource ? (

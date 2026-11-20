@@ -121,6 +121,8 @@ export const en = {
   "unit.bpm": "{value} bpm",
   "unit.pacePerKm": "{pace} /km",
   "unit.pacePerMile": "{pace} /mi",
+  "unit.hoursMinutes": "{h} h {m} min",
+  "unit.minutes": "{m} min",
   "today.greeting.afternoon": "Good afternoon, {name}",
   "today.workoutOnWatch": "On your watch",
   "today.week.completed": "This week · {done} of {planned} done",

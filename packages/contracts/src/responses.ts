@@ -170,6 +170,11 @@ export interface CoachAthleteDto {
   scopes: ConsentScope[];
   primarySource: Vendor | null;
   week: { planned: number; completed: number };
+  /**
+   * Everything the athlete recorded this week (Monday to today), planned or not.
+   * Null for invitations and when activities are not shared with the coach.
+   */
+  weekTotals: { distanceInMeters: number; durationInSeconds: number; count: number } | null;
   lastActivity: {
     calendarDate: LocalDate;
     activityType: string;

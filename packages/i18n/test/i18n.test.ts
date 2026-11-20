@@ -196,6 +196,22 @@ describe("formatter", () => {
     expect(enF.heartRate(152)).toBe("152 bpm");
   });
 
+  it("formats totals, temperature, wind and unit values per unit system", () => {
+    expect(mkF.totalTime(5 * 3600 + 12 * 60 + 20)).toBe("5 ч 12 мин");
+    expect(enF.totalTime(45 * 60)).toBe("45 min");
+    expect(enF.totalTime(null)).toBe("");
+    expect(mkF.temperature(12.4)).toBe("12°");
+    expect(enImp.temperature(12)).toBe("54°");
+    expect([mkF.temperatureUnit, enImp.temperatureUnit]).toEqual(["°C", "°F"]);
+    expect(mkF.windSpeed(16)).toBe("16 km/h");
+    expect(enImp.windSpeed(16)).toBe("10 mph");
+    expect([mkF.distanceUnit, enImp.distanceUnit]).toEqual(["km", "mi"]);
+    expect(mkF.distanceValue(12_500)).toBe(12.5);
+    expect(enImp.distanceValue(16_093.44)).toBeCloseTo(10);
+    expect(enImp.toMeters(10)).toBeCloseTo(16_093.44);
+    expect(mkF.toMeters(12.5)).toBe(12_500);
+  });
+
   it("formats calendar dates and lists", () => {
     expect(mkF.date("2026-11-19")).toBe("четврток, 19 ноември");
     expect(enF.date("2026-11-19")).toBe("Thursday, November 19");

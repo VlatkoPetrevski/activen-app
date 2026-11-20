@@ -132,6 +132,8 @@ describe("coachRowView", () => {
       lastComment: { body: "help", createdAt: "2026-11-18T10:00:00Z", authorId: "a" },
     });
     expect(r.week).toEqual({ planned: 3, completed: 1 });
+    // Only this week (Mon 16 – Thu 19) counts; the run on the 12th belongs to last week.
+    expect(r.weekTotals).toEqual({ distanceInMeters: 10000, durationInSeconds: 3000, count: 1 });
     expect(r.lastActivity).toMatchObject({ calendarDate: "2026-11-17", perceivedEffort: 9 });
     expect(r.signals).toEqual([
       { code: "missed_sessions", count: 1 },
@@ -150,6 +152,7 @@ describe("coachRowView", () => {
     });
     expect(hidden.signals).toEqual([]);
     expect(hidden.lastActivity).toBeNull();
+    expect(hidden.weekTotals).toBeNull();
     expect(hidden.lastComment?.fromAthlete).toBe(false);
     const invited = coachRowView({ ...row, status: "invited" });
     expect(invited).toMatchObject({
@@ -157,6 +160,7 @@ describe("coachRowView", () => {
       primarySource: null,
       signals: [],
       week: { planned: 0, completed: 0 },
+      weekTotals: null,
     });
   });
 });

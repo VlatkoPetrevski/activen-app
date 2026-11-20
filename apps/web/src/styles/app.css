@@ -1658,3 +1658,7 @@ body {
   gap: 8px;
   justify-content: flex-end;
 }
+
+.nowrap {
+  white-space: nowrap;
+}

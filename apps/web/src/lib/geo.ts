@@ -84,9 +84,16 @@ export function meters(a: LatLon, b: LatLon): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Points where each whole `step` metres is reached along the route (km markers). */
-export function distanceMarkers(points: LatLon[], step: number): { km: number; at: LatLon }[] {
-  const out: { km: number; at: LatLon }[] = [];
+/**
+ * Points where each whole `step` metres is reached along the route, labelled in `unit`
+ * metres (1000 for km markers, 1609.344 for mile markers).
+ */
+export function distanceMarkers(
+  points: LatLon[],
+  step: number,
+  unit = 1000,
+): { value: number; at: LatLon }[] {
+  const out: { value: number; at: LatLon }[] = [];
   let walked = 0;
   let next = step;
   for (let i = 1; i < points.length; i++) {
@@ -95,7 +102,10 @@ export function distanceMarkers(points: LatLon[], step: number): { km: number; a
     const d = meters(a, b);
     while (d > 0 && walked + d >= next) {
       const f = (next - walked) / d;
-      out.push({ km: next / 1000, at: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f] });
+      out.push({
+        value: Math.round(next / unit),
+        at: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f],
+      });
       next += step;
     }
     walked += d;

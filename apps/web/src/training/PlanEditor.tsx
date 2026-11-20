@@ -12,17 +12,24 @@ interface Draft {
   kind: "workout" | "rest";
   description: string;
   plannedActivityType: ActivityType | "";
-  distanceKm: string;
+  /** In the user's distance unit (km or mi). */
+  distance: string;
   durationMin: string;
   notes: string;
 }
 
-const toDraft = (e: PlanEntryDto | null, date: LocalDate): Draft => ({
+const toDraft = (
+  e: PlanEntryDto | null,
+  date: LocalDate,
+  toUnit: (meters: number) => number,
+): Draft => ({
   calendarDate: e?.calendarDate ?? date,
   kind: e?.kind ?? "workout",
   description: e?.description ?? "",
   plannedActivityType: e ? (e.plannedActivityType ?? "") : "RUNNING",
-  distanceKm: e?.plannedDistanceInMeters ? String(e.plannedDistanceInMeters / 1000) : "",
+  distance: e?.plannedDistanceInMeters
+    ? String(Math.round(toUnit(e.plannedDistanceInMeters) * 100) / 100)
+    : "",
   durationMin: e?.plannedDurationInSeconds
     ? String(Math.round(e.plannedDurationInSeconds / 60))
     : "",
@@ -56,16 +63,16 @@ export function PlanEditor({
   onDelete(id: string): Promise<unknown>;
   onConflict(): void;
 }) {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const confirm = useConfirm();
-  const [draft, setDraft] = useState<Draft>(() => toDraft(entry, date));
+  const [draft, setDraft] = useState<Draft>(() => toDraft(entry, date, f.distanceValue));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // A fresh entry (e.g. reloaded after a conflict) replaces the draft; the message stays.
   useEffect(() => {
-    if (open) setDraft(toDraft(entry, date));
-  }, [open, entry, date]);
+    if (open) setDraft(toDraft(entry, date, f.distanceValue));
+  }, [open, entry, date, f.distanceValue]);
   useEffect(() => {
     if (open) setError(null);
   }, [open]);
@@ -83,7 +90,9 @@ export function PlanEditor({
       kind: draft.kind,
       description: draft.description.trim() || (rest ? t("plan.kind.rest") : ""),
       plannedActivityType: rest || !draft.plannedActivityType ? null : draft.plannedActivityType,
-      plannedDistanceInMeters: rest ? null : (num(draft.distanceKm) ?? 0) * 1000 || null,
+      plannedDistanceInMeters: rest
+        ? null
+        : Math.round(f.toMeters(num(draft.distance) ?? 0)) || null,
       plannedDurationInSeconds: rest
         ? null
         : Math.round((num(draft.durationMin) ?? 0) * 60) || null,
@@ -181,13 +190,15 @@ export function PlanEditor({
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="plan-km">{t("plan.field.distance")}</label>
+                <label htmlFor="plan-km">
+                  {t("plan.field.distance", { unit: f.distanceUnit })}
+                </label>
                 <input
                   id="plan-km"
                   className="input num"
                   inputMode="decimal"
-                  value={draft.distanceKm}
-                  onChange={(e) => set("distanceKm", e.target.value)}
+                  value={draft.distance}
+                  onChange={(e) => set("distance", e.target.value)}
                 />
               </div>
               <div className="field">

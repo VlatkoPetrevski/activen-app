@@ -120,9 +120,11 @@ export function ProgressView({ data }: { data: ProgressDto }) {
         </div>
       </section>
       <section className="card">
-        <h2 style={{ marginBottom: 12 }}>{t("progress.weeklyDistance")}</h2>
+        <h2 style={{ marginBottom: 12 }}>
+          {t("progress.weeklyDistance")} ({f.distanceUnit})
+        </h2>
         <Bars
-          values={data.weeks.map((w) => w.distanceInMeters / 1000)}
+          values={data.weeks.map((w) => f.distanceValue(w.distanceInMeters))}
           labels={labels}
           format={(v) => f.number(v, 0)}
           current={data.weeks.length - 1}

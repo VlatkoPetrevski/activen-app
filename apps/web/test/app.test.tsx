@@ -101,13 +101,20 @@ describe("athlete app (demo)", () => {
     await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
     await screen.findByRole("heading", { level: 1, name: /Влатко/ });
     await user.click(screen.getAllByRole("link", { name: "Профил" })[0]!);
-    await user.click(await screen.findByRole("button", { name: "Империјални (mi)" }));
+    await user.click(await screen.findByRole("button", { name: "US (mi, °F)" }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Империјални (mi)" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "US (mi, °F)" })).toHaveAttribute(
         "aria-pressed",
         "true",
       ),
     );
+    // US units apply everywhere: the activity list now shows miles and mile-based filters.
+    await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
+    expect((await screen.findAllByText(/\d mi ·/)).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /Филтри/ }));
+    expect(await screen.findByRole("button", { name: "3–6 mi" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByRole("link", { name: "Профил" })[0]!);
     await user.click(screen.getByRole("button", { name: "Нагоре: Polar" }));
     await user.click(screen.getAllByRole("button", { name: "EN" })[0]!);
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
@@ -141,7 +148,12 @@ describe("coach workplace (demo)", () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
     expect(await screen.findByRole("heading", { name: "Бара внимание" })).toBeInTheDocument();
-    expect(screen.getAllByText("Чека твој одговор").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Порака").length).toBeGreaterThan(0);
+    // Weekly totals sit between the last activity and the source: "34,5 km / 3 ч 12 мин".
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers.indexOf("Вкупно оваа недела")).toBe(headers.indexOf("Последна активност") + 1);
+    expect(headers.indexOf("Извор")).toBe(headers.indexOf("Вкупно оваа недела") + 1);
+    expect(screen.getAllByText(/^\/ \d+ (ч \d+ )?мин$/).length).toBeGreaterThan(0);
     await user.click(screen.getAllByRole("link", { name: /Влатко Петревски/ })[0]!);
     expect(await screen.findByRole("heading", { name: "План за Влатко" })).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Утре полесно" }));

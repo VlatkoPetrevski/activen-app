@@ -123,6 +123,8 @@ export const mk: Readonly<Record<MessageKey, string>> = {
   "unit.bpm": "{value} уд/мин",
   "unit.pacePerKm": "{pace} /km",
   "unit.pacePerMile": "{pace} /mi",
+  "unit.hoursMinutes": "{h} ч {m} мин",
+  "unit.minutes": "{m} мин",
   "today.greeting.afternoon": "Добар ден, {name}",
   "today.workoutOnWatch": "На часовникот",
   "today.week.completed": "Оваа недела · {done} од {planned} завршени",

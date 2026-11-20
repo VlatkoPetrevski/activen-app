@@ -6,11 +6,13 @@ import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
-import { useI18n } from "../i18n/I18nContext.js";
+import { useI18n, type T } from "../i18n/I18nContext.js";
+import type { Formatter } from "@activen/i18n";
 import {
   activeFilterCount,
   applyActivityFilter,
   DEFAULT_FILTER,
+  DISTANCE_EDGES,
   PERIODS,
   totals,
   type ActivityListFilter,
@@ -39,7 +41,25 @@ const GROUPS: (ActivityGroup | "all")[] = [
 ];
 const RUNS: RunKind[] = ["all", "road", "trail", "treadmill", "track"];
 const SORTS: SortKey[] = ["newest", "longest", "fastest", "hardest", "load"];
-const DISTANCES: DistanceBand[] = ["any", "lt5", "5to10", "10to21", "21plus"];
+const DISTANCES: DistanceBand[] = ["any", "short", "medium", "long", "veryLong"];
+
+/** "до 5 km", "5–10 km", "21+ km" — or "under 3 mi", "3–6 mi", "13+ mi". */
+function distanceBandLabel(t: T, f: Formatter, band: DistanceBand): string {
+  if (band === "any") return t("activities.distance.any");
+  const [a, b, c] = DISTANCE_EDGES[f.unitSystem];
+  const unit = f.distanceUnit;
+  const n = (v: number) => f.number(v, 0);
+  switch (band) {
+    case "short":
+      return t("activities.distance.short", { to: n(a), unit });
+    case "medium":
+      return t("activities.distance.medium", { from: n(a), to: n(b), unit });
+    case "long":
+      return t("activities.distance.long", { from: n(b), to: n(c), unit });
+    case "veryLong":
+      return t("activities.distance.veryLong", { from: n(c), unit });
+  }
+}
 const DURATIONS: DurationBand[] = ["any", "lt30", "30to60", "60to120", "120plus"];
 const CHECKINS: CheckInState[] = ["any", "rated", "unrated", "hard"];
 
@@ -197,10 +217,13 @@ export function ActivitiesPage() {
     placeholderData: (prev) => prev,
   });
   const set = (patch: Partial<ActivityListFilter>) => setFilter((x) => ({ ...x, ...patch }));
-  const shown = useMemo(() => applyActivityFilter(query.data ?? [], filter), [query.data, filter]);
+  const shown = useMemo(
+    () => applyActivityFilter(query.data ?? [], filter, f.unitSystem),
+    [query.data, filter, f.unitSystem],
+  );
   const draftCount = useMemo(
-    () => applyActivityFilter(query.data ?? [], draft).length,
-    [query.data, draft],
+    () => applyActivityFilter(query.data ?? [], draft, f.unitSystem).length,
+    [query.data, draft, f.unitSystem],
   );
   const sum = totals(shown);
   const extra = activeFilterCount({ ...filter, group: "all", run: "all", query: "" });
@@ -327,7 +350,7 @@ export function ActivitiesPage() {
               label={t("activities.distance")}
               values={DISTANCES}
               value={draft.distance}
-              text={(v) => t(`activities.distance.${v}`)}
+              text={(v) => distanceBandLabel(t, f, v)}
               onChange={(distance) => setDraft((d) => ({ ...d, distance }))}
             />
           </div>

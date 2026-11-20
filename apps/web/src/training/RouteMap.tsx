@@ -29,7 +29,7 @@ export function RouteMap({
   height?: number;
 }) {
   const H = height;
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const pts = route.points as LatLon[];
   if (pts.length < 2) return null;
   const v = fitViewport(pts, W, H);
@@ -44,11 +44,13 @@ export function RouteMap({
         return `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(" ");
-  const total = distanceInMeters ?? 0;
-  const step = total > 30_000 ? 10_000 : total > 12_000 ? 5_000 : 1_000;
+  // Markers every 1, 5 or 10 km — or miles, in the user's unit system.
+  const unit = f.toMeters(1);
+  const total = (distanceInMeters ?? 0) / unit;
+  const step = (total > 30 ? 10 : total > 12 ? 5 : 1) * unit;
   // Out-and-back routes put markers on top of each other: keep the first of any close pair.
-  const markers = distanceMarkers(pts, step).reduce<
-    { km: number; at: LatLon; x: number; y: number }[]
+  const markers = distanceMarkers(pts, step, unit).reduce<
+    { value: number; at: LatLon; x: number; y: number }[]
   >((kept, m) => {
     const [x, y] = xy(m.at);
     if (kept.every((k) => Math.hypot(k.x - x, k.y - y) > 22)) kept.push({ ...m, x, y });
@@ -123,11 +125,11 @@ export function RouteMap({
         )}
         <path d={path(pts)} className="route-casing" />
         <path d={path(pts)} className="route-line" />
-        {markers.map(({ km, x, y }) => (
-          <g key={km} className="route-km">
+        {markers.map(({ value, x, y }) => (
+          <g key={value} className="route-km">
             <circle cx={x} cy={y} r={9} />
             <text x={x} y={y + 3.5} textAnchor="middle">
-              {km}
+              {value}
             </text>
           </g>
         ))}

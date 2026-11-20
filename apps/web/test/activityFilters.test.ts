@@ -73,16 +73,16 @@ describe("activity list filter", () => {
 
   it("filters by distance, duration, check-in and text", () => {
     expect(
-      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "21plus" }).map((a) => a.id),
+      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "veryLong" }).map((a) => a.id),
     ).toEqual(["a6", "a4"]);
     expect(
-      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "5to10" }).map((a) => a.id),
+      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "medium" }).map((a) => a.id),
     ).toEqual(["a3"]);
     expect(
-      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "lt5" }).map((a) => a.id),
+      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "short" }).map((a) => a.id),
     ).toEqual(["a5"]);
     expect(
-      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "10to21" }).map((a) => a.id),
+      applyActivityFilter(list, { ...DEFAULT_FILTER, distance: "long" }).map((a) => a.id),
     ).toEqual(["a2", "a1"]);
     expect(
       applyActivityFilter(list, { ...DEFAULT_FILTER, duration: "120plus" }).map((a) => a.id),

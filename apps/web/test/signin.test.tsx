@@ -68,7 +68,9 @@ describe("email sign-in", () => {
     const { user } = start("/auth/email#token=good-token");
     await user.click(await screen.findByRole("button", { name: "Почни" }));
     await user.click((await screen.findAllByRole("link", { name: "Напредок" }))[0]!);
-    expect(await screen.findByRole("heading", { name: "Неделно растојание" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Неделно растојание (km)" }),
+    ).toBeInTheDocument();
     window.history.pushState(null, "", "/does-not-exist");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(await screen.findByRole("heading", { name: "404" })).toBeInTheDocument();

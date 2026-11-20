@@ -44,6 +44,20 @@ export interface Formatter {
   speed(metersPerSecond: number): string;
   /** Duration: "45:03" or "1:16:12". Empty for missing/invalid values. */
   duration(seconds: number | null): string;
+  /** Time spent, for totals: "5 h 12 min" / "45 min". Empty for missing/invalid values. */
+  totalTime(seconds: number | null): string;
+  /** Short distance unit of the user's system: "km" or "mi". */
+  readonly distanceUnit: "km" | "mi";
+  /** Metres to the user's distance unit, as a plain number (charts, inputs). */
+  distanceValue(meters: number): number;
+  /** The user's distance unit back to metres (inputs). */
+  toMeters(value: number): number;
+  /** Air temperature from °C: "12°" (°C) or "54°" (°F), whole degrees. */
+  temperature(celsius: number): string;
+  /** "°C" or "°F". */
+  readonly temperatureUnit: "°C" | "°F";
+  /** Wind from km/h (Open-Meteo unit): "12 km/h" or "7 mph". */
+  windSpeed(kmh: number): string;
   heartRate(bpm: number): string;
   percent(value: number): string;
   /** Formats an athlete-local calendar date (`YYYY-MM-DD`). */
@@ -109,6 +123,22 @@ export function createFormatter(
       if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "";
       return clock(seconds);
     },
+    totalTime(seconds) {
+      if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "";
+      const minutes = Math.round(seconds / 60);
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return h > 0
+        ? translator.t("unit.hoursMinutes", { h: num(h, 0), m: num(m, 0) })
+        : translator.t("unit.minutes", { m: num(m, 0) });
+    },
+    distanceUnit: imperial ? "mi" : "km",
+    distanceValue: (meters) => (imperial ? meters / METERS_PER_MILE : meters / 1000),
+    toMeters: (value) => (imperial ? value * METERS_PER_MILE : value * 1000),
+    temperature: (celsius) => `${num(Math.round(imperial ? celsius * 1.8 + 32 : celsius), 0)}°`,
+    temperatureUnit: imperial ? "°F" : "°C",
+    windSpeed: (kmh) =>
+      imperial ? `${num(Math.round(kmh / 1.609344), 0)} mph` : `${num(Math.round(kmh), 0)} km/h`,
     heartRate: (bpm) => translator.t("unit.bpm", { value: num(bpm, 0) }),
     percent: (value) =>
       new Intl.NumberFormat(numberLocale, { style: "percent", maximumFractionDigits: 0 }).format(
