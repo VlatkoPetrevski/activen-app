@@ -2509,3 +2509,89 @@ button.cmp-cell:hover {
     display: none;
   }
 }
+
+/* --- Share studio -------------------------------------------------------------------- */
+.share-studio {
+  display: grid;
+  gap: 24px;
+}
+.share-preview {
+  display: grid;
+  place-items: center;
+}
+.share-frame {
+  position: relative;
+  width: min(100%, 420px);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(40, 20, 10, 0.28);
+  background: #2b2520;
+}
+.share-frame.story {
+  aspect-ratio: 9 / 16;
+  width: min(100%, calc(min(64vh, 620px) * 9 / 16));
+}
+.share-frame.portrait {
+  aspect-ratio: 4 / 5;
+  width: min(100%, calc(min(64vh, 620px) * 4 / 5));
+}
+.share-frame.square {
+  aspect-ratio: 1;
+  width: min(100%, min(64vh, 520px));
+}
+.share-frame canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.share-controls .chips {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.share-drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.04) 0 12px,
+    transparent 12px 24px
+  );
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.template-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-radius: var(--radius-s);
+  border: 1.5px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.template-card[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+.share-controls h3 {
+  font-size: 0.95rem;
+}
+.share-actions .btn {
+  flex: 1;
+  justify-content: center;
+}

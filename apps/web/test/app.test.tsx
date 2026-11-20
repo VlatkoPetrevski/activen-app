@@ -328,3 +328,44 @@ describe("coach analytics (demo)", () => {
     expect(screen.getByText("Извор и сензори")).toBeInTheDocument();
   });
 });
+
+describe("share an activity (demo)", () => {
+  it("opens the studio, switches template, format and numbers, and adds a photo", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
+    await screen.findByRole("heading", { level: 1, name: /Влатко/ });
+    await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
+    const runs = await screen.findAllByRole("button", { name: /Скопје — трчање/ });
+    await user.click(runs[0]!);
+    await user.click(screen.getAllByRole("link", { name: "Детали" })[0]!);
+    await user.click(await screen.findByRole("link", { name: "Сподели" }));
+    expect(await screen.findByRole("heading", { name: "Сподели" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Преглед на сликата за споделување" }),
+    ).toBeInTheDocument();
+    // An outdoor run starts on its route; the figure is one tap away.
+    expect(screen.getByRole("button", { name: "Рута" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Фигура" }));
+    expect(screen.getByRole("button", { name: "Фигура" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Квадрат 1:1" }));
+    expect(screen.getByRole("button", { name: "Квадрат 1:1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // Up to four numbers: a fifth cannot be added until one is removed.
+    const numbers = within(screen.getByRole("group", { name: "Податоци" }));
+    expect(screen.getByText("4/4")).toBeInTheDocument();
+    const off = numbers
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-pressed") === "false")!;
+    expect(off).toBeDisabled();
+    await user.click(numbers.getByRole("button", { name: "Искачување" }));
+    expect(screen.getByText("3/4")).toBeInTheDocument();
+    expect(off).toBeEnabled();
+    // Photo background: asks for a photo first; the photo never leaves the device.
+    await user.click(screen.getByRole("button", { name: "Фотографија" }));
+    expect(screen.getByText(/не се праќа никаде/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Преземи слика/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Скриј почеток и крај/ })).toBeChecked();
+  });
+});

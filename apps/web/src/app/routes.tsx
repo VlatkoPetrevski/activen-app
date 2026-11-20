@@ -56,6 +56,10 @@ export const routes: RouteObject[] = [
           { path: "/activities", element: <ActivitiesPage /> },
           { path: "/activities/:id", element: <ActivityPage /> },
           {
+            path: "/activities/:id/share",
+            lazy: () => import("../pages/Share.js").then((m) => ({ Component: m.SharePage })),
+          },
+          {
             path: "/progress",
             lazy: () => import("../pages/Progress.js").then((m) => ({ Component: m.ProgressPage })),
           },

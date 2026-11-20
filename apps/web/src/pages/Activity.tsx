@@ -87,6 +87,9 @@ export function ActivityPage() {
                   {f.date(a.calendarDate, "full")} · {sportLabel(t, a.activityType)}
                 </span>
               </div>
+              <Link to={`/activities/${a.id}/share`} className="btn btn-primary btn-small">
+                <Icon name="send" size={16} /> {t("share.open")}
+              </Link>
             </header>
             {route && (
               <RouteMap
