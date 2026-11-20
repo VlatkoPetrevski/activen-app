@@ -164,8 +164,25 @@ export interface ActivityDeviceDto {
   heartRateSensorName: string | null;
 }
 
+/**
+ * One exercise of a strength session with its sets (FIT `set` messages / Garmin exercise
+ * sets). `category` is the Garmin exercise category (SQUAT, LUNGE, PLANK…), `name` the
+ * specific exercise when the device knows it.
+ */
+export interface ExerciseDto {
+  category: string;
+  name: string | null;
+  sets: {
+    reps: number | null;
+    weightInKilograms: number | null;
+    durationInSeconds: number | null;
+  }[];
+}
+
 export interface ActivityDetailDto {
   activity: ActivityDto;
+  /** Strength sessions: exercises in the order done; empty for other sports or until synced. */
+  exercises: ExerciseDto[];
   /** Laps / workout steps in order; empty until the source delivers them. */
   laps: ActivityLapDto[];
   device: ActivityDeviceDto;

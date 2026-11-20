@@ -1,6 +1,8 @@
 import type { PlanEntryCreate, PlanEntryUpdate, SettingsPatch } from "@activen/contracts/requests";
 import type {
   ActivityDetailDto,
+  AnalyticsSummaryDto,
+  AthleteAnalyticsDto,
   ActivityDto,
   CalendarDto,
   CoachAthleteDto,
@@ -103,6 +105,9 @@ export interface Api {
   postComment(input: CommentInput): Promise<CommentDto>;
 
   coachAthletes(): Promise<CoachAthleteDto[]>;
+  /** Analytics overview of the active athletes, attention first. */
+  coachAnalytics(): Promise<AnalyticsSummaryDto[]>;
+  athleteAnalytics(athleteId: string): Promise<AthleteAnalyticsDto>;
   inviteAthlete(email: string): Promise<void>;
   athleteCalendar(athleteId: string, from: LocalDate, to: LocalDate): Promise<CalendarDto>;
   /** One activity of a coached athlete (requires the activities consent). */

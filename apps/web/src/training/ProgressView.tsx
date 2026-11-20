@@ -1,5 +1,6 @@
 import type { ProgressDto } from "@activen/contracts";
 import type { Kpis } from "@activen/domain";
+import { Segment } from "../ui/Segment.js";
 import { useI18n } from "../i18n/I18nContext.js";
 import { Empty } from "../ui/States.js";
 import { sportLabel } from "./labels.js";
@@ -72,6 +73,7 @@ export function ProgressView({ data }: { data: ProgressDto }) {
   const p: Kpis = data.previous4Weeks;
   if (data.weeks.every((w) => w.activityCount === 0)) return <Empty>{t("progress.empty")}</Empty>;
   const totalMix = data.mix.reduce((s, m) => s + m.count, 0) || 1;
+  const thisWeek = data.weeks.at(-1);
   return (
     <div className="stack-l">
       <section className="card">
@@ -119,57 +121,83 @@ export function ProgressView({ data }: { data: ProgressDto }) {
           </div>
         </div>
       </section>
-      <section className="card">
-        <h2 style={{ marginBottom: 12 }}>
-          {t("progress.weeklyDistance")} ({f.distanceUnit})
-        </h2>
-        <Bars
-          values={data.weeks.map((w) => f.distanceValue(w.distanceInMeters))}
-          labels={labels}
-          format={(v) => f.number(v, 0)}
-          current={data.weeks.length - 1}
-        />
-      </section>
-      <section className="card">
-        <h2 style={{ marginBottom: 12 }}>{t("progress.weeklyLoad")}</h2>
-        <Bars
-          values={data.weeks.map((w) => w.totalTrainingLoad)}
-          labels={labels}
-          format={(v) => f.number(v, 0)}
-          current={data.weeks.length - 1}
-        />
-      </section>
-      {data.mix.length > 0 && (
-        <section className="card stack">
-          <h2>{t("progress.mix")}</h2>
-          <div className="mix-bar" aria-hidden>
-            {data.mix.map((m, i) => (
-              <span
-                key={m.activityType}
-                style={{ flexGrow: m.count, background: MIX_COLORS[i % MIX_COLORS.length] }}
-              />
-            ))}
-          </div>
-          <div className="list">
-            {data.mix.map((m, i) => (
-              <div key={m.activityType} className="list-item">
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    background: MIX_COLORS[i % MIX_COLORS.length],
-                  }}
-                />
-                <span className="grow">{sportLabel(t, m.activityType)}</span>
-                <span className="small muted num">
-                  {m.count} · {f.percent((m.count / totalMix) * 100)}
+      <div className="segments">
+        <Segment
+          label={`${t("progress.weeklyDistance")} (${f.distanceUnit})`}
+          summary={
+            <span className="seg-line">
+              <strong>
+                {t("progress.weeklyDistance")} ({f.distanceUnit})
+              </strong>
+              <span className="small muted num">
+                {f.distance(thisWeek?.distanceInMeters ?? 0, 1)}
+              </span>
+            </span>
+          }
+        >
+          <Bars
+            values={data.weeks.map((w) => f.distanceValue(w.distanceInMeters))}
+            labels={labels}
+            format={(v) => f.number(v, 0)}
+            current={data.weeks.length - 1}
+          />
+        </Segment>
+        <Segment
+          label={t("progress.weeklyLoad")}
+          summary={
+            <span className="seg-line">
+              <strong>{t("progress.weeklyLoad")}</strong>
+              <span className="small muted num">
+                {f.number(thisWeek?.totalTrainingLoad ?? 0, 0)}
+              </span>
+            </span>
+          }
+        >
+          <Bars
+            values={data.weeks.map((w) => w.totalTrainingLoad)}
+            labels={labels}
+            format={(v) => f.number(v, 0)}
+            current={data.weeks.length - 1}
+          />
+        </Segment>
+        {data.mix.length > 0 && (
+          <Segment
+            label={t("progress.mix")}
+            summary={
+              <span className="seg-line">
+                <strong>{t("progress.mix")}</strong>
+                <span className="mix-bar mini" aria-hidden>
+                  {data.mix.map((m, i) => (
+                    <span
+                      key={m.activityType}
+                      style={{ flexGrow: m.count, background: MIX_COLORS[i % MIX_COLORS.length] }}
+                    />
+                  ))}
                 </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              </span>
+            }
+          >
+            <div className="list">
+              {data.mix.map((m, i) => (
+                <div key={m.activityType} className="list-item">
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      background: MIX_COLORS[i % MIX_COLORS.length],
+                    }}
+                  />
+                  <span className="grow">{sportLabel(t, m.activityType)}</span>
+                  <span className="small muted num">
+                    {m.count} · {f.percent((m.count / totalMix) * 100)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Segment>
+        )}
+      </div>
     </div>
   );
 }

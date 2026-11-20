@@ -268,6 +268,31 @@ describe("coach workplace", () => {
       .get(`/v1/coach/athletes/${athlete.id}/activities/${strava?.id}`)
       .set(coach.auth)
       .expect(404);
+    // Analytics: the roster overview and one athlete's page.
+    const overview = await http().get("/v1/coach/analytics").set(coach.auth).expect(200);
+    expect(overview.body).toEqual([
+      expect.objectContaining({
+        athleteId: athlete.id,
+        activitiesVisible: true,
+        last7: expect.any(Array),
+        completion28: expect.any(Object),
+      }),
+    ]);
+    const analytics = await http()
+      .get(`/v1/coach/athletes/${athlete.id}/analytics`)
+      .set(coach.auth)
+      .expect(200);
+    expect(analytics.body.weeks).toHaveLength(12);
+    expect(analytics.body.fitness).toHaveLength(84);
+    // Sleep and recovery were not shared.
+    expect(analytics.body.wellness).toBeNull();
+    expect(
+      analytics.body.activities.some(
+        (x: { source: { vendor: string } }) => x.source.vendor === "strava",
+      ),
+    ).toBe(false);
+    await http().get(`/v1/coach/athletes/${athlete.id}/analytics`).set(athlete.auth).expect(403);
+
     // The coach opens one shared activity: plan, laps and source.
     const shared = full.body.activities[0] as { id: string; source: { vendor: string } };
     const detail = await http()

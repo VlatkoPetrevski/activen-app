@@ -9,6 +9,7 @@ import { useI18n } from "../i18n/I18nContext.js";
 import { VENDOR_NAMES } from "../lib/vendors.js";
 import { Icon } from "../ui/Icon.js";
 import { LanguageSwitch } from "../ui/LanguageSwitch.js";
+import { Segment } from "../ui/Segment.js";
 import { QueryView } from "../ui/States.js";
 
 const TIME_ZONES = (() => {
@@ -19,19 +20,36 @@ const TIME_ZONES = (() => {
   }
 })();
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** A profile section: title and the current value collapsed, the form on expand. */
+function Section({
+  title,
+  info,
+  children,
+}: {
+  title: string;
+  /** Current value shown while collapsed. */
+  info?: string | undefined;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="card stack">
-      <h2>{title}</h2>
-      {children}
-    </section>
+    <Segment
+      label={title}
+      summary={
+        <span className="seg-line">
+          <strong>{title}</strong>
+          {info && <span className="small muted">{info}</span>}
+        </span>
+      }
+    >
+      <div className="stack">{children}</div>
+    </Segment>
   );
 }
 
 function SettingsForm({ settings }: { settings: AthleteSettings }) {
   const api = useApi();
   const { reload } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const save = async (patch: SettingsInput) => {
@@ -57,7 +75,10 @@ function SettingsForm({ settings }: { settings: AthleteSettings }) {
   const hr = settings.hrZones;
   return (
     <>
-      <Section title={t("profile.language")}>
+      <Section
+        title={t("profile.language")}
+        info={`${locale.toUpperCase()} · ${t(`profile.units.${settings.unitSystem}`)}`}
+      >
         <div className="form-grid">
           <div className="field">
             <span className="label">{t("profile.language")}</span>
@@ -98,7 +119,7 @@ function SettingsForm({ settings }: { settings: AthleteSettings }) {
           </div>
         </div>
       </Section>
-      <Section title={t("profile.sources")}>
+      <Section title={t("profile.sources")} info={order.map((v) => VENDOR_NAMES[v]).join(" › ")}>
         <p className="small muted">{t("profile.sourcesHint")}</p>
         <ol className="list" style={{ padding: 0, margin: 0, listStyle: "none" }}>
           {order.map((v, i) => (
@@ -127,7 +148,10 @@ function SettingsForm({ settings }: { settings: AthleteSettings }) {
           ))}
         </ol>
       </Section>
-      <Section title={t("profile.hrZones")}>
+      <Section
+        title={t("profile.hrZones")}
+        info={settings.maxHeartRate ? `max ${settings.maxHeartRate}` : undefined}
+      >
         <div className="stack" style={{ gap: 0 }}>
           {(["source", "vendor", "manual"] as const).map((mode) => (
             <label key={mode} className="check">
@@ -241,7 +265,7 @@ export function ProfilePage() {
         </button>
       </div>
 
-      <Section title={t("profile.name")}>
+      <Section title={t("profile.name")} info={me.user.displayName}>
         <form className="row" onSubmit={saveName}>
           <label className="sr-only" htmlFor="display-name">
             {t("profile.name")}

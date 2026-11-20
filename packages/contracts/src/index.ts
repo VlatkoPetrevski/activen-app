@@ -6,3 +6,4 @@ export * from "./constants.js";
 export type * from "./responses.js";
 export * from "./demo.js";
 export * from "./views.js";
+export * from "./analytics.js";

@@ -45,6 +45,8 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     include: ["test/**/*.test.{ts,tsx}"],
     setupFiles: ["test/setup.ts"],
+    // Whole user journeys in jsdom: give them room when packages test in parallel (pnpm verify).
+    testTimeout: 20_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

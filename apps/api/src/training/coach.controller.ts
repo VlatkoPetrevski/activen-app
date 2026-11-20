@@ -6,7 +6,12 @@ import {
   PlanEntryUpdate,
   ProgressQuery,
 } from "@activen/contracts/requests";
-import { type CoachAthleteDto } from "@activen/contracts";
+import {
+  sortByAttention,
+  type AnalyticsSummaryDto,
+  type AthleteAnalyticsDto,
+  type CoachAthleteDto,
+} from "@activen/contracts";
 import { NotFoundError, type ConsentScope, type Repositories } from "@activen/db";
 import {
   Controller,
@@ -60,6 +65,37 @@ export class CoachController {
     return rows.sort(
       (x, y) => y.signals.length - x.signals.length || x.displayName.localeCompare(y.displayName),
     );
+  }
+
+  @Get("analytics")
+  @ApiOperation({
+    summary: "Analytics overview of my active athletes (compliance, load, spikes), attention first",
+  })
+  async analytics(@CurrentAuth() a: AuthContext): Promise<AnalyticsSummaryDto[]> {
+    const links = (await this.repos.coaching.linksOfCoach(a.userId)).filter(
+      (l) => l.status === "active",
+    );
+    const names = await this.repos.users.displayNames(links.map((l) => l.athleteId));
+    const rows = await Promise.all(
+      links.map(async (l) => {
+        const scopes = await this.repos.coaching.scopes(a.userId, l.athleteId);
+        return (await this.training.analytics(l.athleteId, names.get(l.athleteId) ?? "", scopes))
+          .summary;
+      }),
+    );
+    return sortByAttention(rows);
+  }
+
+  @Get("athletes/:athleteId/analytics")
+  @ApiOperation({ summary: "One athlete's analytics: 12 weeks, form, effort, activities" })
+  async athleteAnalytics(
+    @CurrentAuth() a: AuthContext,
+    @Param("athleteId", ParseUUIDPipe) athleteId: string,
+  ): Promise<AthleteAnalyticsDto> {
+    await this.access(a.userId, athleteId);
+    const scopes = await this.repos.coaching.scopes(a.userId, athleteId);
+    const names = await this.repos.users.displayNames([athleteId]);
+    return this.training.analytics(athleteId, names.get(athleteId) ?? "", scopes);
   }
 
   /**

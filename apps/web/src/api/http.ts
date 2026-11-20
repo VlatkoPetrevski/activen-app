@@ -15,6 +15,8 @@ import type {
   TokenResponse,
   UserDto,
   ActivityDetailDto,
+  AnalyticsSummaryDto,
+  AthleteAnalyticsDto,
   ActivityDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate } from "@activen/domain";
@@ -202,6 +204,9 @@ export class HttpApi implements Api {
   inviteAthlete = async (email: string) => {
     await this.request("POST", "/v1/coach/invites", { email });
   };
+  coachAnalytics = () => this.request<AnalyticsSummaryDto[]>("GET", "/v1/coach/analytics");
+  athleteAnalytics = (athleteId: string) =>
+    this.request<AthleteAnalyticsDto>("GET", `/v1/coach/athletes/${athleteId}/analytics`);
   athleteActivity = (athleteId: string, id: string) =>
     this.request<ActivityDetailDto>("GET", `/v1/coach/athletes/${athleteId}/activities/${id}`);
   athleteCalendar = (athleteId: string, from: LocalDate, to: LocalDate) =>

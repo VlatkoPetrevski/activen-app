@@ -89,6 +89,25 @@ export const routes: RouteObject[] = [
               import("../pages/coach/Athlete.js").then((m) => ({ Component: m.CoachAthletePage })),
           },
           {
+            path: "analytics",
+            lazy: () =>
+              import("../pages/coach/Analytics.js").then((m) => ({ Component: m.CoachAnalytics })),
+          },
+          {
+            path: "analytics/:athleteId",
+            lazy: () =>
+              import("../pages/coach/Analytics.js").then((m) => ({
+                Component: m.CoachAthleteAnalytics,
+              })),
+          },
+          {
+            path: "analytics/:athleteId/activities/:activityId",
+            lazy: () =>
+              import("../pages/coach/Analytics.js").then((m) => ({
+                Component: m.CoachActivityAnalytics,
+              })),
+          },
+          {
             path: "planner",
             lazy: () =>
               import("../pages/coach/Planner.js").then((m) => ({ Component: m.CoachPlanner })),

@@ -1,5 +1,8 @@
 import {
   activityInsights,
+  analyticsRange,
+  athleteAnalytics,
+  type AthleteAnalyticsDto,
   calendarView,
   coachRowRange,
   coachRowView,
@@ -9,6 +12,7 @@ import {
   type CalendarDto,
   type CoachAthleteDto,
   type CommentDto,
+  type ConsentScope,
   type FeedbackDto,
   type PlanEntryDto,
   type ProgressDto,
@@ -118,6 +122,7 @@ export class TrainingService {
       // GPS streams, laps and device details arrive with the device integrations (FIT/vendor sync).
       route: null,
       laps: [],
+      exercises: [],
       device: {
         vendor: activity.source.vendor,
         deviceName: null,
@@ -161,6 +166,32 @@ export class TrainingService {
       body: c.body,
       createdAt: c.createdAt.toISOString(),
     }));
+  }
+
+  /** Coach analytics of one athlete; activity data only with the "activities" consent. */
+  async analytics(
+    athleteId: string,
+    displayName: string,
+    scopes: ConsentScope[],
+  ): Promise<AthleteAnalyticsDto> {
+    const today = await this.today(athleteId);
+    const range = analyticsRange(today);
+    const calendar = await this.calendar(
+      athleteId,
+      range.from,
+      range.to,
+      "coach",
+      scopes.includes("activities"),
+    );
+    return athleteAnalytics({
+      athleteId,
+      displayName,
+      scopes,
+      calendar,
+      today,
+      // Morning wellness arrives with the device integrations; shared only with consent.
+      wellness: scopes.includes("sleep_recovery") ? [] : null,
+    });
   }
 
   async coachAthlete(

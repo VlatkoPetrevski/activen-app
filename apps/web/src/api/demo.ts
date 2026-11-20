@@ -1,5 +1,8 @@
 import {
   activityInsights,
+  analyticsRange,
+  athleteAnalytics,
+  buildDemoExercises,
   buildDemoLaps,
   buildDemoRoute,
   buildDemoTraining,
@@ -9,7 +12,10 @@ import {
   coachRowRange,
   coachRowView,
   progressView,
+  sortByAttention,
   type ActivityDetailDto,
+  type AnalyticsSummaryDto,
+  type AthleteAnalyticsDto,
   type ActivityDto,
   type CalendarDto,
   type CoachAthleteDto,
@@ -228,6 +234,8 @@ export class DemoApi implements Api {
         skipRate: r.skipRate,
         heavyDay: r.heavyDay,
         weekShift: r.weekShift,
+        // 12 weeks of analytics plus 6 weeks to warm up the fitness curve.
+        weeksBack: 18,
       });
       const activities: Activity[] = demo.activities.map(({ vendor, externalId, ...a }) => ({
         ...a,
@@ -562,6 +570,10 @@ export class DemoApi implements Api {
     return {
       activity: day.activities.find((x) => x.id === id) as ActivityDto,
       laps: buildDemoLaps(found, planEntry?.description ?? null),
+      exercises:
+        found.activityType === "STRENGTH_TRAINING"
+          ? buildDemoExercises(found.startTimeInSeconds)
+          : [],
       device: demoDevice(found),
       route:
         show.route && outdoors
@@ -616,6 +628,28 @@ export class DemoApi implements Api {
 
   // --- coach --------------------------------------------------------------------------------------
 
+  private analyticsFor(a: DemoAthlete): AthleteAnalyticsDto {
+    const today = this.today();
+    const range = analyticsRange(today);
+    const scopes = a.link?.scopes ?? [];
+    return athleteAnalytics({
+      athleteId: a.id,
+      displayName: a.name,
+      scopes,
+      calendar: this.calendarFor(a, range.from, range.to, this.shares(a)),
+      today,
+      wellness: scopes.includes("sleep_recovery") ? a.wellness : null,
+    });
+  }
+  coachAnalytics = async (): Promise<AnalyticsSummaryDto[]> => {
+    this.me_();
+    const rows = [...this.athletes.values()]
+      .filter((a) => a.link?.status === "active")
+      .map((a) => this.analyticsFor(a).summary);
+    return this.delay(sortByAttention(rows));
+  };
+  athleteAnalytics = async (athleteId: string) =>
+    this.delay(this.analyticsFor(this.athlete(athleteId)));
   coachAthletes = async (): Promise<CoachAthleteDto[]> => {
     this.me_();
     const today = this.today();

@@ -14,6 +14,7 @@ import {
 import type {
   ActivityDeviceDto,
   ActivityLapDto,
+  ExerciseDto,
   LapIntensity,
   RouteDto,
   WeatherDto,
@@ -742,4 +743,28 @@ export function demoDevice(a: {
     heartRateSensor: strap ? "chest_strap" : "optical",
     heartRateSensorName: strap ? "HRM-Pro Plus" : null,
   };
+}
+
+/** A typical 45-minute runner's strength session (core and legs), varied by the seed. */
+export function buildDemoExercises(seed: number): ExerciseDto[] {
+  const r = rng(seed);
+  const kg = (base: number) => Math.round((base + r.int(-1, 2) * 2.5) * 2) / 2;
+  const sets = (n: number, reps: number, weight: number | null) =>
+    Array.from({ length: n }, () => ({ reps, weightInKilograms: weight, durationInSeconds: null }));
+  return [
+    { category: "SQUAT", name: "GOBLET_SQUAT", sets: sets(3, 10, kg(20)) },
+    { category: "DEADLIFT", name: "SINGLE_LEG_ROMANIAN_DEADLIFT", sets: sets(3, 8, kg(12)) },
+    { category: "LUNGE", name: "WALKING_LUNGE", sets: sets(3, 12, kg(10)) },
+    { category: "HIP_RAISE", name: "SINGLE_LEG_HIP_RAISE", sets: sets(3, 12, null) },
+    { category: "CALF_RAISE", name: "SINGLE_LEG_CALF_RAISE", sets: sets(3, 15, null) },
+    {
+      category: "PLANK",
+      name: "SIDE_PLANK",
+      sets: Array.from({ length: 3 }, () => ({
+        reps: null,
+        weightInKilograms: null,
+        durationInSeconds: 40 + r.int(0, 2) * 5,
+      })),
+    },
+  ];
 }

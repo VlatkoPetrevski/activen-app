@@ -78,19 +78,24 @@ export function WeekStats({
   calendar,
   from,
   to,
+  bare = false,
 }: {
   calendar: CalendarDto;
   from: LocalDate;
   to: LocalDate;
+  /** Inside another container (a segment): no card, no title. */
+  bare?: boolean;
 }) {
   const { t, f } = useI18n();
   const w = weekTotals(calendar, from, to);
   const of = (plan: string) => (plan ? ` ${t("planner.stats.ofPlan", { plan })}` : "");
   return (
-    <section className="card week-stats">
-      <h3>
-        {t("planner.weekStats", { from: f.date(from, "dayMonth"), to: f.date(to, "dayMonth") })}
-      </h3>
+    <section className={bare ? "week-stats" : "card week-stats"}>
+      {!bare && (
+        <h3>
+          {t("planner.weekStats", { from: f.date(from, "dayMonth"), to: f.date(to, "dayMonth") })}
+        </h3>
+      )}
       <dl className="week-stats-list">
         <div>
           <dt>{t("planner.stats.sessions")}</dt>

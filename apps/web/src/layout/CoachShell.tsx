@@ -21,6 +21,9 @@ export function CoachShell() {
           <NavLink to="/coach" end className={navClass}>
             {t("nav.athletes")}
           </NavLink>
+          <NavLink to="/coach/analytics" className={navClass}>
+            {t("nav.analytics")}
+          </NavLink>
           <NavLink to="/coach/planner" className={navClass}>
             {t("nav.planner")}
           </NavLink>
