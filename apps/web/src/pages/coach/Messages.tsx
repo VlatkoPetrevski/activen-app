@@ -1,9 +1,29 @@
+import type { CoachAthleteDto } from "@activen/contracts";
 import { useState } from "react";
+import { Link } from "react-router";
 import { useI18n } from "../../i18n/I18nContext.js";
 import { Avatar } from "../../ui/Avatar.js";
+import { Icon } from "../../ui/Icon.js";
 import { Empty, QueryView } from "../../ui/States.js";
 import { CoachThread } from "./CoachThread.js";
 import { useCoachAthletes } from "./hooks.js";
+
+/** "Оваа недела: 2/5 тренинзи · 16/70 km" — what the coach needs before replying. */
+function WeekProgress({ row }: { row: CoachAthleteDto }) {
+  const { t, f } = useI18n();
+  const parts = [
+    t("coachApp.weekProgress", { done: row.week.completed, planned: row.week.planned }),
+  ];
+  const done = row.weekTotals?.distanceInMeters;
+  const planned = row.week.plannedDistanceInMeters;
+  if (done !== undefined)
+    parts.push(
+      planned > 0
+        ? `${f.number(f.distanceValue(done), 0)}/${f.distance(planned, 0)}`
+        : f.distance(done, 1),
+    );
+  return <div className="small muted num">{parts.join(" · ")}</div>;
+}
 
 export function CoachMessages() {
   const { t } = useI18n();
@@ -66,7 +86,21 @@ export function CoachMessages() {
                 ))}
               </section>
               <section className="card stack">
-                <h2>{current.displayName}</h2>
+                <div className="row thread-head">
+                  <Avatar name={current.displayName} />
+                  <div className="grow">
+                    <h2>{current.displayName}</h2>
+                    <WeekProgress row={current} />
+                  </div>
+                  <Link
+                    to={`/coach/athletes/${current.athleteId}`}
+                    className="btn btn-secondary btn-small"
+                    aria-label={t("coachApp.openProfileOf", { name: current.displayName })}
+                  >
+                    <Icon name="profile" size={16} /> {t("coachApp.openProfile")}
+                    <Icon name="chevronRight" size={16} />
+                  </Link>
+                </div>
                 <CoachThread key={current.athleteId} athleteId={current.athleteId} />
               </section>
             </div>

@@ -11,7 +11,14 @@ import {
   type LocalDate,
   type Vendor,
 } from "@activen/domain";
-import type { RouteDto, WeatherDto, WellnessDto } from "./responses.js";
+import type {
+  ActivityDeviceDto,
+  ActivityLapDto,
+  LapIntensity,
+  RouteDto,
+  WeatherDto,
+  WellnessDto,
+} from "./responses.js";
 
 export type DemoLocale = "mk" | "en";
 
@@ -591,4 +598,148 @@ export function buildDemoRoute(distanceInMeters: number, seed = 1): RouteDto {
   }
   const rest = Math.min(Math.max(0, distanceInMeters - used), eastRoom);
   return { points: gps([...quayOutAndBack(1, rest), ...main], seed), context: DEMO_CONTEXT };
+}
+
+/** What the demo needs to know about an activity to invent its laps. */
+export interface DemoLapInput {
+  activityType: string;
+  distanceInMeters: number | null;
+  durationInSeconds: number;
+  averageHeartRateInBeatsPerMinute: number | null;
+  maxHeartRateInBeatsPerMinute: number | null;
+  startTimeInSeconds: number;
+}
+
+interface RawLap {
+  intensity: LapIntensity;
+  meters: number;
+  /** Relative pace (seconds per metre, any scale): only ratios matter. */
+  pace: number;
+}
+
+/**
+ * Structured workouts in the plan text: "6 × 1000 m", "3 × 3 km", "10 × 1 min".
+ * Returns reps with their length in metres (or seconds for time-based reps).
+ */
+function workoutStructure(
+  description: string | null,
+): { reps: number; meters?: number; seconds?: number; kind: "short" | "tempo" | "fartlek" } | null {
+  if (!description) return null;
+  const m = /(\d+)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*(km|m|м|min|мин)(?!\p{L})/iu.exec(description);
+  if (!m) return null;
+  const reps = Number(m[1]);
+  const value = Number((m[2] ?? "0").replace(",", "."));
+  const unit = (m[3] ?? "").toLowerCase();
+  if (unit === "km") return { reps, meters: value * 1000, kind: "tempo" };
+  if (unit === "m" || unit === "м") return { reps, meters: value, kind: "short" };
+  return { reps, seconds: value * 60, kind: "fartlek" };
+}
+
+/**
+ * Laps for a demo activity: warm-up, intervals, recoveries and cool-down when the planned
+ * session has a structure, otherwise auto-laps (1 km running, 5 km cycling). Laps add up
+ * exactly to the activity's distance and elapsed time.
+ */
+export function buildDemoLaps(a: DemoLapInput, planDescription: string | null): ActivityLapDto[] {
+  const total = a.distanceInMeters ?? 0;
+  const running = a.activityType.includes("RUN");
+  const cycling = a.activityType.includes("CYCLING") || a.activityType.includes("BIKING");
+  if (total < 500 || (!running && !cycling)) return [];
+  const r = rng(a.startTimeInSeconds);
+  const structure = running ? workoutStructure(planDescription) : null;
+  const raw: RawLap[] = [];
+
+  if (structure) {
+    const fast = structure.kind === "short" ? 0.8 : structure.kind === "tempo" ? 0.9 : 0.84;
+    raw.push({ intensity: "warmup", meters: 2000, pace: 1.06 });
+    for (let i = 0; i < structure.reps; i++) {
+      const pace = fast * r.between(0.98, 1.02) * (i < 2 ? 1.02 : 1);
+      const meters = structure.meters ?? (structure.seconds ?? 60) / pace / 0.3;
+      raw.push({ intensity: "active", meters, pace });
+      if (i < structure.reps - 1) {
+        const rest =
+          structure.kind === "fartlek" ? meters * 0.75 : structure.kind === "tempo" ? 400 : 200;
+        raw.push({ intensity: "recovery", meters: rest, pace: 1.25 * r.between(0.97, 1.03) });
+      }
+    }
+    const used = raw.reduce((sum, l) => sum + l.meters, 0);
+    raw.push({ intensity: "cooldown", meters: Math.max(1000, total - used), pace: 1.08 });
+  } else {
+    const step = running ? 1000 : 5000;
+    const n = Math.ceil(total / step);
+    for (let i = 0; i < n; i++)
+      raw.push({
+        intensity: "active",
+        meters: Math.min(step, total - i * step),
+        pace: r.between(0.97, 1.03) * (1 - (i / n) * 0.03),
+      });
+  }
+
+  // Scale to the recorded totals: distance first, then time (keeps the relative paces).
+  const kDist = total / raw.reduce((sum, l) => sum + l.meters, 0);
+  const rawTime = raw.reduce((sum, l) => sum + l.meters * kDist * l.pace, 0);
+  const kTime = a.durationInSeconds / rawTime;
+  const avg = a.averageHeartRateInBeatsPerMinute;
+  const max = a.maxHeartRateInBeatsPerMinute;
+  const hrShift: Record<LapIntensity, number> = {
+    warmup: -12,
+    active: structure ? 9 : -2,
+    recovery: -4,
+    rest: -10,
+    cooldown: -9,
+  };
+  let offset = 0;
+  let active = 0;
+  const laps = raw.map((l, index): ActivityLapDto => {
+    const durationInSeconds = Math.round(l.meters * kDist * l.pace * kTime);
+    const drift = l.intensity === "active" ? active++ * (structure ? 0.9 : 0.5) : 0;
+    const lapAvg =
+      avg === null ? null : Math.round(avg + hrShift[l.intensity] + drift + r.between(-1.5, 1.5));
+    const lap: ActivityLapDto = {
+      index: index + 1,
+      intensity: l.intensity,
+      startOffsetInSeconds: offset,
+      durationInSeconds,
+      distanceInMeters: Math.round(l.meters * kDist),
+      averageHeartRateInBeatsPerMinute: lapAvg,
+      maxHeartRateInBeatsPerMinute:
+        lapAvg === null || max === null ? null : Math.min(max, lapAvg + r.int(4, 10)),
+    };
+    offset += durationInSeconds;
+    return lap;
+  });
+  // The hardest lap carries the activity's max heart rate.
+  if (max !== null && laps.length) {
+    const top = laps.reduce((best, l) =>
+      (l.averageHeartRateInBeatsPerMinute ?? 0) > (best.averageHeartRateInBeatsPerMinute ?? 0)
+        ? l
+        : best,
+    );
+    top.maxHeartRateInBeatsPerMinute = max;
+  }
+  // Rounding: the last lap absorbs the remainder so laps add up exactly.
+  const last = laps.at(-1);
+  if (last) {
+    last.durationInSeconds += a.durationInSeconds - offset;
+    last.distanceInMeters =
+      (last.distanceInMeters ?? 0) +
+      total -
+      laps.reduce((sum, l) => sum + (l.distanceInMeters ?? 0), 0);
+  }
+  return laps;
+}
+
+/** Demo recording device: a Garmin watch; chest strap for quality and long sessions. */
+export function demoDevice(a: {
+  activityType: string;
+  trainingLoad: number | null;
+}): ActivityDeviceDto {
+  const cycling = a.activityType.includes("CYCLING");
+  const strap = cycling || (a.trainingLoad ?? 0) >= 120;
+  return {
+    vendor: "garmin",
+    deviceName: cycling ? "Edge 840" : "Forerunner 965",
+    heartRateSensor: strap ? "chest_strap" : "optical",
+    heartRateSensorName: strap ? "HRM-Pro Plus" : null,
+  };
 }

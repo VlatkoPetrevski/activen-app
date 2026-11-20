@@ -261,6 +261,25 @@ describe("coach workplace", () => {
         (a: { source: { vendor: string } }) => a.source.vendor === "strava",
       ),
     ).toBe(false);
+    const strava = (await repos.activities.listByDateRange(athlete.id, day, day)).find(
+      (x) => x.source.vendor === "strava",
+    );
+    await http()
+      .get(`/v1/coach/athletes/${athlete.id}/activities/${strava?.id}`)
+      .set(coach.auth)
+      .expect(404);
+    // The coach opens one shared activity: plan, laps and source.
+    const shared = full.body.activities[0] as { id: string; source: { vendor: string } };
+    const detail = await http()
+      .get(`/v1/coach/athletes/${athlete.id}/activities/${shared.id}`)
+      .set(coach.auth)
+      .expect(200);
+    expect(detail.body).toMatchObject({
+      activity: { id: shared.id },
+      laps: [],
+      device: { vendor: shared.source.vendor, deviceName: null },
+      route: null,
+    });
     const ownView = await http().get(`/v1/me/calendar?from=${day}&to=${day}`).set(athlete.auth);
     expect(
       ownView.body.activities.some(

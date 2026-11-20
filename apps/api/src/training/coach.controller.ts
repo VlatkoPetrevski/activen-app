@@ -94,6 +94,21 @@ export class CoachController {
     return this.training.calendar(athleteId, q.from, q.to, "coach", visible);
   }
 
+  @Get("athletes/:athleteId/activities/:id")
+  @ApiOperation({
+    summary: "One activity of an athlete: plan, laps and source (requires the activities consent)",
+  })
+  async activity(
+    @CurrentAuth() a: AuthContext,
+    @Param("athleteId", ParseUUIDPipe) athleteId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    if (!(await this.access(a.userId, athleteId, "activities")))
+      throw new ForbiddenException("The athlete has not shared activities");
+    const comments = await this.repos.coaching.authorizeCoachRead(a.userId, athleteId, "comments");
+    return this.training.activityDetail(athleteId, id, "coach", { comments });
+  }
+
   @Get("athletes/:athleteId/progress")
   @ApiOperation({ summary: "An athlete's progress (requires the activities consent)" })
   async progress(

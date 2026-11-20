@@ -1,4 +1,4 @@
-import type { CalendarDto, PlanEntryDto } from "@activen/contracts";
+import type { ActivityDetailDto, CalendarDto, PlanEntryDto } from "@activen/contracts";
 import type { LocalDate } from "@activen/domain";
 import type { Api, PlanInput, PlanPatch } from "../api/api.js";
 
@@ -9,6 +9,8 @@ export interface PlanTarget {
   create(input: PlanInput): Promise<PlanEntryDto>;
   update(id: string, patch: PlanPatch): Promise<PlanEntryDto>;
   remove(id: string): Promise<void>;
+  /** One activity with laps and source (coaches: within the athlete's consent). */
+  activity(id: string): Promise<ActivityDetailDto>;
   /** The coach writes advice (notes) for each session. */
   canEditNotes: boolean;
 }
@@ -20,6 +22,7 @@ export function selfTarget(api: Api): PlanTarget {
     create: (input) => api.createPlan(input),
     update: (id, patch) => api.updatePlan(id, patch),
     remove: (id) => api.deletePlan(id),
+    activity: (id) => api.activity(id),
     canEditNotes: false,
   };
 }
@@ -31,6 +34,7 @@ export function athleteTarget(api: Api, athleteId: string): PlanTarget {
     create: (input) => api.createAthletePlan(athleteId, input),
     update: (id, patch) => api.updateAthletePlan(athleteId, id, patch),
     remove: (id) => api.deleteAthletePlan(athleteId, id),
+    activity: (id) => api.athleteActivity(athleteId, id),
     canEditNotes: true,
   };
 }

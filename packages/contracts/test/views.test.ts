@@ -131,7 +131,7 @@ describe("coachRowView", () => {
       calendar,
       lastComment: { body: "help", createdAt: "2026-11-18T10:00:00Z", authorId: "a" },
     });
-    expect(r.week).toEqual({ planned: 3, completed: 1 });
+    expect(r.week).toEqual({ planned: 3, completed: 1, plannedDistanceInMeters: 0 });
     // Only this week (Mon 16 – Thu 19) counts; the run on the 12th belongs to last week.
     expect(r.weekTotals).toEqual({ distanceInMeters: 10000, durationInSeconds: 3000, count: 1 });
     expect(r.lastActivity).toMatchObject({ calendarDate: "2026-11-17", perceivedEffort: 9 });
@@ -159,7 +159,7 @@ describe("coachRowView", () => {
       status: "invited",
       primarySource: null,
       signals: [],
-      week: { planned: 0, completed: 0 },
+      week: { planned: 0, completed: 0, plannedDistanceInMeters: 0 },
       weekTotals: null,
     });
   });

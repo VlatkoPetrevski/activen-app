@@ -18,6 +18,8 @@ import {
 } from "@activen/domain";
 import type {
   ActivityDto,
+  ActivityLapDto,
+  LapIntensity,
   ActivityInsight,
   CalendarDto,
   CoachAthleteDto,
@@ -101,7 +103,7 @@ export function coachRowView(input: {
     status: input.status,
     scopes: input.scopes,
     primarySource: input.status === "active" ? input.primarySource : null,
-    week: { planned: 0, completed: 0 },
+    week: { planned: 0, completed: 0, plannedDistanceInMeters: 0 },
     weekTotals: null,
     lastActivity: null,
     signals: [],
@@ -117,6 +119,7 @@ export function coachRowView(input: {
   row.week = {
     planned: thisWeek.length,
     completed: thisWeek.filter((e) => linked.get(e.id)).length,
+    plannedDistanceInMeters: thisWeek.reduce((sum, e) => sum + (e.plannedDistanceInMeters ?? 0), 0),
   };
 
   const signals: CoachSignal[] = [];
@@ -258,4 +261,50 @@ export function activityInsights(
     out.push({ code: "hilly", meters: Math.round(climb) });
 
   return out.slice(0, limit);
+}
+
+/** Totals of the laps of one intensity, e.g. "10 intervals · 3,1 km · 10:02 · HR 168 / 181". */
+export interface LapGroup {
+  intensity: LapIntensity;
+  count: number;
+  distanceInMeters: number | null;
+  durationInSeconds: number;
+  /** Time-weighted average over the laps that have heart rate. */
+  averageHeartRateInBeatsPerMinute: number | null;
+  maxHeartRateInBeatsPerMinute: number | null;
+}
+
+const LAP_ORDER: LapIntensity[] = ["warmup", "active", "recovery", "rest", "cooldown"];
+
+/** Warm-up / intervals / recovery / rest / cool-down totals, in workout order. */
+export function lapBreakdown(laps: readonly ActivityLapDto[]): LapGroup[] {
+  return LAP_ORDER.flatMap((intensity) => {
+    const group = laps.filter((l) => l.intensity === intensity);
+    if (group.length === 0) return [];
+    const withHr = group.filter((l) => l.averageHeartRateInBeatsPerMinute !== null);
+    const hrTime = withHr.reduce((sum, l) => sum + l.durationInSeconds, 0);
+    const maxes = group.flatMap((l) =>
+      l.maxHeartRateInBeatsPerMinute === null ? [] : [l.maxHeartRateInBeatsPerMinute],
+    );
+    const distances = group.flatMap((l) =>
+      l.distanceInMeters === null ? [] : [l.distanceInMeters],
+    );
+    return [
+      {
+        intensity,
+        count: group.length,
+        distanceInMeters: distances.length ? distances.reduce((a, b) => a + b, 0) : null,
+        durationInSeconds: group.reduce((sum, l) => sum + l.durationInSeconds, 0),
+        averageHeartRateInBeatsPerMinute: hrTime
+          ? Math.round(
+              withHr.reduce(
+                (sum, l) => sum + (l.averageHeartRateInBeatsPerMinute ?? 0) * l.durationInSeconds,
+                0,
+              ) / hrTime,
+            )
+          : null,
+        maxHeartRateInBeatsPerMinute: maxes.length ? Math.max(...maxes) : null,
+      },
+    ];
+  });
 }

@@ -134,8 +134,41 @@ export interface RouteDto {
   };
 }
 
+/**
+ * Lap intensity as the device recorded it (FIT `lap.intensity`, Garmin workout step
+ * intensity). Auto-laps of an unstructured run are all "active".
+ */
+export type LapIntensity = "warmup" | "active" | "recovery" | "rest" | "cooldown";
+
+/** One lap / workout step: only the fields the planner and coach need. */
+export interface ActivityLapDto {
+  index: number;
+  intensity: LapIntensity;
+  /** Seconds from the activity start. */
+  startOffsetInSeconds: number;
+  /** Elapsed lap time (pace is computed from elapsed time). */
+  durationInSeconds: number;
+  distanceInMeters: number | null;
+  averageHeartRateInBeatsPerMinute: number | null;
+  maxHeartRateInBeatsPerMinute: number | null;
+}
+
+/** Where the numbers came from: recording device and heart-rate sensor. */
+export interface ActivityDeviceDto {
+  vendor: Vendor;
+  /** "Forerunner 965"; null when the source does not say. */
+  deviceName: string | null;
+  /** Chest strap (accurate for intervals) or optical wrist sensor; null when unknown. */
+  heartRateSensor: "chest_strap" | "optical" | null;
+  /** "HRM-Pro Plus"; null when unknown or optical. */
+  heartRateSensorName: string | null;
+}
+
 export interface ActivityDetailDto {
   activity: ActivityDto;
+  /** Laps / workout steps in order; empty until the source delivers them. */
+  laps: ActivityLapDto[];
+  device: ActivityDeviceDto;
   /** Null without GPS, or when the viewer may not see locations. */
   route: RouteDto | null;
   planEntry: PlanEntryDto | null;
@@ -169,7 +202,8 @@ export interface CoachAthleteDto {
   status: "invited" | "active";
   scopes: ConsentScope[];
   primarySource: Vendor | null;
-  week: { planned: number; completed: number };
+  /** This week's planned workouts, completed ones and planned distance (km/mi target). */
+  week: { planned: number; completed: number; plannedDistanceInMeters: number };
   /**
    * Everything the athlete recorded this week (Monday to today), planned or not.
    * Null for invitations and when activities are not shared with the coach.

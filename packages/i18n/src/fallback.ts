@@ -40,7 +40,8 @@ export function intlSupports(locale: Locale): boolean {
  */
 export const NUMBER_FALLBACK: Partial<Record<Locale, string>> = { mk: "de" };
 
-export type FallbackDateStyle = "full" | "long" | "short" | "weekday" | "weekdayShort" | "dayMonth";
+export type FallbackDateStyle =
+  "full" | "long" | "short" | "weekday" | "weekdayShort" | "dayMonth" | "monthYear";
 
 /** Formats a UTC-midnight instant of a calendar date in Macedonian. */
 export function formatMkDate(instant: Date, style: FallbackDateStyle): string {
@@ -61,6 +62,8 @@ export function formatMkDate(instant: Date, style: FallbackDateStyle): string {
       return WEEKDAYS_SHORT[wd] ?? "";
     case "dayMonth":
       return `${d} ${MONTHS[m]}`;
+    case "monthYear":
+      return `${MONTHS[m]} ${y} г.`;
   }
 }
 

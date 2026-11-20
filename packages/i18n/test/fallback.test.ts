@@ -6,7 +6,7 @@ describe("Macedonian without ICU data (Chrome)", () => {
   const fallback = createFormatter(createTranslator("mk"), "metric", { intlSupported: false });
 
   it("formats dates like CLDR mk", () => {
-    for (const style of ["full", "long", "short", "weekday", "dayMonth"] as const)
+    for (const style of ["full", "long", "short", "weekday", "dayMonth", "monthYear"] as const)
       expect(fallback.date("2026-11-19", style)).toBe(native.date("2026-11-19", style));
     expect(fallback.date("2026-11-19", "full")).toBe("четврток, 19 ноември 2026 г.");
     expect(fallback.date("2026-11-22", "weekdayShort")).toBe("нед.");

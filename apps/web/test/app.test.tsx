@@ -171,3 +171,46 @@ describe("coach workplace (demo)", () => {
     expect(await within(dialog).findByText("Поканата е пратена.")).toBeInTheDocument();
   });
 });
+
+describe("coach planner and messages (demo)", () => {
+  it("compares plan and done, opens activity stats and navigates by calendar", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
+    await user.click(await screen.findByRole("link", { name: "Планер" }));
+    expect(await screen.findByText("План")).toBeInTheDocument();
+    expect(screen.getByText("Реализирано")).toBeInTheDocument();
+    // Week totals sit under the month calendar.
+    expect(await screen.findByText(/^Недела \d+ ноември – \d+ ноември$/)).toBeInTheDocument();
+    expect(screen.getByText("Тренинзи")).toBeInTheDocument();
+    // The fartlek on Tuesday opens with its intervals and the recording source.
+    const done = await screen.findAllByRole("button", { name: /^Статистика: / });
+    await user.click(done[0]!);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Извор и сензори")).toBeInTheDocument();
+    expect(within(dialog).getByText("Forerunner 965")).toBeInTheDocument();
+    expect(within(dialog).getByText("Интервали")).toBeInTheDocument();
+    expect(within(dialog).getByText("10 × Интервал")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("Загревање").length).toBeGreaterThan(0);
+    expect(within(dialog).getByRole("img", { name: /Интервали/ })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    // A day of the previous week in the calendar opens that week.
+    const heading = screen.getByRole("heading", { name: /^Недела од/ }).textContent;
+    await user.click(screen.getByRole("gridcell", { name: /^понеделник, 9 ноември/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /^Недела од/ }).textContent).not.toBe(heading),
+    );
+    expect(screen.getByRole("heading", { name: "Недела од 9 ноември" })).toBeInTheDocument();
+  });
+
+  it("shows the week's progress in messages and links to the athlete", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
+    await user.click(await screen.findByRole("link", { name: "Пораки" }));
+    expect(
+      await screen.findByText(/^Оваа недела: \d+\/\d+ тренинзи · \d+\/\d+ km$/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Профил на Влатко Петревски" }));
+    expect(await screen.findByRole("heading", { name: "Влатко Петревски" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Прекини соработка" })).toBeInTheDocument();
+  });
+});

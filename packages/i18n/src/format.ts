@@ -7,7 +7,8 @@ const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.280839895;
 const GRAMS_PER_POUND = 453.59237;
 
-export type DateStyle = "full" | "long" | "short" | "weekday" | "weekdayShort" | "dayMonth";
+export type DateStyle =
+  "full" | "long" | "short" | "weekday" | "weekdayShort" | "dayMonth" | "monthYear";
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   full: { weekday: "long", day: "numeric", month: "long", year: "numeric" },
@@ -16,6 +17,7 @@ const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   weekday: { weekday: "long" },
   weekdayShort: { weekday: "short" },
   dayMonth: { day: "numeric", month: "long" },
+  monthYear: { month: "long", year: "numeric" },
 };
 
 /** `m:ss` or `h:mm:ss`; no leading zero on the first unit (5:25, 1:16:12). */

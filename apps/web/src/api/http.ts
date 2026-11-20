@@ -202,6 +202,8 @@ export class HttpApi implements Api {
   inviteAthlete = async (email: string) => {
     await this.request("POST", "/v1/coach/invites", { email });
   };
+  athleteActivity = (athleteId: string, id: string) =>
+    this.request<ActivityDetailDto>("GET", `/v1/coach/athletes/${athleteId}/activities/${id}`);
   athleteCalendar = (athleteId: string, from: LocalDate, to: LocalDate) =>
     this.request<CalendarDto>(
       "GET",

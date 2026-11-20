@@ -13,7 +13,13 @@ import {
   type PlanEntryDto,
   type ProgressDto,
 } from "@activen/contracts";
-import type { Comment, Feedback, Repositories, StoredPlanEntry } from "@activen/db";
+import {
+  NotFoundError,
+  type Comment,
+  type Feedback,
+  type Repositories,
+  type StoredPlanEntry,
+} from "@activen/db";
 import {
   addDays,
   canDisplay,
@@ -80,8 +86,19 @@ export class TrainingService {
       .sort((a, b) => b.startTimeInSeconds - a.startTimeInSeconds);
   }
 
-  async activityDetail(athleteId: string, activityId: string): Promise<ActivityDetailDto> {
+  /**
+   * One activity with its plan, laps and source. Coaches never see Strava activities
+   * (Strava API terms) and see comments only with the "comments" consent.
+   */
+  async activityDetail(
+    athleteId: string,
+    activityId: string,
+    audience: Audience = "owner",
+    options: { comments?: boolean } = {},
+  ): Promise<ActivityDetailDto> {
     const activity = await this.repos.activities.get(athleteId, activityId);
+    if (!canDisplay(activity.source.vendor, audience))
+      throw new NotFoundError("activity", activityId);
     const day = await this.calendar(
       athleteId,
       activity.calendarDate,
@@ -98,10 +115,17 @@ export class TrainingService {
     );
     return {
       activity: day.activities.find((a) => a.id === activityId) ?? { ...activity, feedback: null },
-      // GPS streams arrive with the device integrations (FIT/vendor sync).
+      // GPS streams, laps and device details arrive with the device integrations (FIT/vendor sync).
       route: null,
+      laps: [],
+      device: {
+        vendor: activity.source.vendor,
+        deviceName: null,
+        heartRateSensor: null,
+        heartRateSensorName: null,
+      },
       planEntry,
-      comments: await this.comments(athleteId, { activityId }),
+      comments: (options.comments ?? true) ? await this.comments(athleteId, { activityId }) : [],
       insights: activityInsights(activity, recent, planEntry),
     };
   }

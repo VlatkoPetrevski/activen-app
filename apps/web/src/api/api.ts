@@ -105,6 +105,8 @@ export interface Api {
   coachAthletes(): Promise<CoachAthleteDto[]>;
   inviteAthlete(email: string): Promise<void>;
   athleteCalendar(athleteId: string, from: LocalDate, to: LocalDate): Promise<CalendarDto>;
+  /** One activity of a coached athlete (requires the activities consent). */
+  athleteActivity(athleteId: string, id: string): Promise<ActivityDetailDto>;
   athleteProgress(athleteId: string, weeks: number): Promise<ProgressDto>;
   createAthletePlan(athleteId: string, input: PlanInput): Promise<PlanEntryDto>;
   updateAthletePlan(athleteId: string, id: string, patch: PlanPatch): Promise<PlanEntryDto>;

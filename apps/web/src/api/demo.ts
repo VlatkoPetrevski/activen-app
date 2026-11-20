@@ -1,12 +1,15 @@
 import {
   activityInsights,
+  buildDemoLaps,
   buildDemoRoute,
   buildDemoTraining,
   buildDemoWeather,
   calendarView,
+  demoDevice,
   coachRowRange,
   coachRowView,
   progressView,
+  type ActivityDetailDto,
   type ActivityDto,
   type CalendarDto,
   type CoachAthleteDto,
@@ -541,24 +544,34 @@ export class DemoApi implements Api {
         (x, y) => y.startTimeInSeconds - x.startTimeInSeconds,
       ),
     );
-  activity = async (id: string) => {
-    const a = this.me_();
+  activity = async (id: string) =>
+    this.delay(this.detailFor(this.me_(), id, { route: true, comments: true }));
+
+  /** Same rules as the server: coaches see routes and comments only with consent. */
+  private detailFor(
+    a: DemoAthlete,
+    id: string,
+    show: { route: boolean; comments: boolean },
+  ): ActivityDetailDto {
     const found = a.activities.find((x) => x.id === id);
-    if (!found) return Promise.reject(new ApiError(404, "Activity not found"));
+    if (!found) throw new ApiError(404, "Activity not found");
     const day = this.calendarFor(a, found.calendarDate, found.calendarDate, true);
     const link = day.links.find((l) => l.activityId === id);
     const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
     const outdoors = found.distanceInMeters && found.activityType !== "TREADMILL_RUNNING";
-    return this.delay({
+    return {
       activity: day.activities.find((x) => x.id === id) as ActivityDto,
-      route: outdoors
-        ? buildDemoRoute(found.distanceInMeters ?? 0, found.startTimeInSeconds)
-        : null,
+      laps: buildDemoLaps(found, planEntry?.description ?? null),
+      device: demoDevice(found),
+      route:
+        show.route && outdoors
+          ? buildDemoRoute(found.distanceInMeters ?? 0, found.startTimeInSeconds)
+          : null,
       planEntry,
-      comments: a.comments.filter((c) => c.activityId === id),
+      comments: show.comments ? a.comments.filter((c) => c.activityId === id) : [],
       insights: activityInsights(found, a.activities, planEntry),
-    });
-  };
+    };
+  }
   saveFeedback = async (activityId: string, input: FeedbackInput) => {
     const a = this.me_();
     const fb: FeedbackDto = {
@@ -655,6 +668,17 @@ export class DemoApi implements Api {
   athleteCalendar = async (athleteId: string, from: LocalDate, to: LocalDate) => {
     const a = this.athlete(athleteId);
     return this.delay(this.calendarFor(a, from, to, this.shares(a)));
+  };
+  athleteActivity = async (athleteId: string, id: string) => {
+    const a = this.athlete(athleteId);
+    if (!this.shares(a)) throw new ApiError(403, "The athlete has not shared activities");
+    const scopes = a.link?.scopes ?? [];
+    return this.delay(
+      this.detailFor(a, id, {
+        route: scopes.includes("location"),
+        comments: scopes.includes("comments"),
+      }),
+    );
   };
   athleteProgress = async (athleteId: string, weeks: number) => {
     const a = this.athlete(athleteId);

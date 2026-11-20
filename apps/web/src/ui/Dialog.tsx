@@ -8,9 +8,12 @@ export function Dialog({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   open: boolean;
   title: string;
+  /** Wider sheet for tables and charts (activity stats). */
+  wide?: boolean;
   onClose(): void;
   children: ReactNode;
 }) {
@@ -30,7 +33,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className="sheet"
+      className={`sheet${wide ? " sheet-wide" : ""}`}
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();

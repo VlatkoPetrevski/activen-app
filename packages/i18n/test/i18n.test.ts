@@ -218,6 +218,7 @@ describe("formatter", () => {
     expect(mkF.date("2026-11-19", "dayMonth")).toBe("19 ноември");
     expect(enF.date("2026-11-19", "short")).toBe("11/19/2026");
     expect(mkF.date("2026-11-19", "weekday")).toBe("четврток");
+    expect(enF.date("2026-11-19", "monthYear")).toBe("November 2026");
     expect(() => mkF.date("nope")).toThrow(RangeError);
     expect(mkF.list(["Garmin", "Polar", "COROS"])).toBe("Garmin, Polar и COROS");
     expect(mkF.unitSystem).toBe("metric");
