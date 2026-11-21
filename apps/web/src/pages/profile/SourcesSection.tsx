@@ -51,7 +51,7 @@ export function SourcesSection({ editor }: { editor: SettingsEditor }) {
             {imports.data ? t("sources.filesSummary", { count: imports.data.imported }) : "…"}
             {lastDay &&
               ` · ${t("sources.lastImport", {
-                when: rel ? t(`common.${rel}`) : f.date(lastDay, "long"),
+                when: rel ? t(`common.${rel}`).toLocaleLowerCase() : f.date(lastDay, "long"),
               })}`}
           </span>
           <ImportButton

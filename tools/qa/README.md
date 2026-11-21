@@ -10,7 +10,9 @@ Serves nothing itself: build and serve the demo first.
 pnpm --filter @activen/web exec vite build --mode demo
 (cd apps/web/dist && python3 -m http.server 4173) &
 npm i --prefix /tmp/axe axe-core@4
-AXE_JS=/tmp/axe/node_modules/axe-core/axe.min.js python3 tools/qa/a11y_sweep.py
+# optional: a FIT file to also check the import report
+node -e 'import("./packages/importers/dist/testing.js").then(m => require("fs").writeFileSync("/tmp/sample.fit", m.intervalRunFit({ strap: true })))'
+SAMPLE_FIT=/tmp/sample.fit AXE_JS=/tmp/axe/node_modules/axe-core/axe.min.js python3 tools/qa/a11y_sweep.py
 ```
 
 Visits all athlete and coach screens at 390 px and 1280 px and reports page errors, console

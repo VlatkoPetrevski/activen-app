@@ -606,7 +606,7 @@ export class DemoApi implements Api {
       return {
         activity: day.activities.find((x) => x.id === id) as ActivityDto,
         laps: file.laps.map((l, index) => ({
-          index,
+          index: index + 1,
           intensity: l.intensity,
           startOffsetInSeconds: l.startOffsetInSeconds,
           durationInSeconds: l.durationInSeconds,

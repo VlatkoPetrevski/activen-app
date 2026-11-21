@@ -83,7 +83,9 @@ describe("importing activity files", () => {
     expect(await screen.findByText("Уште нема увезени датотеки")).toBeInTheDocument();
     const inputs = screen.getAllByTestId("import-input");
     await user.upload(inputs[inputs.length - 1]!, file("run.fit", intervalRunFit()));
-    expect(await screen.findByText(/^1 увезена датотека · последно /)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/^1 увезена датотека · последно (денес|вчера|\d)/),
+    ).toBeInTheDocument();
     expect(screen.getByText("Приоритет")).toBeInTheDocument();
     expect(screen.getByText("FIT / GPX / TCX")).toBeInTheDocument();
   });

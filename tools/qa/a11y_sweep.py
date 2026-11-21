@@ -24,6 +24,10 @@ async def run(width):
         nav = lambda n: pg.get_by_role("link", name=n).last.click()
         await nav("План"); await check(pg, f"{width} plan")
         await nav("Активности"); await check(pg, f"{width} activities")
+        fit = os.environ.get("SAMPLE_FIT")
+        if fit:
+            await pg.locator("[data-testid=import-input]").first.set_input_files(fit)
+            await pg.get_by_text("1 увезена").wait_for(); await check(pg, f"{width} activities-import")
         await pg.locator(".activity-head").nth(1).click(); await check(pg, f"{width} activities-open")
         await pg.get_by_role("link", name="Детали").first.click(); await check(pg, f"{width} activity")
         await pg.get_by_role("link", name="Сподели").click(); await check(pg, f"{width} share")
@@ -32,6 +36,7 @@ async def run(width):
         await pg.get_by_role("button", name="Поставки").click(); await check(pg, f"{width} my-coach-settings")
         await pg.keyboard.press("Escape")
         await pg.get_by_role("link", name="Профил").last.click(); await check(pg, f"{width} profile")
+        await pg.get_by_role("button", name="Извори на податоци").click(); await check(pg, f"{width} profile-sources")
         results.append({"screen":f"{width} athlete errors","errors":list(errors)})
         errors.clear()
         pg = await b.new_page(viewport={"width":width,"height":900}, locale="mk-MK")

@@ -68,7 +68,7 @@ describe("importing files", () => {
       .expect(200);
     expect(detail.body.laps).toHaveLength(8);
     expect(detail.body.laps[1]).toMatchObject({
-      index: 1,
+      index: 2,
       intensity: "active",
       startOffsetInSeconds: 600,
       averageHeartRateInBeatsPerMinute: 168,

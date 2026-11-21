@@ -163,8 +163,9 @@ export class TrainingService {
     const withDevice = ordered.find((d) => d.device);
     const withSets = ordered.find((d) => d.exercises.length > 0);
     return {
+      // Numbered from 1, as athletes and devices count laps.
       laps: (withLaps?.laps ?? []).map((l, index) => ({
-        index,
+        index: index + 1,
         intensity: l.intensity,
         startOffsetInSeconds: l.startOffsetInSeconds,
         durationInSeconds: l.durationInSeconds,

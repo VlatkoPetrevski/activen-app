@@ -142,6 +142,7 @@ export type LapIntensity = "warmup" | "active" | "recovery" | "rest" | "cooldown
 
 /** One lap / workout step: only the fields the planner and coach need. */
 export interface ActivityLapDto {
+  /** 1-based, as devices and athletes count laps. */
   index: number;
   intensity: LapIntensity;
   /** Seconds from the activity start. */
