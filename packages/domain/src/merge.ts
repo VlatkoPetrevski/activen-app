@@ -26,6 +26,8 @@ export interface MergedActivity {
   activity: Activity;
   /** All sources that recorded this workout, primary first. */
   sources: SourceRef[];
+  /** Stored ids of those source records, in the same order (details and check-ins hang on them). */
+  sourceIds: string[];
   /** Which vendor each mergeable field value came from (absent when the value is null). */
   provenance: Partial<Record<MergeableField, Vendor>>;
 }
@@ -50,14 +52,31 @@ function startMs(a: Activity): number {
   return a.startTimeInSeconds * 1000;
 }
 
-function isSameWorkout(a: Activity, b: Activity, startTolS: number, durTol: number): boolean {
-  if (a.athleteId !== b.athleteId) return false;
-  if (a.source.vendor === b.source.vendor) return false;
+type WorkoutKey = Pick<Activity, "activityType" | "startTimeInSeconds" | "durationInSeconds">;
+
+/**
+ * Whether two records describe the same workout, whatever their source: same sport group, start
+ * within `startToleranceS` (default 5 min) and elapsed time within `durationTolerance` (15 %).
+ * Used when merging sources and to refuse a second upload of a workout already imported.
+ */
+export function sameWorkout(
+  a: WorkoutKey,
+  b: WorkoutKey,
+  options: { startToleranceS?: number; durationTolerance?: number } = {},
+): boolean {
+  const startTolS = options.startToleranceS ?? 300;
+  const durTol = options.durationTolerance ?? 0.15;
   if (activityGroup(a.activityType) !== activityGroup(b.activityType)) return false;
-  if (Math.abs(startMs(a) - startMs(b)) > startTolS * 1000) return false;
+  if (Math.abs(a.startTimeInSeconds - b.startTimeInSeconds) > startTolS) return false;
   const longer = Math.max(a.durationInSeconds, b.durationInSeconds);
   if (longer === 0) return true;
   return Math.abs(a.durationInSeconds - b.durationInSeconds) / longer <= durTol;
+}
+
+function isSameWorkout(a: Activity, b: Activity, startTolS: number, durTol: number): boolean {
+  if (a.athleteId !== b.athleteId) return false;
+  if (a.source.vendor === b.source.vendor) return false;
+  return sameWorkout(a, b, { startToleranceS: startTolS, durationTolerance: durTol });
 }
 
 /**
@@ -117,6 +136,11 @@ export function mergeActivities(
     }
     merged.isRace = ordered.some((m) => m.isRace);
 
-    return { activity: merged, sources: ordered.map((m) => m.source), provenance };
+    return {
+      activity: merged,
+      sources: ordered.map((m) => m.source),
+      sourceIds: ordered.map((m) => m.id),
+      provenance,
+    };
   });
 }

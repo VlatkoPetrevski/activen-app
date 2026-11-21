@@ -4,6 +4,7 @@ export * as schema from "./schema.js";
 export * from "./repositories/users.js";
 export * from "./repositories/settings.js";
 export * from "./repositories/activities.js";
+export * from "./repositories/activity-files.js";
 export * from "./repositories/hr-zones.js";
 export * from "./repositories/plans.js";
 export * from "./repositories/feedback.js";

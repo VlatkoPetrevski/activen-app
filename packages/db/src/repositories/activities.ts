@@ -72,6 +72,33 @@ export class ActivitiesRepository {
     return rows.length > 0;
   }
 
+  /**
+   * Non-deleted activities of the athlete that started within `windowS` seconds of the given
+   * instant: the candidates for "is this the same workout?" when importing.
+   */
+  async startingNear(
+    userId: string,
+    startTimeInSeconds: number,
+    windowS = 3600,
+  ): Promise<Activity[]> {
+    const rows = await this.db
+      .select()
+      .from(sourceActivities)
+      .where(
+        and(
+          eq(sourceActivities.userId, userId),
+          eq(sourceActivities.deleted, false),
+          between(
+            sourceActivities.startTimeInSeconds,
+            startTimeInSeconds - windowS,
+            startTimeInSeconds + windowS,
+          ),
+        ),
+      )
+      .orderBy(asc(sourceActivities.startTimeInSeconds));
+    return rows.map(toActivity);
+  }
+
   /** Activities of one athlete in an inclusive local-date range, oldest first. */
   async listByDateRange(
     userId: string,

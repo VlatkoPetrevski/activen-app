@@ -32,6 +32,8 @@ const ConfigSchema = z
     /** Number of reverse-proxy hops to trust for the client IP (rate limiting). */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(300),
+    /** File uploads per minute per client IP (parsing activity files is CPU work). */
+    IMPORT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(30),
     /** Per client IP on the sign-in endpoints. */
     AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(20),
 
@@ -58,6 +60,8 @@ const ConfigSchema = z
     /** AI for "Структурирај" (optional): both set = on; the parser works without it. */
     ACTIVEN_AI_API_KEY: z.string().min(1).optional(),
     ACTIVEN_AI_MODEL: z.string().min(1).optional(),
+    /** Directory for original uploaded activity files (kept for re-reading, deleted with the account). */
+    ACTIVEN_FILE_STORE_DIR: z.string().min(1).default(".data/files"),
   })
   .superRefine((c, ctx) => {
     if (c.NODE_ENV === "production" && !c.AUTH_SIGNING_KEY)

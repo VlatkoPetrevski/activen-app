@@ -30,6 +30,7 @@ import { AuthService } from "../auth/auth.service.js";
 import type { AuthContext } from "../auth/auth.types.js";
 import { CurrentAuth } from "../auth/decorators.js";
 import { REFRESH_COOKIE } from "../auth/auth.controller.js";
+import { ImportService } from "../imports/import.service.js";
 import { REPOSITORIES } from "../tokens.js";
 import { ApiZodBody, ValidBody, ZodPipe } from "../validation.js";
 
@@ -40,6 +41,7 @@ export class MeController {
   constructor(
     @Inject(REPOSITORIES) private readonly repos: Repositories,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(ImportService) private readonly imports: ImportService,
   ) {}
 
   @Get()
@@ -72,6 +74,8 @@ export class MeController {
     @ValidBody(DeleteAccount) _body: z.output<typeof DeleteAccount>,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
+    // Kept original files first: their keys are listed from the rows the deletion removes.
+    await this.imports.deleteOriginals(a.userId);
     await this.repos.users.deleteAccount(a.userId);
     res.clearCookie(REFRESH_COOKIE, { path: "/v1/auth" });
   }

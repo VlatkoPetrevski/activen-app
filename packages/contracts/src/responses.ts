@@ -283,3 +283,40 @@ export interface WeatherDto {
   }[];
   airQuality: { europeanAqi: number; pm2_5: number | null; pm10: number | null } | null;
 }
+
+/**
+ * What became of one uploaded file:
+ * - `imported`: a new activity;
+ * - `merged`: the workout already came from a connected app (Polar, Garmin…); the file joins it as
+ *   a secondary source (laps, sensors) and the activity is still shown once;
+ * - `duplicate`: the same file, or the same workout from another file, was already imported;
+ * - `failed`: the file could not be read (`error` says why).
+ */
+export type ImportStatusDto = "imported" | "merged" | "duplicate" | "failed";
+export type ImportErrorCodeDto =
+  "unsupported_format" | "corrupt" | "no_activity" | "too_large" | "empty";
+
+export interface ImportResultDto {
+  fileName: string;
+  status: ImportStatusDto;
+  /** The activity to open: the new one, or the one it was merged into or duplicates. */
+  activityId: string | null;
+  activityName: string | null;
+  activityType: string | null;
+  calendarDate: string | null;
+  /** For `merged`: the source the workout already came from. */
+  mergedWith: Vendor | null;
+  error: ImportErrorCodeDto | null;
+}
+
+export interface ImportsSummaryDto {
+  /** Files that created or joined an activity. */
+  imported: number;
+  lastImportAt: string | null;
+  recent: {
+    fileName: string;
+    status: "imported" | "duplicate" | "failed";
+    error: string | null;
+    createdAt: string;
+  }[];
+}

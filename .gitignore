@@ -8,3 +8,6 @@ coverage/
 .DS_Store
 .turbo/
 .next/
+
+# Uploaded activity files (local file store)
+.data/

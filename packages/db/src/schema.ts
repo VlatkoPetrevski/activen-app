@@ -268,6 +268,62 @@ export const sourceActivities = pgTable(
   ],
 );
 
+/**
+ * What a detailed source (a FIT/GPX/TCX file, a vendor's activity file) adds to an activity:
+ * laps, samples for charts, the simplified route, the recording device and strength sets.
+ * One row per source activity; removed with it.
+ */
+export const activityDetails = pgTable("activity_details", {
+  activityId: uuid("activity_id")
+    .primaryKey()
+    .references(() => sourceActivities.id, { onDelete: "cascade" }),
+  laps: jsonb("laps")
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  /** Column per channel, ≤1 Hz and ≤20 000 rows (see @activen/importers `thinStreams`). */
+  streams: jsonb("streams"),
+  /** Simplified GPS track as [lat, lon] pairs; shown only with the "location" consent. */
+  route: jsonb("route"),
+  device: jsonb("device"),
+  exercises: jsonb("exercises")
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  updatedAt: updatedAt(),
+});
+
+export const importStatusEnum = pgEnum("import_status", ["imported", "duplicate", "failed"]);
+
+/**
+ * Every uploaded file and what became of it. The SHA-256 recognises a file uploaded again; the
+ * original bytes are kept in the file store (`storage_key`) so activities can be re-read when
+ * the importers improve, and are deleted with the account.
+ */
+export const activityFiles = pgTable(
+  "activity_files",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sha256: text("sha256").notNull(),
+    format: text("format"),
+    fileName: text("file_name").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storageKey: text("storage_key"),
+    status: importStatusEnum("status").notNull(),
+    /** The activity created, or the existing one it duplicates. */
+    activityId: uuid("activity_id").references(() => sourceActivities.id, {
+      onDelete: "set null",
+    }),
+    errorCode: text("error_code"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("activity_files_user_sha_idx").on(t.userId, t.sha256),
+    index("activity_files_user_created_idx").on(t.userId, t.createdAt),
+  ],
+);
+
 /** Immutable, versioned HR zone profiles (HR-04, HR-05). */
 export const hrZoneProfiles = pgTable(
   "hr_zone_profiles",

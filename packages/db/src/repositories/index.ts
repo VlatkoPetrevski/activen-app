@@ -1,5 +1,6 @@
 import type { Db } from "../client.js";
 import { ActivitiesRepository } from "./activities.js";
+import { ActivityFilesRepository } from "./activity-files.js";
 import { CoachingRepository } from "./coaching.js";
 import { CommentsRepository } from "./comments.js";
 import { FeedbackRepository } from "./feedback.js";
@@ -15,6 +16,7 @@ export interface Repositories {
   users: UsersRepository;
   settings: SettingsRepository;
   activities: ActivitiesRepository;
+  activityFiles: ActivityFilesRepository;
   hrZones: HrZonesRepository;
   plans: PlansRepository;
   feedback: FeedbackRepository;
@@ -35,6 +37,7 @@ export function createRepositories(db: Db, options: RepositoryOptions = {}): Rep
     users: new UsersRepository(db),
     settings: new SettingsRepository(db),
     activities: new ActivitiesRepository(db),
+    activityFiles: new ActivityFilesRepository(db),
     hrZones: new HrZonesRepository(db),
     plans: new PlansRepository(db),
     feedback: new FeedbackRepository(db),

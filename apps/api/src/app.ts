@@ -22,7 +22,17 @@ import { CoachController } from "./training/coach.controller.js";
 import { TrainingService } from "./training/training.service.js";
 import { ProblemFilter } from "./problem.filter.js";
 import { ReferenceController } from "./reference/reference.controller.js";
-import { APP_CONFIG, ID_TOKEN_VERIFIER, MAILER, TOKEN_SERVICE, WORKOUT_AI } from "./tokens.js";
+import {
+  APP_CONFIG,
+  FILE_STORE,
+  ID_TOKEN_VERIFIER,
+  MAILER,
+  TOKEN_SERVICE,
+  WORKOUT_AI,
+} from "./tokens.js";
+import { LocalFileStore, type FileStore } from "./imports/file-store.js";
+import { ImportService } from "./imports/import.service.js";
+import { ImportsController } from "./imports/imports.controller.js";
 import { AnthropicWorkoutAi, type WorkoutAi } from "./workouts/structurer.js";
 import { WorkoutsController } from "./workouts/workouts.controller.js";
 
@@ -32,6 +42,8 @@ export interface AppOverrides {
   mailer?: Mailer;
   /** Workout AI for tests (null = off). */
   workoutAi?: WorkoutAi | null;
+  /** Original-file storage for tests (memory). */
+  fileStore?: FileStore;
 }
 
 @Module({})
@@ -69,6 +81,13 @@ export class AppModule {
               limit: config.AUTH_RATE_LIMIT_PER_MINUTE,
               skipIf: (ctx) => ctx.getClass() !== AuthController,
             },
+            {
+              name: "imports",
+              ttl: 60_000,
+              limit: config.IMPORT_RATE_LIMIT_PER_MINUTE,
+              skipIf: (ctx) =>
+                ctx.getClass() !== ImportsController || ctx.getHandler().name !== "import",
+            },
           ],
         }),
       ],
@@ -81,6 +100,7 @@ export class AppModule {
         AthleteController,
         CoachController,
         WorkoutsController,
+        ImportsController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -99,6 +119,11 @@ export class AppModule {
         },
         AuthService,
         TrainingService,
+        ImportService,
+        {
+          provide: FILE_STORE,
+          useValue: overrides.fileStore ?? new LocalFileStore(config.ACTIVEN_FILE_STORE_DIR),
+        },
         {
           provide: WORKOUT_AI,
           useValue:

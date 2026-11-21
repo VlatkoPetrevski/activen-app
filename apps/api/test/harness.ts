@@ -5,6 +5,7 @@ import request from "supertest";
 import { expect } from "vitest";
 import { createApp, type AppOverrides } from "../src/app.js";
 import { REPOSITORIES } from "../src/tokens.js";
+import { MemoryFileStore } from "../src/imports/file-store.js";
 import { CapturingMailer, testConfig } from "./auth-helpers.js";
 
 /**
@@ -17,6 +18,7 @@ export interface Harness {
   app: INestApplication;
   repos: Repositories;
   mailer: CapturingMailer;
+  files: MemoryFileStore;
   http: () => ReturnType<typeof request>;
   close: () => Promise<void>;
 }
@@ -27,14 +29,19 @@ export interface TestUser {
   auth: { Authorization: string };
 }
 
-export async function startHarness(overrides: Partial<AppOverrides> = {}): Promise<Harness> {
+export async function startHarness(
+  overrides: Partial<AppOverrides> = {},
+  env: Record<string, string> = {},
+): Promise<Harness> {
   const mailer = new CapturingMailer();
-  const app = await createApp(testConfig(), { mailer, ...overrides });
+  const files = new MemoryFileStore();
+  const app = await createApp(testConfig(env), { mailer, fileStore: files, ...overrides });
   await app.init();
   return {
     app,
     repos: app.get(REPOSITORIES),
     mailer,
+    files,
     http: () => request(app.getHttpServer()),
     close: () => app.close(),
   };

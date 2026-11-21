@@ -15,3 +15,4 @@ export * from "./merge.js";
 // The vendor data catalog is a separate entry point: `@activen/domain/catalog` (server-side use).
 export * from "./weather.js";
 export * from "./workout.js";
+export * from "./activity-detail.js";
