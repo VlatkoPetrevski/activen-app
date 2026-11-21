@@ -21,9 +21,9 @@ const config = (overrides: Record<string, string> = {}) =>
 
 describe("configuration", () => {
   it("applies defaults and parses CORS origins", () => {
-    const c = config({ CORS_ORIGINS: "https://app.activen.mk, http://localhost:5173 ," });
+    const c = config({ CORS_ORIGINS: "https://activen.app, http://localhost:5173 ," });
     expect(c).toMatchObject({ PORT: 3000, DATABASE_POOL_MAX: 10, NODE_ENV: "test" });
-    expect(c.CORS_ORIGINS).toEqual(["https://app.activen.mk", "http://localhost:5173"]);
+    expect(c.CORS_ORIGINS).toEqual(["https://activen.app", "http://localhost:5173"]);
   });
 
   it("refuses to start with invalid configuration", () => {

@@ -2,7 +2,7 @@ import type { CoachLinkDto, ConsentScope } from "@activen/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useApi } from "../api/ApiContext.js";
-import { useAuth, useMe } from "../auth/AuthContext.js";
+import { useMe } from "../auth/AuthContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
 import { ScopePicker } from "../training/ScopePicker.js";
 import { Thread } from "../training/Thread.js";
@@ -10,10 +10,12 @@ import { Link } from "react-router";
 import { todayIn, weekOf } from "../lib/dates.js";
 import { distanceOfPlan } from "../training/labels.js";
 import { WeekStats, weekTotals } from "../training/WeekStats.js";
+import { FormatFields } from "../settings/FormatFields.js";
+import { SettingsError } from "../settings/SettingsError.js";
+import { useSettingsEditor } from "../settings/useSettingsEditor.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Dialog } from "../ui/Dialog.js";
 import { Icon } from "../ui/Icon.js";
-import { LanguageSwitch } from "../ui/LanguageSwitch.js";
 import { Segment } from "../ui/Segment.js";
 import { useConfirm } from "../ui/Confirm.js";
 import { Empty, QueryView } from "../ui/States.js";
@@ -22,47 +24,14 @@ const DEFAULT_SCOPES: ConsentScope[] = ["activities", "comments"];
 
 /** Units and language for everything the athlete and the coach exchange. */
 function FormatSettings() {
-  const api = useApi();
-  const me = useMe();
-  const { reload } = useAuth();
-  const { t } = useI18n();
-  const [saving, setSaving] = useState(false);
-  const [unit, setUnit] = useState<"metric" | "imperial" | null>(null);
-  const save = async (patch: Parameters<typeof api.updateSettings>[0]) => {
-    setSaving(true);
-    if (patch.unitSystem) setUnit(patch.unitSystem);
-    try {
-      await api.updateSettings(patch);
-      await reload();
-    } finally {
-      setUnit(null);
-      setSaving(false);
-    }
-  };
-  const unitSystem = unit ?? me.settings.unitSystem;
+  const editor = useSettingsEditor();
   return (
-    <div className="form-grid">
-      <div className="field">
-        <span className="label">{t("profile.language")}</span>
-        <LanguageSwitch onChange={(locale) => void save({ locale })} />
+    <>
+      <div className="form-grid">
+        <FormatFields editor={editor} />
       </div>
-      <div className="field">
-        <span className="label">{t("profile.units")}</span>
-        <div className="segmented" role="group" aria-label={t("profile.units")}>
-          {(["metric", "imperial"] as const).map((u) => (
-            <button
-              key={u}
-              type="button"
-              aria-pressed={unitSystem === u}
-              disabled={saving}
-              onClick={() => void save({ unitSystem: u })}
-            >
-              {t(`profile.units.${u}`)}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+      <SettingsError show={editor.error} />
+    </>
   );
 }
 

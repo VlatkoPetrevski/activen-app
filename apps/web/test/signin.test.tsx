@@ -1,4 +1,4 @@
-import type { SignInResponse } from "@activen/contracts";
+import type { IdentityDto, SignInResponse } from "@activen/contracts";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,10 @@ class EmailFlowApi extends DemoApi {
   override providers = async () => ({ google: false, apple: false, email: true });
   override startEmailSignIn = async (email: string) => {
     this.sent.push(email);
+  };
+  override verifyEmailLink = async (token: string): Promise<IdentityDto[]> => {
+    if (token !== "link-token") throw new ApiError(401, "invalid", "invalid");
+    return [];
   };
   override verifyEmailSignIn = async (token: string): Promise<SignInResponse> => {
     if (token !== "good-token") throw new ApiError(401, "invalid", "invalid");
@@ -74,5 +78,39 @@ describe("email sign-in", () => {
     window.history.pushState(null, "", "/does-not-exist");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(await screen.findByRole("heading", { name: "404" })).toBeInTheDocument();
+  });
+
+  it("answers a link without a token", async () => {
+    start("/auth/email");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Линкот повеќе не важи");
+    expect(screen.getByRole("link", { name: "Најави се во ActiveN" })).toBeInTheDocument();
+  });
+});
+
+/** The add-email link is opened by a signed-in user. */
+async function startSignedIn(path: string) {
+  window.history.pushState(null, "", path);
+  localStorage.setItem("activen.locale", "mk");
+  const api = new EmailFlowApi(() => "mk");
+  await api.signInDemo("athlete");
+  render(<App api={api} routing="browser" />);
+}
+
+describe("adding an email address to an account", () => {
+  it("confirms a valid link and removes the token from the URL", async () => {
+    await startSignedIn("/auth/link-email#token=link-token");
+    expect(await screen.findByText("Е-поштата е додадена на твојата сметка.")).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    expect(screen.getByRole("link", { name: "Профил" })).toBeInTheDocument();
+  });
+
+  it("explains invalid and missing links", async () => {
+    await startSignedIn("/auth/link-email#token=other-token");
+    expect(await screen.findByText("Линкот повеќе не важи. Побарај нов.")).toBeInTheDocument();
+  });
+
+  it("explains a link without a token", async () => {
+    await startSignedIn("/auth/link-email");
+    expect(await screen.findByText("Линкот повеќе не важи. Побарај нов.")).toBeInTheDocument();
   });
 });

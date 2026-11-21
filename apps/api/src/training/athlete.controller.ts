@@ -55,7 +55,7 @@ export class AthleteController {
   @ApiOperation({ summary: "Plan and activities in a date range, with plan ↔ activity links" })
   @applyAll(RANGE_QUERY)
   calendar(@CurrentAuth() a: AuthContext, @ValidQuery(DateRange) q: z.output<typeof DateRange>) {
-    return this.training.calendar(a.userId, q.from, q.to, "owner");
+    return this.training.calendar(a.userId, q.from, q.to);
   }
 
   @Post("plan")
@@ -128,7 +128,7 @@ export class AthleteController {
     @CurrentAuth() a: AuthContext,
     @ValidQuery(ProgressQuery) q: z.output<typeof ProgressQuery>,
   ) {
-    return this.training.progress(a.userId, q.weeks, "owner");
+    return this.training.progress(a.userId, q.weeks);
   }
 
   // --- Coaches -------------------------------------------------------------------------------------
@@ -204,7 +204,6 @@ export class AthleteController {
     @CurrentAuth() a: AuthContext,
     @ValidBody(CommentCreate) body: z.output<typeof CommentCreate>,
   ) {
-    if (body.activityId) await this.repos.activities.get(a.userId, body.activityId);
     const { locale } = await this.repos.settings.get(a.userId);
     const saved = await this.repos.comments.add(a.userId, a.userId, { ...body, language: locale });
     const [dto] = await this.training.commentDtos([saved]);

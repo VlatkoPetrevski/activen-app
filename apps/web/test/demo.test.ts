@@ -88,8 +88,8 @@ describe("DemoApi as athlete", () => {
     await expect(api.startEmailSignIn("a@b.c", "mk")).rejects.toMatchObject({ status: 501 });
     await expect(api.verifyEmailSignIn("t")).rejects.toMatchObject({ status: 501 });
     await expect(api.signInWithIdToken("google", "t", "n")).rejects.toMatchObject({ status: 501 });
-    await expect(api.startEmailLink()).rejects.toMatchObject({ status: 501 });
-    await expect(api.verifyEmailLink()).rejects.toMatchObject({ status: 501 });
+    await expect(api.startEmailLink("a@b.c", "mk")).rejects.toMatchObject({ status: 501 });
+    await expect(api.verifyEmailLink("t")).rejects.toMatchObject({ status: 501 });
     expect(await api.addRole("coach")).toEqual(["athlete", "coach"]);
     expect(await api.removeRole("coach")).toEqual(["athlete"]);
     expect(await api.providers()).toEqual({ google: false, apple: false, email: false });

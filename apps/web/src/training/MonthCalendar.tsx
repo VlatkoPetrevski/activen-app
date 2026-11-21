@@ -73,7 +73,7 @@ export function MonthCalendar({
         <button
           type="button"
           className="icon-btn"
-          aria-label={f.date(shiftMonth(month, -1), "monthYear")}
+          aria-label={`${t("common.previousMonth")}: ${f.date(shiftMonth(month, -1), "monthYear")}`}
           onClick={() => onMonth(shiftMonth(month, -1))}
         >
           <Icon name="chevronLeft" />
@@ -82,7 +82,7 @@ export function MonthCalendar({
         <button
           type="button"
           className="icon-btn"
-          aria-label={f.date(shiftMonth(month, 1), "monthYear")}
+          aria-label={`${t("common.nextMonth")}: ${f.date(shiftMonth(month, 1), "monthYear")}`}
           onClick={() => onMonth(shiftMonth(month, 1))}
         >
           <Icon name="chevronRight" />

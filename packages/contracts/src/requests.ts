@@ -97,11 +97,14 @@ const stepDuration = z.discriminatedUnion("type", [
 ]);
 const stepTarget = z.discriminatedUnion("type", [
   z.object({ type: z.literal("none") }),
-  z.object({
-    type: z.literal("pace"),
-    low: z.number().int().min(90).max(1200),
-    high: z.number().int().min(90).max(1200),
-  }),
+  z
+    .object({
+      type: z.literal("pace"),
+      /** Seconds per km; low is the faster end. */
+      low: z.number().int().min(90).max(1200),
+      high: z.number().int().min(90).max(1200),
+    })
+    .refine((p) => p.low <= p.high, "pace low must not be slower than high"),
   z.object({ type: z.literal("hr_zone"), zone: z.number().int().min(1).max(5) }),
   z.object({ type: z.literal("label"), text: z.string().trim().min(1).max(60) }),
 ]);

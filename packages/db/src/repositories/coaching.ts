@@ -114,14 +114,18 @@ export class CoachingRepository {
     scope: ConsentScope,
   ): Promise<boolean> {
     const allowed = (await this.scopes(coachId, athleteId)).includes(scope);
-    if (allowed)
-      await this.db.insert(auditLog).values({
-        actorId: coachId,
-        subjectUserId: athleteId,
-        action: "coach.read",
-        details: { scope },
-      });
+    if (allowed) await this.recordRead(coachId, athleteId, scope);
     return allowed;
+  }
+
+  /** Audit entry for a coach reading data under a consent scope. */
+  async recordRead(coachId: string, athleteId: string, scope: ConsentScope): Promise<void> {
+    await this.db.insert(auditLog).values({
+      actorId: coachId,
+      subjectUserId: athleteId,
+      action: "coach.read",
+      details: { scope },
+    });
   }
 
   /** The athlete's open links (invitations and active coaches). */

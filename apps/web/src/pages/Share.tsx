@@ -169,9 +169,10 @@ function Studio({ detail }: { detail: ActivityDetailDto }) {
     try {
       await navigator.share({ files: [file], title: a.activityName });
       setStatus("shared");
-    } catch {
-      // The user closed the share sheet: nothing to report.
-      setStatus("idle");
+    } catch (err) {
+      // Closing the share sheet is not an error; any other failure falls back to a download.
+      if (err instanceof DOMException && err.name === "AbortError") setStatus("idle");
+      else await download();
     }
   };
 

@@ -35,14 +35,14 @@ const ConfigSchema = z
     /** Per client IP on the sign-in endpoints. */
     AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(20),
 
-    /** Web app origin used in magic links (e.g. https://app.activen.mk). */
+    /** Web app origin used in magic links (e.g. https://activen.app). */
     PUBLIC_WEB_URL: z.string().url().default("http://localhost:5173"),
     /**
      * Ed25519 private key as a JWK (JSON) for signing access tokens. Required in production; in
      * development and tests a key is generated at startup (tokens then end with the process).
      */
     AUTH_SIGNING_KEY: z.string().optional(),
-    AUTH_ISSUER: z.string().default("https://api.activen.mk"),
+    AUTH_ISSUER: z.string().default("https://api.activen.app"),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
     /** Refresh-token cookie for the web app; `Secure` everywhere except local development/tests. */
     COOKIE_SECURE: z

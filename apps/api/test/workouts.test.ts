@@ -1,13 +1,9 @@
-import type { INestApplication } from "@nestjs/common";
-import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createApp } from "../src/app.js";
 import { AnthropicWorkoutAi, structureWorkout } from "../src/workouts/structurer.js";
-import { CapturingMailer, testConfig } from "./auth-helpers.js";
+import { signIn as harnessSignIn, startHarness, type Harness } from "./harness.js";
 
-let app: INestApplication;
-const mailer = new CapturingMailer();
-const http = () => request(app.getHttpServer());
+let h: Harness;
+const http = () => h.http();
 const aiStructure = vi.fn(async (text: string) =>
   text.includes("пирамида")
     ? {
@@ -25,19 +21,11 @@ const aiStructure = vi.fn(async (text: string) =>
 );
 
 beforeAll(async () => {
-  app = await createApp(testConfig(), { mailer, workoutAi: { structure: aiStructure } });
-  await app.init();
+  h = await startHarness({ workoutAi: { structure: aiStructure } });
 });
-afterAll(() => app.close());
+afterAll(() => h.close());
 
-async function signIn(email: string) {
-  await http().post("/v1/auth/email/start").send({ email }).expect(202);
-  const res = await http()
-    .post("/v1/auth/email/verify")
-    .send({ token: mailer.lastTokenFor(email), client: "native" })
-    .expect(200);
-  return { Authorization: `Bearer ${res.body.accessToken}` };
-}
+const signIn = async (email: string) => (await harnessSignIn(h, email)).auth;
 
 describe("workout structuring", () => {
   it("uses the parser first, the AI for the rest, and saves an accepted structure", async () => {

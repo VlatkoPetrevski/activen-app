@@ -8,7 +8,11 @@ import {
   buildDemoTraining,
   buildDemoWeather,
   calendarView,
+  coachViewer,
   demoDevice,
+  feedbackAs,
+  OWNER,
+  type Viewer,
   coachRowRange,
   coachRowView,
   progressView,
@@ -357,8 +361,9 @@ export class DemoApi implements Api {
     return a;
   }
 
-  private shares(a: DemoAthlete): boolean {
-    return a.link?.scopes.includes("activities") ?? false;
+  /** What the signed-in coach may see of this athlete (same rules as the server). */
+  private viewerOf(a: DemoAthlete): Viewer {
+    return coachViewer(a.link?.status === "active" ? a.link.scopes : []);
   }
 
   private athlete(id: string): DemoAthlete {
@@ -458,8 +463,10 @@ export class DemoApi implements Api {
   revokeOtherSessions = async () => 0;
   unlinkIdentity = async () =>
     Promise.reject(new ApiError(409, "The last sign-in method cannot be removed"));
-  startEmailLink = async () => Promise.reject(new ApiError(501, "Not available in the demo"));
-  verifyEmailLink = async () => Promise.reject(new ApiError(501, "Not available in the demo"));
+  startEmailLink = async (_email: string, _locale: string): Promise<void> =>
+    Promise.reject(new ApiError(501, "Not available in the demo"));
+  verifyEmailLink = async (_token: string): Promise<IdentityDto[]> =>
+    Promise.reject(new ApiError(501, "Not available in the demo"));
   deleteAccount = async () => {
     await this.signOut();
   };
@@ -470,7 +477,7 @@ export class DemoApi implements Api {
     a: DemoAthlete,
     from: LocalDate,
     to: LocalDate,
-    visible: boolean,
+    viewer: Viewer = OWNER,
   ): CalendarDto {
     return calendarView({
       athleteId: a.id,
@@ -479,12 +486,14 @@ export class DemoApi implements Api {
       entries: a.entries
         .filter((e) => e.calendarDate >= from && e.calendarDate <= to)
         .sort((x, y) => x.calendarDate.localeCompare(y.calendarDate) || x.sequence - y.sequence),
-      activities: a.activities
-        .filter((x) => x.calendarDate >= from && x.calendarDate <= to)
-        .sort((x, y) => x.startTimeInSeconds - y.startTimeInSeconds),
+      activities: viewer.activities
+        ? a.activities
+            .filter((x) => x.calendarDate >= from && x.calendarDate <= to)
+            .sort((x, y) => x.startTimeInSeconds - y.startTimeInSeconds)
+        : [],
       overrides: [],
-      feedback: a.feedback,
-      activitiesVisible: visible,
+      feedback: new Map([...a.feedback].map(([id, f]) => [id, feedbackAs(f, viewer)])),
+      activitiesVisible: viewer.activities,
     });
   }
 
@@ -545,29 +554,24 @@ export class DemoApi implements Api {
   wellness = async (date: LocalDate) =>
     this.delay(this.me_().wellness.find((w) => w.calendarDate === date) ?? null);
   calendar = async (from: LocalDate, to: LocalDate) =>
-    this.delay(this.calendarFor(this.me_(), from, to, true));
+    this.delay(this.calendarFor(this.me_(), from, to));
   createPlan = async (input: PlanInput) => this.delay(this.addPlan(this.me_(), input));
   updatePlan = async (id: string, patch: PlanPatch) =>
     this.delay(this.patchPlan(this.me_(), id, patch));
   deletePlan = async (id: string) => this.removePlan(this.me_(), id);
   activities = async (from: LocalDate, to: LocalDate) =>
     this.delay(
-      this.calendarFor(this.me_(), from, to, true).activities.sort(
+      this.calendarFor(this.me_(), from, to).activities.sort(
         (x, y) => y.startTimeInSeconds - x.startTimeInSeconds,
       ),
     );
-  activity = async (id: string) =>
-    this.delay(this.detailFor(this.me_(), id, { route: true, comments: true }));
+  activity = async (id: string) => this.delay(this.detailFor(this.me_(), id, OWNER));
 
   /** Same rules as the server: coaches see routes and comments only with consent. */
-  private detailFor(
-    a: DemoAthlete,
-    id: string,
-    show: { route: boolean; comments: boolean },
-  ): ActivityDetailDto {
+  private detailFor(a: DemoAthlete, id: string, viewer: Viewer): ActivityDetailDto {
     const found = a.activities.find((x) => x.id === id);
     if (!found) throw new ApiError(404, "Activity not found");
-    const day = this.calendarFor(a, found.calendarDate, found.calendarDate, true);
+    const day = this.calendarFor(a, found.calendarDate, found.calendarDate, viewer);
     const link = day.links.find((l) => l.activityId === id);
     const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
     const outdoors = found.distanceInMeters && found.activityType !== "TREADMILL_RUNNING";
@@ -580,11 +584,11 @@ export class DemoApi implements Api {
           : [],
       device: demoDevice(found),
       route:
-        show.route && outdoors
+        viewer.location && outdoors
           ? buildDemoRoute(found.distanceInMeters ?? 0, found.startTimeInSeconds)
           : null,
       planEntry,
-      comments: show.comments ? a.comments.filter((c) => c.activityId === id) : [],
+      comments: viewer.comments ? a.comments.filter((c) => c.activityId === id) : [],
       insights: activityInsights(found, a.activities, planEntry),
     };
   }
@@ -640,7 +644,7 @@ export class DemoApi implements Api {
       athleteId: a.id,
       displayName: a.name,
       scopes,
-      calendar: this.calendarFor(a, range.from, range.to, this.shares(a)),
+      calendar: this.calendarFor(a, range.from, range.to, this.viewerOf(a)),
       today,
       wellness: scopes.includes("sleep_recovery") ? a.wellness : null,
     });
@@ -673,12 +677,7 @@ export class DemoApi implements Api {
           today,
           ...(link.status === "active"
             ? {
-                calendar: this.calendarFor(
-                  a,
-                  range.from,
-                  range.to,
-                  link.scopes.includes("activities"),
-                ),
+                calendar: this.calendarFor(a, range.from, range.to, coachViewer(link.scopes)),
                 lastComment: a.comments[0] ?? null,
               }
             : {}),
@@ -707,22 +706,17 @@ export class DemoApi implements Api {
   };
   athleteCalendar = async (athleteId: string, from: LocalDate, to: LocalDate) => {
     const a = this.athlete(athleteId);
-    return this.delay(this.calendarFor(a, from, to, this.shares(a)));
+    return this.delay(this.calendarFor(a, from, to, this.viewerOf(a)));
   };
   athleteActivity = async (athleteId: string, id: string) => {
     const a = this.athlete(athleteId);
-    if (!this.shares(a)) throw new ApiError(403, "The athlete has not shared activities");
-    const scopes = a.link?.scopes ?? [];
-    return this.delay(
-      this.detailFor(a, id, {
-        route: scopes.includes("location"),
-        comments: scopes.includes("comments"),
-      }),
-    );
+    const viewer = this.viewerOf(a);
+    if (!viewer.activities) throw new ApiError(403, "The athlete has not shared activities");
+    return this.delay(this.detailFor(a, id, viewer));
   };
   athleteProgress = async (athleteId: string, weeks: number) => {
     const a = this.athlete(athleteId);
-    if (!this.shares(a))
+    if (!this.viewerOf(a).activities)
       return Promise.reject(new ApiError(403, "The athlete has not shared activities"));
     return this.delay(progressView(a.activities, this.today(), weeks));
   };

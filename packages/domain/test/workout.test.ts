@@ -14,6 +14,17 @@ describe("parseTarget", () => {
     });
     expect(parseTarget("брзо")).toEqual({ type: "none" });
   });
+
+  it("orders reversed ranges and ignores times that cannot be paces", () => {
+    expect(parseTarget("4:05–3:55")).toEqual({ type: "pace", low: 235, high: 245 });
+    expect(parseTarget("4:05-3:55/km")).toEqual({ type: "pace", low: 235, high: 245 });
+    // 0:45 is not a running pace; 4:75 is not a time.
+    expect(parseTarget("0:45")).toEqual({ type: "none" });
+    expect(parseTarget("4:75")).toEqual({ type: "none" });
+    expect(parseTarget("0:30–0:40")).toEqual({ type: "none" });
+    // Near the edges the window stays inside the plausible range.
+    expect(parseTarget("1:32")).toEqual({ type: "pace", low: 90, high: 97 });
+  });
 });
 
 describe("parseWorkout", () => {

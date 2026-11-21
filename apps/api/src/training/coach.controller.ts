@@ -7,7 +7,9 @@ import {
   ProgressQuery,
 } from "@activen/contracts/requests";
 import {
+  coachViewer,
   sortByAttention,
+  type Viewer,
   type AnalyticsSummaryDto,
   type AthleteAnalyticsDto,
   type CoachAthleteDto,
@@ -126,8 +128,8 @@ export class CoachController {
     @Param("athleteId", ParseUUIDPipe) athleteId: string,
     @ValidQuery(DateRange) q: z.output<typeof DateRange>,
   ) {
-    const visible = await this.access(a.userId, athleteId, "activities");
-    return this.training.calendar(athleteId, q.from, q.to, "coach", visible);
+    const viewer = await this.viewer(a.userId, athleteId, "activities", "comments");
+    return this.training.calendar(athleteId, q.from, q.to, viewer);
   }
 
   @Get("athletes/:athleteId/activities/:id")
@@ -139,10 +141,9 @@ export class CoachController {
     @Param("athleteId", ParseUUIDPipe) athleteId: string,
     @Param("id", ParseUUIDPipe) id: string,
   ) {
-    if (!(await this.access(a.userId, athleteId, "activities")))
-      throw new ForbiddenException("The athlete has not shared activities");
-    const comments = await this.repos.coaching.authorizeCoachRead(a.userId, athleteId, "comments");
-    return this.training.activityDetail(athleteId, id, "coach", { comments });
+    const viewer = await this.viewer(a.userId, athleteId, "activities", "comments");
+    if (!viewer.activities) throw new ForbiddenException("The athlete has not shared activities");
+    return this.training.activityDetail(athleteId, id, viewer);
   }
 
   @Get("athletes/:athleteId/progress")
@@ -152,9 +153,9 @@ export class CoachController {
     @Param("athleteId", ParseUUIDPipe) athleteId: string,
     @ValidQuery(ProgressQuery) q: z.output<typeof ProgressQuery>,
   ) {
-    if (!(await this.access(a.userId, athleteId, "activities")))
-      throw new ForbiddenException("The athlete has not shared activities");
-    return this.training.progress(athleteId, q.weeks, "coach");
+    const viewer = await this.viewer(a.userId, athleteId, "activities");
+    if (!viewer.activities) throw new ForbiddenException("The athlete has not shared activities");
+    return this.training.progress(athleteId, q.weeks, viewer);
   }
 
   @Post("athletes/:athleteId/plan")
@@ -213,12 +214,9 @@ export class CoachController {
     @Param("athleteId", ParseUUIDPipe) athleteId: string,
     @ValidBody(CommentCreate) body: z.output<typeof CommentCreate>,
   ) {
-    await this.access(a.userId, athleteId);
-    if (body.activityId) await this.repos.activities.get(athleteId, body.activityId);
-    if (body.planEntryId) {
-      const entry = await this.repos.plans.get(body.planEntryId);
-      if (entry.athleteId !== athleteId) throw new NotFoundError("plan entry", body.planEntryId);
-    }
+    const viewer = await this.viewer(a.userId, athleteId);
+    // Replying about an activity needs what reading it needs (consent, displayable source).
+    if (body.activityId) await this.training.assertVisible(athleteId, body.activityId, viewer);
     const { locale } = await this.repos.settings.get(a.userId);
     const saved = await this.repos.comments.add(athleteId, a.userId, { ...body, language: locale });
     const [dto] = await this.training.commentDtos([saved]);
@@ -239,13 +237,25 @@ export class CoachController {
     await this.repos.coaching.end(link.id);
   }
 
-  /**
-   * Requires an active link (404 otherwise, so athletes cannot be probed). With a scope, returns
-   * whether the athlete shares it — and audits the read when they do.
-   */
-  private async access(coachId: string, athleteId: string, scope?: ConsentScope): Promise<boolean> {
+  /** Requires an active link (404 otherwise, so athletes cannot be probed). */
+  private async access(coachId: string, athleteId: string): Promise<void> {
     if (!(await this.repos.coaching.activeLink(coachId, athleteId)))
       throw new NotFoundError("athlete", athleteId);
-    return scope ? this.repos.coaching.authorizeCoachRead(coachId, athleteId, scope) : true;
+  }
+
+  /**
+   * What this coach may see of the athlete right now. Reads of the `audited` scopes are written
+   * to the audit log when the athlete shares them.
+   */
+  private async viewer(
+    coachId: string,
+    athleteId: string,
+    ...audited: ConsentScope[]
+  ): Promise<Viewer> {
+    await this.access(coachId, athleteId);
+    const scopes = await this.repos.coaching.scopes(coachId, athleteId);
+    for (const scope of audited)
+      if (scopes.includes(scope)) await this.repos.coaching.recordRead(coachId, athleteId, scope);
+    return coachViewer(scopes);
   }
 }

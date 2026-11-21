@@ -12,14 +12,24 @@ export function Loading() {
   );
 }
 
+/**
+ * The message for a failed request. Server texts are English and technical, so users get a
+ * localized sentence chosen by status; status 0 is a network failure (see HttpApi).
+ */
+export function errorMessageKey(error: unknown) {
+  if (!(error instanceof ApiError)) return "common.error" as const;
+  if (error.status === 0) return "common.offline" as const;
+  if (error.status === 401 || error.status === 403) return "common.forbidden" as const;
+  if (error.status === 404) return "common.notFound" as const;
+  return "common.error" as const;
+}
+
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
   const { t } = useI18n();
-  const detail =
-    error instanceof ApiError && error.status >= 400 && error.status < 500 ? error.message : null;
   return (
     <div className="alert error" role="alert">
       <div className="row-between">
-        <span>{detail ?? t("common.error")}</span>
+        <span>{t(errorMessageKey(error))}</span>
         {retry && (
           <button type="button" className="btn btn-small btn-secondary" onClick={retry}>
             {t("common.retry")}

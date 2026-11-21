@@ -1,36 +1,19 @@
 import { seedDemoData, type Repositories } from "@activen/db";
 import { addDays, localDateOf, weekStart } from "@activen/domain";
-import type { INestApplication } from "@nestjs/common";
-import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
-import { REPOSITORIES } from "../src/tokens.js";
-import { CapturingMailer, testConfig } from "./auth-helpers.js";
+import { signIn as harnessSignIn, startHarness, type Harness } from "./harness.js";
 
-let app: INestApplication;
+let h: Harness;
 let repos: Repositories;
-const mailer = new CapturingMailer();
-const http = () => request(app.getHttpServer());
+const http = () => h.http();
+const signIn = (email: string) => harnessSignIn(h, email);
 const today = localDateOf(new Date().toISOString(), "Europe/Skopje");
 
 beforeAll(async () => {
-  app = await createApp(testConfig(), { mailer });
-  await app.init();
-  repos = app.get(REPOSITORIES);
+  h = await startHarness();
+  repos = h.repos;
 });
-afterAll(() => app.close());
-
-async function signIn(email: string) {
-  await http().post("/v1/auth/email/start").send({ email }).expect(202);
-  const res = await http()
-    .post("/v1/auth/email/verify")
-    .send({ token: mailer.lastTokenFor(email), client: "native" })
-    .expect(200);
-  return {
-    id: res.body.user.id as string,
-    auth: { Authorization: `Bearer ${res.body.accessToken}` },
-  };
-}
+afterAll(() => h.close());
 
 describe("athlete training", () => {
   it("returns the calendar with plan ↔ activity links and check-ins", async () => {

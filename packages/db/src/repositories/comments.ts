@@ -1,7 +1,7 @@
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
-import { ValidationError } from "../errors.js";
-import { comments } from "../schema.js";
+import { NotFoundError, ValidationError } from "../errors.js";
+import { comments, planEntries, sourceActivities } from "../schema.js";
 
 export interface Comment {
   id: string;
@@ -23,7 +23,11 @@ export interface CommentInput {
 
 const MAX_BODY = 4000;
 
-/** The athlete ↔ coach thread. Authorization (who may read/write) is checked by the caller. */
+/**
+ * The athlete ↔ coach thread. Who may read or write is checked by the caller; that a comment
+ * only refers to the athlete's own activity and plan entry is enforced here, for every caller
+ * (a foreign id answers like a missing one).
+ */
 export class CommentsRepository {
   constructor(private readonly db: Db) {}
 
@@ -31,6 +35,7 @@ export class CommentsRepository {
     const body = input.body.trim();
     if (!body || body.length > MAX_BODY)
       throw new ValidationError(`Comment must be 1–${MAX_BODY} characters`);
+    await this.assertOwnReferences(athleteId, input);
     const [row] = await this.db
       .insert(comments)
       .values({
@@ -44,6 +49,25 @@ export class CommentsRepository {
       .returning();
     if (!row) throw new Error("insert comments returned no row");
     return row;
+  }
+
+  private async assertOwnReferences(athleteId: string, input: CommentInput): Promise<void> {
+    if (input.activityId) {
+      const [own] = await this.db
+        .select({ id: sourceActivities.id })
+        .from(sourceActivities)
+        .where(
+          and(eq(sourceActivities.id, input.activityId), eq(sourceActivities.userId, athleteId)),
+        );
+      if (!own) throw new NotFoundError("activity", input.activityId);
+    }
+    if (input.planEntryId) {
+      const [own] = await this.db
+        .select({ id: planEntries.id })
+        .from(planEntries)
+        .where(and(eq(planEntries.id, input.planEntryId), eq(planEntries.athleteId, athleteId)));
+      if (!own) throw new NotFoundError("plan entry", input.planEntryId);
+    }
   }
 
   /** Newest first; `before` pages backwards. */

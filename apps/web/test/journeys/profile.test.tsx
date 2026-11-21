@@ -1,0 +1,174 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/api/api.js";
+import { asAthlete, nav, start } from "../support/app.js";
+
+/** Profile: name, preferences, heart-rate zones, roles, sign-in methods, devices, deletion. */
+beforeEach(() => {
+  window.location.hash = "";
+});
+
+const openProfile = (user: Parameters<typeof nav>[0]) => nav(user, /^Профил \S+$/);
+const ERROR = "Нешто тргна наопаку. Обиди се повторно.";
+
+describe("profile account", () => {
+  it("renames, saves only real changes, and takes on the coach role", async () => {
+    const { user, api } = start();
+    await asAthlete(user);
+    await openProfile(user);
+    const nameRow = await screen.findByRole("button", { name: /^Име/ });
+    await user.click(nameRow);
+    const input = screen.getByRole("textbox", { name: "Име" });
+    const save = screen.getAllByRole("button", { name: "Зачувај" })[0]!;
+    expect(save).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, "   ");
+    expect(save).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, "Влатко П.");
+    await user.click(save);
+    await waitFor(() => expect(within(nameRow).getByText("Влатко П.")).toBeInTheDocument());
+
+    const addRole = vi.spyOn(api, "addRole");
+    await user.click(screen.getByRole("button", { name: /^Улоги/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Тренирам и спортисти" }));
+    expect(addRole).toHaveBeenCalledWith("coach");
+    expect(await screen.findAllByRole("link", { name: "Тренерски приказ" })).not.toHaveLength(0);
+  });
+
+  it("never offers to remove the last sign-in method", async () => {
+    const { user } = start();
+    await asAthlete(user);
+    await openProfile(user);
+    await user.click(await screen.findByRole("button", { name: /^Начини за најава/ }));
+    // Only one method: it cannot be removed, so there is no button.
+    expect(screen.queryByRole("button", { name: "Отстрани" })).toBeNull();
+  });
+
+  it("signs other devices out and deletes the account only after typing DELETE", async () => {
+    const { user, api } = start();
+    const now = new Date().toISOString();
+    api.sessions = async () => [
+      {
+        id: "s-1",
+        createdAt: now,
+        lastUsedAt: now,
+        expiresAt: now,
+        userAgent: null,
+        current: true,
+      },
+      {
+        id: "s-2",
+        createdAt: now,
+        lastUsedAt: now,
+        expiresAt: now,
+        userAgent: "Firefox on Linux",
+        current: false,
+      },
+    ];
+    const revoke = vi.spyOn(api, "revokeSession");
+    const revokeOthers = vi.spyOn(api, "revokeOtherSessions");
+    await asAthlete(user);
+    await openProfile(user);
+    await user.click(await screen.findByRole("button", { name: /^Најавени уреди/ }));
+    expect(await screen.findByText("Овој уред")).toBeInTheDocument();
+    expect(screen.getByText(/Firefox on Linux/)).toBeInTheDocument();
+    const devices = screen.getByText("Овој уред").closest(".list")!;
+    await user.click(within(devices as HTMLElement).getByRole("button", { name: "Одјави се" }));
+    expect(revoke).toHaveBeenCalledWith("s-2");
+    await user.click(screen.getByRole("button", { name: "Одјави ги другите уреди" }));
+    expect(revokeOthers).toHaveBeenCalled();
+
+    // A failing action shows the localized error.
+    api.revokeOtherSessions = () => Promise.reject(new ApiError(500, "Internal Server Error"));
+    await user.click(screen.getByRole("button", { name: "Одјави ги другите уреди" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(ERROR);
+    expect(screen.queryByText("Internal Server Error")).toBeNull();
+
+    const remove = screen.getByRole("button", { name: "Избриши" });
+    expect(remove).toBeDisabled();
+    await user.type(screen.getByLabelText("DELETE"), "delete");
+    expect(remove).toBeDisabled();
+    await user.clear(screen.getByLabelText("DELETE"));
+    await user.type(screen.getByLabelText("DELETE"), "DELETE");
+    await user.click(remove);
+    expect(
+      await screen.findByRole("heading", { name: "Најави се во ActiveN" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("profile preferences", () => {
+  it("chooses heart-rate zones, max HR and birth date", async () => {
+    const { user, api } = start();
+    const update = vi.spyOn(api, "updateSettings");
+    await asAthlete(user);
+    await openProfile(user);
+    await user.click(await screen.findByRole("button", { name: /^HR зони/ }));
+    await user.click(screen.getByRole("radio", { name: "Секогаш од еден уред" }));
+    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "vendor", vendor: "garmin" } });
+    const vendor = await screen.findByRole("combobox", { name: "Секогаш од еден уред" });
+    await waitFor(() => expect(vendor).toBeEnabled());
+    await user.selectOptions(vendor, "polar");
+    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "vendor", vendor: "polar" } });
+    const manual = screen.getByRole("radio", { name: "Рачно" });
+    await waitFor(() => expect(manual).toBeEnabled());
+    await user.click(manual);
+    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "manual" } });
+
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Рачно" })).toBeEnabled());
+    const maxHr = screen.getByLabelText("Макс. пулс (bpm)");
+    update.mockClear();
+    // Out of range values are not sent.
+    await user.clear(maxHr);
+    await user.type(maxHr, "300");
+    await user.tab();
+    expect(update).not.toHaveBeenCalled();
+    await user.clear(maxHr);
+    await user.type(maxHr, "188");
+    await user.tab();
+    expect(update).toHaveBeenLastCalledWith({ maxHeartRate: 188 });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^HR зони/ })).toHaveTextContent("max 188"),
+    );
+    const birth = screen.getByLabelText("Датум на раѓање");
+    await user.type(birth, "1985-04-12");
+    await user.tab();
+    expect(update).toHaveBeenLastCalledWith({ birthDate: "1985-04-12" });
+  });
+
+  it("changes the time zone and moves data sources both ways", async () => {
+    const { user, api } = start();
+    const update = vi.spyOn(api, "updateSettings");
+    await asAthlete(user);
+    await openProfile(user);
+    await user.click(await screen.findByRole("button", { name: /^Јазик/ }));
+    await user.selectOptions(screen.getByLabelText("Временска зона"), "Europe/Berlin");
+    expect(update).toHaveBeenLastCalledWith({ timeZone: "Europe/Berlin" });
+    const sources = screen.getByRole("button", { name: /^Извори на податоци/ });
+    await user.click(sources);
+    const first = sources.textContent!.split("›")[0]!.replace("Извори на податоци", "").trim();
+    const down = screen.getByRole("button", { name: `Надолу: ${first}` });
+    await waitFor(() => expect(down).toBeEnabled()); // the time zone is still saving
+    await user.click(down);
+    await waitFor(() => expect(sources.textContent).not.toContain(`податоци${first}`));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: `Нагоре: ${first}` })).toBeEnabled(),
+    );
+  });
+});
+
+describe("coach-tab format settings", () => {
+  it("rolls the units back and explains when saving fails", async () => {
+    const { user, api } = start();
+    await asAthlete(user);
+    await nav(user, "Тренер");
+    await user.click(await screen.findByRole("button", { name: /Поставки/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Поставки за соработката" });
+    api.updateSettings = () => Promise.reject(new Error("offline"));
+    const us = within(dialog).getByRole("button", { name: "US (mi, °F)" });
+    await user.click(us);
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(ERROR);
+    expect(us).toHaveAttribute("aria-pressed", "false");
+  });
+});

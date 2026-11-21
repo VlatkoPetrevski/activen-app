@@ -71,20 +71,29 @@ function duration(value: number, unit: string): StepDuration {
 }
 
 const clock = (m: string, s: string) => Number(m) * 60 + Number(s);
+/** Plausible running paces (1:30–20:00 per km); anything else is not read as a pace. */
+const MIN_PACE = 90;
+const MAX_PACE = 1200;
+const isPace = (v: number) => v >= MIN_PACE && v <= MAX_PACE;
 
 /** Pace ("4:00/km", "3:55–4:05"), heart-rate zone ("Z2", "зона 3") or a named effort. */
 export function parseTarget(text: string): StepTarget {
-  const range = /(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/.exec(text);
-  if (range)
-    return {
-      type: "pace",
-      low: clock(range[1] ?? "0", range[2] ?? "0"),
-      high: clock(range[3] ?? "0", range[4] ?? "0"),
-    };
-  const pace = /(\d{1,2}):(\d{2})\s*(?:\/\s*(?:km|км))?/.exec(text);
+  const range = /(\d{1,2}):([0-5]\d)\s*[-–]\s*(\d{1,2}):([0-5]\d)/.exec(text);
+  if (range) {
+    const a = clock(range[1] ?? "0", range[2] ?? "0");
+    const b = clock(range[3] ?? "0", range[4] ?? "0");
+    // Written either way round ("4:05–3:55"); low is always the faster end.
+    if (isPace(a) && isPace(b)) return { type: "pace", low: Math.min(a, b), high: Math.max(a, b) };
+  }
+  const pace = /(\d{1,2}):([0-5]\d)\s*(?:\/\s*(?:km|км))?/.exec(text);
   if (pace) {
     const v = clock(pace[1] ?? "0", pace[2] ?? "0");
-    return { type: "pace", low: v - 5, high: v + 5 };
+    if (isPace(v))
+      return {
+        type: "pace",
+        low: Math.max(MIN_PACE, v - 5),
+        high: Math.min(MAX_PACE, v + 5),
+      };
   }
   const zone = /(?:\bz|zone\s*|зона\s*)([1-5])\b/iu.exec(text);
   if (zone) return { type: "hr_zone", zone: Number(zone[1]) };

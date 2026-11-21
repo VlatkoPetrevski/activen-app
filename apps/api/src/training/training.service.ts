@@ -4,6 +4,10 @@ import {
   athleteAnalytics,
   type AthleteAnalyticsDto,
   calendarView,
+  coachViewer,
+  feedbackAs,
+  OWNER,
+  type Viewer,
   coachRowRange,
   coachRowView,
   progressView,
@@ -63,12 +67,11 @@ export class TrainingService {
     athleteId: string,
     from: LocalDate,
     to: LocalDate,
-    audience: Audience,
-    activitiesVisible = true,
+    viewer: Viewer = OWNER,
   ): Promise<CalendarDto> {
     const entries = (await this.repos.plans.listByDateRange(athleteId, from, to)).map(toPlanDto);
-    const activities = activitiesVisible
-      ? await this.visibleActivities(athleteId, from, to, audience)
+    const activities = viewer.activities
+      ? await this.visibleActivities(athleteId, from, to, viewer.audience)
       : [];
     return calendarView({
       athleteId,
@@ -77,14 +80,14 @@ export class TrainingService {
       entries,
       activities,
       overrides: await this.repos.plans.overridesFor(entries.map((e) => e.id)),
-      feedback: await this.feedbackFor(activities),
-      activitiesVisible,
+      feedback: await this.feedbackFor(activities, viewer),
+      activitiesVisible: viewer.activities,
     });
   }
 
   async activities(athleteId: string, from: LocalDate, to: LocalDate): Promise<ActivityDto[]> {
     const list = await this.visibleActivities(athleteId, from, to, "owner");
-    const feedback = await this.feedbackFor(list);
+    const feedback = await this.feedbackFor(list, OWNER);
     return list
       .map((a) => ({ ...a, feedback: feedback.get(a.id) ?? null }))
       .sort((a, b) => b.startTimeInSeconds - a.startTimeInSeconds);
@@ -97,17 +100,18 @@ export class TrainingService {
   async activityDetail(
     athleteId: string,
     activityId: string,
-    audience: Audience = "owner",
-    options: { comments?: boolean } = {},
+    viewer: Viewer = OWNER,
   ): Promise<ActivityDetailDto> {
+    const { audience } = viewer;
     const activity = await this.repos.activities.get(athleteId, activityId);
-    if (!canDisplay(activity.source.vendor, audience))
+    if (!viewer.activities || !canDisplay(activity.source.vendor, audience))
       throw new NotFoundError("activity", activityId);
+    // Same audience as the caller, so plan ↔ activity links match what they see in the calendar.
     const day = await this.calendar(
       athleteId,
       activity.calendarDate,
       activity.calendarDate,
-      "owner",
+      viewer,
     );
     const link = day.links.find((l) => l.activityId === activityId);
     const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
@@ -115,11 +119,12 @@ export class TrainingService {
       athleteId,
       addDays(activity.calendarDate, -28),
       activity.calendarDate,
-      "owner",
+      audience,
     );
     return {
       activity: day.activities.find((a) => a.id === activityId) ?? { ...activity, feedback: null },
-      // GPS streams, laps and device details arrive with the device integrations (FIT/vendor sync).
+      // GPS streams, laps and device details arrive with the device integrations (FIT/vendor sync);
+      // the route will then be given only to viewers with `location`.
       route: null,
       laps: [],
       exercises: [],
@@ -130,16 +135,25 @@ export class TrainingService {
         heartRateSensorName: null,
       },
       planEntry,
-      comments: (options.comments ?? true) ? await this.comments(athleteId, { activityId }) : [],
+      comments: viewer.comments ? await this.comments(athleteId, { activityId }) : [],
       insights: activityInsights(activity, recent, planEntry),
     };
   }
 
-  async progress(athleteId: string, weeks: number, audience: Audience): Promise<ProgressDto> {
+  /** 404 unless the coach may see this activity (activities consent and a displayable source). */
+  async assertVisible(athleteId: string, activityId: string, viewer: Viewer): Promise<void> {
+    const activity = await this.repos.activities.get(athleteId, activityId);
+    if (!viewer.activities || !canDisplay(activity.source.vendor, viewer.audience))
+      throw new NotFoundError("activity", activityId);
+  }
+
+  async progress(athleteId: string, weeks: number, viewer: Viewer = OWNER): Promise<ProgressDto> {
     const today = await this.today(athleteId);
     const from = addDays(weekStart(today), -7 * (weeks - 1) - 28);
     return progressView(
-      await this.visibleActivities(athleteId, from, today, audience),
+      viewer.activities
+        ? await this.visibleActivities(athleteId, from, today, viewer.audience)
+        : [],
       today,
       weeks,
     );
@@ -176,13 +190,7 @@ export class TrainingService {
   ): Promise<AthleteAnalyticsDto> {
     const today = await this.today(athleteId);
     const range = analyticsRange(today);
-    const calendar = await this.calendar(
-      athleteId,
-      range.from,
-      range.to,
-      "coach",
-      scopes.includes("activities"),
-    );
+    const calendar = await this.calendar(athleteId, range.from, range.to, coachViewer(scopes));
     return athleteAnalytics({
       athleteId,
       displayName,
@@ -211,13 +219,7 @@ export class TrainingService {
     const today = localDateOf(new Date().toISOString(), settings.timeZone);
     if (status !== "active") return coachRowView({ ...base, primarySource: null, today });
     const range = coachRowRange(today);
-    const calendar = await this.calendar(
-      link.athleteId,
-      range.from,
-      range.to,
-      "coach",
-      scopes.includes("activities"),
-    );
+    const calendar = await this.calendar(link.athleteId, range.from, range.to, coachViewer(scopes));
     const [last] = await this.repos.comments.list(link.athleteId, { limit: 1 });
     return coachRowView({
       ...base,
@@ -230,9 +232,17 @@ export class TrainingService {
     });
   }
 
-  private async feedbackFor(activities: readonly Activity[]): Promise<Map<string, FeedbackDto>> {
+  /** Check-ins; the athlete's written comment only for viewers with the "comments" consent. */
+  private async feedbackFor(
+    activities: readonly Activity[],
+    viewer: Viewer,
+  ): Promise<Map<string, FeedbackDto>> {
     const map = await this.repos.feedback.forActivities(activities.map((a) => a.id));
-    return new Map([...map].map(([id, f]) => [id, toFeedbackDto(f)]));
+    return new Map(
+      [...map].map(([id, f]) => {
+        return [id, feedbackAs(toFeedbackDto(f), viewer)];
+      }),
+    );
   }
 
   private async visibleActivities(

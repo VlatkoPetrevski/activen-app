@@ -2,6 +2,7 @@ import type { PlanEntryDto } from "@activen/contracts";
 import type { ActivityType, LocalDate, WorkoutStructure } from "@activen/domain";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, type PlanInput, type PlanPatch } from "../api/api.js";
+import { errorMessageKey } from "../ui/States.js";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
 import { useI18n } from "../i18n/I18nContext.js";
@@ -177,10 +178,9 @@ export function PlanEditor({
         setError(t("plan.conflict"));
         onConflict();
       } else
+        // Server texts are English; the user gets a localized message.
         setError(
-          err instanceof ApiError && err.status < 500 && err.status > 0
-            ? err.message
-            : t("common.error"),
+          t(err instanceof ApiError && err.status === 422 ? "plan.invalid" : errorMessageKey(err)),
         );
     } finally {
       setBusy(false);

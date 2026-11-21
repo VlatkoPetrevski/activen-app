@@ -1,0 +1,51 @@
+# Деплој и домен
+
+**Домен: `activen.app`** (купен 21.11.2026). Екстензијата `.app` бара HTTPS на сите поддомени (HSTS preload).
+
+## Адреси
+
+| Адреса                            | Намена                                                |
+| --------------------------------- | ----------------------------------------------------- |
+| `https://activen.app`             | web апликација (PWA)                                  |
+| `https://api.activen.app`         | REST API (`/v1`, `/docs`, `/.well-known/jwks.json`)   |
+| `noreply@activen.app`             | автоматски мејлови: магични линкови за најава, покани |
+| `hello@activen.app`, лични адреси | сандаче на тимот (посебен провајдер)                  |
+
+## Конфигурација во продукција
+
+```
+NODE_ENV=production
+PUBLIC_WEB_URL=https://activen.app
+CORS_ORIGINS=https://activen.app
+AUTH_ISSUER=https://api.activen.app
+AUTH_SIGNING_KEY=<Ed25519 JWK, во secret manager>
+GOOGLE_CLIENT_IDS=<web client id>
+APPLE_CLIENT_IDS=app.activen.web
+TRUST_PROXY_HOPS=1
+```
+
+- **Google OAuth:** Authorized JavaScript origin `https://activen.app`.
+- **Apple (Sign in with Apple):** Services ID `app.activen.web`, домен `activen.app`, Return URL
+  `https://activen.app/sign-in`.
+- Тајните (`AUTH_SIGNING_KEY`, клучеви за мејл и AI) се само во secret manager на хостингот, никогаш
+  во git или чат.
+
+## DNS (кога ќе се избере хостинг)
+
+| Запис            | Име         | Вредност                                                                    |
+| ---------------- | ----------- | --------------------------------------------------------------------------- |
+| A/AAAA или CNAME | `@`         | web хостинг                                                                 |
+| CNAME            | `api`       | API хостинг                                                                 |
+| MX               | `@`         | провајдер за сандачето на тимот (пр. Zoho Mail)                             |
+| TXT (SPF)        | `@`         | `v=spf1 include:<сандаче> include:<сервис за мејлови од апликацијата> ~all` |
+| TXT/CNAME (DKIM) | по упатство | еден за сандачето, еден за сервисот за мејлови од апликацијата              |
+| TXT (DMARC)      | `_dmarc`    | `v=DMARC1; p=quarantine; rua=mailto:dmarc@activen.app`                      |
+
+SPF мора да биде **еден** запис за сите испраќачи. Мејловите од апликацијата одат преку посебен
+сервис (Postmark, Resend или Amazon SES), не преку сандачето на тимот.
+
+## Безбедност на доменот
+
+- 2FA и auto-renew на сметката кај регистрарот.
+- Registrar lock (заштита од трансфер) вклучен.
+- API токен за DNS (ако треба автоматизација) ограничен само на зоната `activen.app` и само на DNS.

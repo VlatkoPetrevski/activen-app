@@ -6,7 +6,7 @@ import type { Mailer, OutgoingEmail } from "../src/auth/mailer.js";
 import { loadConfig } from "../src/config.js";
 
 export const GOOGLE_CLIENT = "web-client.apps.googleusercontent.com";
-export const APPLE_CLIENT = "mk.activen.web";
+export const APPLE_CLIENT = "app.activen.web";
 
 export const testConfig = (overrides: Record<string, string> = {}) =>
   loadConfig({

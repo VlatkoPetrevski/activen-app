@@ -138,4 +138,35 @@ describe("HttpApi", () => {
     await api.startEmailLink("a@b.c", "mk");
     expect(calls.map((c) => `${c.init.method} ${c.url}`)).toMatchSnapshot();
   });
+
+  it("builds the remaining account, analytics and workout requests", async () => {
+    const { fn, calls } = fake(
+      Array.from({ length: 12 }, () => () => json(200, { structure: null })),
+    );
+    const api = new HttpApi("https://api.activen.app", fn);
+    await api.me();
+    await api.verifyEmailLink("t0k3n");
+    await api.deletePlan("p");
+    await api.coaches();
+    await api.comments();
+    expect(await api.structureWorkout("6 × 1 km", "mk")).toEqual({ structure: null });
+    await api.coachAnalytics();
+    await api.athleteAnalytics("x");
+    await api.athleteActivity("x", "a");
+    await api.deleteAccount();
+    expect(calls.map((c) => `${c.init.method} ${c.url}`)).toEqual([
+      "GET https://api.activen.app/v1/me",
+      "POST https://api.activen.app/v1/me/identities/email/verify",
+      "DELETE https://api.activen.app/v1/me/plan/p",
+      "GET https://api.activen.app/v1/me/coaches",
+      "GET https://api.activen.app/v1/me/comments",
+      "POST https://api.activen.app/v1/workouts/structure",
+      "GET https://api.activen.app/v1/coach/analytics",
+      "GET https://api.activen.app/v1/coach/athletes/x/analytics",
+      "GET https://api.activen.app/v1/coach/athletes/x/activities/a",
+      "DELETE https://api.activen.app/v1/me",
+    ]);
+    expect(JSON.parse(String(calls[5]!.init.body))).toEqual({ text: "6 × 1 km", locale: "mk" });
+    expect(JSON.parse(String(calls[9]!.init.body))).toEqual({ confirm: "DELETE" });
+  });
 });

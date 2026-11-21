@@ -66,7 +66,8 @@ export const routes: RouteObject[] = [
           { path: "/my-coach", element: <MyCoachPage /> },
           {
             path: "/profile",
-            lazy: () => import("../pages/Profile.js").then((m) => ({ Component: m.ProfilePage })),
+            lazy: () =>
+              import("../pages/profile/ProfilePage.js").then((m) => ({ Component: m.ProfilePage })),
           },
         ],
       },
@@ -95,19 +96,21 @@ export const routes: RouteObject[] = [
           {
             path: "analytics",
             lazy: () =>
-              import("../pages/coach/Analytics.js").then((m) => ({ Component: m.CoachAnalytics })),
+              import("../pages/coach/analytics/Overview.js").then((m) => ({
+                Component: m.CoachAnalytics,
+              })),
           },
           {
             path: "analytics/:athleteId",
             lazy: () =>
-              import("../pages/coach/Analytics.js").then((m) => ({
+              import("../pages/coach/analytics/AthleteAnalytics.js").then((m) => ({
                 Component: m.CoachAthleteAnalytics,
               })),
           },
           {
             path: "analytics/:athleteId/activities/:activityId",
             lazy: () =>
-              import("../pages/coach/Analytics.js").then((m) => ({
+              import("../pages/coach/analytics/ActivityAnalytics.js").then((m) => ({
                 Component: m.CoachActivityAnalytics,
               })),
           },
