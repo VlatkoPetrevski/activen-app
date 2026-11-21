@@ -18,6 +18,7 @@ import type {
   AnalyticsSummaryDto,
   AthleteAnalyticsDto,
   ActivityDto,
+  ConnectionDto,
   ImportResultDto,
   ImportsSummaryDto,
 } from "@activen/contracts";
@@ -198,6 +199,12 @@ export class HttpApi implements Api {
     ).results;
   };
   imports = () => this.request<ImportsSummaryDto>("GET", "/v1/me/imports");
+  connections = () => this.request<ConnectionDto[]>("GET", "/v1/me/connections");
+  connectPolar = () =>
+    this.request<{ authorizeUrl: string }>("POST", "/v1/me/connections/polar", {});
+  syncPolar = () =>
+    this.request<{ stored: number; skipped: number }>("POST", "/v1/me/connections/polar/sync", {});
+  disconnectPolar = () => this.request<undefined>("DELETE", "/v1/me/connections/polar");
   saveFeedback = (activityId: string, input: FeedbackInput) =>
     this.request<FeedbackDto>("PUT", `/v1/me/activities/${activityId}/feedback`, input);
   progress = (weeks: number) => this.request<ProgressDto>("GET", `/v1/me/progress?weeks=${weeks}`);

@@ -320,3 +320,16 @@ export interface ImportsSummaryDto {
     createdAt: string;
   }[];
 }
+
+/** A connectable app and the athlete's connection to it. */
+export interface ConnectionDto {
+  vendor: Vendor;
+  /** Configured on this server (credentials present). */
+  available: boolean;
+  connected: boolean;
+  status: "active" | "revoked" | "error" | null;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+  /** Why the last sync failed; null when it worked. */
+  lastError: string | null;
+}

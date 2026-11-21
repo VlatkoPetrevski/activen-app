@@ -58,16 +58,19 @@ export interface FitOptions {
   sets?: { category: string; reps: number; weight: number }[];
   fileType?: string;
   extraSession?: boolean;
+  /** Moves the whole activity later by this many seconds (another workout). */
+  startShiftSeconds?: number;
 }
 
 export function intervalRunFit(o: FitOptions = {}): Uint8Array {
   const e = new Encoder();
   const phases = o.phases ?? INTERVAL_PHASES;
-  const at = (s: number) => new Date(START.getTime() + s * 1000);
+  const shift = o.startShiftSeconds ?? 0;
+  const at = (s: number) => new Date(START.getTime() + (shift + s) * 1000);
   write(e, MESG.FILE_ID, {
     manufacturer: o.manufacturer ?? "garmin",
     product: o.product ?? 4315,
-    timeCreated: START,
+    timeCreated: at(0),
     type: o.fileType ?? "activity",
     serialNumber: 3_000_000_001,
   });
@@ -134,7 +137,7 @@ export function intervalRunFit(o: FitOptions = {}): Uint8Array {
   if (o.withSession !== false) {
     const session = {
       timestamp: at(t),
-      startTime: START,
+      startTime: at(0),
       totalElapsedTime: t,
       totalTimerTime: t - 20,
       totalDistance: dist,
@@ -165,7 +168,7 @@ export function intervalRunFit(o: FitOptions = {}): Uint8Array {
   }
   write(e, MESG.ACTIVITY, {
     timestamp: at(t),
-    localTimestamp: START.getTime() / 1000 + t + (o.offsetSeconds ?? 3600) - FIT_EPOCH,
+    localTimestamp: START.getTime() / 1000 + shift + t + (o.offsetSeconds ?? 3600) - FIT_EPOCH,
     numSessions: 1,
     type: "manual",
   });

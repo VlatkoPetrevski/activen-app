@@ -28,11 +28,21 @@ import {
   ID_TOKEN_VERIFIER,
   MAILER,
   TOKEN_SERVICE,
+  POLAR_CLIENT,
+  TOKEN_CIPHER,
   WORKOUT_AI,
 } from "./tokens.js";
 import { LocalFileStore, type FileStore } from "./imports/file-store.js";
 import { ImportService } from "./imports/import.service.js";
 import { ImportsController } from "./imports/imports.controller.js";
+import {
+  ConnectionsController,
+  PolarCallbackController,
+} from "./connections/connections.controller.js";
+import { PolarClient } from "./connections/polar.client.js";
+import { PolarService } from "./connections/polar.service.js";
+import { SyncWorker } from "./connections/sync.worker.js";
+import { TokenCipher } from "./connections/token-cipher.js";
 import { AnthropicWorkoutAi, type WorkoutAi } from "./workouts/structurer.js";
 import { WorkoutsController } from "./workouts/workouts.controller.js";
 
@@ -44,6 +54,8 @@ export interface AppOverrides {
   workoutAi?: WorkoutAi | null;
   /** Original-file storage for tests (memory). */
   fileStore?: FileStore;
+  /** Polar client for tests (fake HTTP). */
+  polarClient?: PolarClient | null;
 }
 
 @Module({})
@@ -101,6 +113,8 @@ export class AppModule {
         CoachController,
         WorkoutsController,
         ImportsController,
+        ConnectionsController,
+        PolarCallbackController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -120,6 +134,21 @@ export class AppModule {
         AuthService,
         TrainingService,
         ImportService,
+        PolarService,
+        SyncWorker,
+        {
+          provide: TOKEN_CIPHER,
+          useValue: config.ACTIVEN_TOKEN_KEY ? new TokenCipher(config.ACTIVEN_TOKEN_KEY) : null,
+        },
+        {
+          provide: POLAR_CLIENT,
+          useValue:
+            overrides.polarClient !== undefined
+              ? overrides.polarClient
+              : config.POLAR_CLIENT_ID && config.POLAR_CLIENT_SECRET
+                ? new PolarClient(config.POLAR_CLIENT_ID, config.POLAR_CLIENT_SECRET)
+                : null,
+        },
         {
           provide: FILE_STORE,
           useValue: overrides.fileStore ?? new LocalFileStore(config.ACTIVEN_FILE_STORE_DIR),
@@ -147,7 +176,11 @@ export async function createApp(
   config: AppConfig,
   overrides: AppOverrides = {},
 ): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule.forRoot(config, overrides), { bufferLogs: true });
+  // rawBody: webhook signatures are computed over the exact bytes received.
+  const app = await NestFactory.create(AppModule.forRoot(config, overrides), {
+    bufferLogs: true,
+    rawBody: true,
+  });
   (app.getHttpAdapter().getInstance() as Express).set("trust proxy", config.TRUST_PROXY_HOPS);
   app.use(cookieParser());
   app.useLogger(app.get(PinoLogger));

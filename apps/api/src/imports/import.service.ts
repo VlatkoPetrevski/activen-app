@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { importOutcome, type ImportResultDto, type ImportsSummaryDto } from "@activen/contracts";
 import type { Repositories } from "@activen/db";
-import { localDateOf, type Activity } from "@activen/domain";
+import { localDateOf, type Activity, type Vendor } from "@activen/domain";
 import { createTranslator, negotiateLocale } from "@activen/i18n";
 import {
   ImportError,
@@ -130,45 +130,11 @@ export class ImportService {
       return { ...empty, ...summaryOf(outcome.activity), status: "duplicate" };
     }
 
-    const settings = await this.repos.settings.get(userId);
-    const offset =
-      parsed.startTimeOffsetInSeconds ??
-      zoneOffsetSeconds(settings.timeZone, parsed.startTimeInSeconds);
-    const calendarDate = localDateOf(
-      new Date((parsed.startTimeInSeconds + offset) * 1000).toISOString(),
-      "UTC",
-    );
-    const { t } = createTranslator(negotiateLocale({ userPreference: settings.locale }));
-    const { activity } = await this.repos.activities.upsert({
-      userId,
+    const activity = await this.ingest(userId, parsed, {
       vendor: "manual",
       // Per athlete: two athletes may upload the same shared file.
       externalId: `${userId}:${sha256}`,
-      activityName: parsed.activityName ?? t(`activityType.${parsed.activityType}`),
-      activityType: parsed.activityType,
-      calendarDate,
-      startTimeInSeconds: parsed.startTimeInSeconds,
-      startTimeOffsetInSeconds: offset,
-      durationInSeconds: parsed.durationInSeconds,
-      movingDurationInSeconds: parsed.movingDurationInSeconds,
-      distanceInMeters: parsed.distanceInMeters,
-      totalElevationGainInMeters: parsed.totalElevationGainInMeters,
-      trainingLoad: parsed.trainingLoad,
-      averageHeartRateInBeatsPerMinute: parsed.averageHeartRateInBeatsPerMinute,
-      maxHeartRateInBeatsPerMinute: parsed.maxHeartRateInBeatsPerMinute,
-      averagePowerInWatts: parsed.averagePowerInWatts,
-      activeKilocalories: parsed.activeKilocalories,
-      gearName: null,
-      isRace: false,
       raw: { format: parsed.format, fileName },
-    });
-    const track = trackOf(parsed.streams);
-    await this.repos.activityFiles.putDetail(activity.id, {
-      laps: parsed.laps,
-      streams: parsed.streams,
-      route: track.length > 1 ? simplifyRoute(track) : null,
-      device: parsed.device,
-      exercises: parsed.exercises,
     });
     const storageKey = `${userId}/${sha256}.${parsed.format}`;
     await this.files.put(storageKey, upload.bytes);
@@ -189,6 +155,58 @@ export class ImportService {
           mergedWith: outcome.activity.source.vendor,
         }
       : { ...empty, ...summaryOf(activity), status: "imported" };
+  }
+
+  /**
+   * Stores a parsed activity from any source (an uploaded file, a vendor's FIT) with its details.
+   * The same source record again updates it (vendor + external id). Sources of one workout are
+   * merged when shown, by the athlete's priority.
+   */
+  async ingest(
+    userId: string,
+    parsed: ImportedActivity,
+    source: { vendor: Vendor; externalId: string; raw?: unknown },
+  ): Promise<Activity> {
+    const settings = await this.repos.settings.get(userId);
+    const offset =
+      parsed.startTimeOffsetInSeconds ??
+      zoneOffsetSeconds(settings.timeZone, parsed.startTimeInSeconds);
+    const calendarDate = localDateOf(
+      new Date((parsed.startTimeInSeconds + offset) * 1000).toISOString(),
+      "UTC",
+    );
+    const { t } = createTranslator(negotiateLocale({ userPreference: settings.locale }));
+    const { activity } = await this.repos.activities.upsert({
+      userId,
+      vendor: source.vendor,
+      externalId: source.externalId,
+      activityName: parsed.activityName ?? t(`activityType.${parsed.activityType}`),
+      activityType: parsed.activityType,
+      calendarDate,
+      startTimeInSeconds: parsed.startTimeInSeconds,
+      startTimeOffsetInSeconds: offset,
+      durationInSeconds: parsed.durationInSeconds,
+      movingDurationInSeconds: parsed.movingDurationInSeconds,
+      distanceInMeters: parsed.distanceInMeters,
+      totalElevationGainInMeters: parsed.totalElevationGainInMeters,
+      trainingLoad: parsed.trainingLoad,
+      averageHeartRateInBeatsPerMinute: parsed.averageHeartRateInBeatsPerMinute,
+      maxHeartRateInBeatsPerMinute: parsed.maxHeartRateInBeatsPerMinute,
+      averagePowerInWatts: parsed.averagePowerInWatts,
+      activeKilocalories: parsed.activeKilocalories,
+      gearName: null,
+      isRace: false,
+      raw: source.raw ?? null,
+    });
+    const track = trackOf(parsed.streams);
+    await this.repos.activityFiles.putDetail(activity.id, {
+      laps: parsed.laps,
+      streams: parsed.streams,
+      route: track.length > 1 ? simplifyRoute(track) : null,
+      device: parsed.device,
+      exercises: parsed.exercises,
+    });
+    return activity;
   }
 
   async summary(userId: string): Promise<ImportsSummaryDto> {

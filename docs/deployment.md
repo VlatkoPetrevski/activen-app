@@ -44,6 +44,23 @@ TRUST_PROXY_HOPS=1
 SPF мора да биде **еден** запис за сите испраќачи. Мејловите од апликацијата одат преку посебен
 сервис (Postmark, Resend или Amazon SES), не преку сандачето на тимот.
 
+## Polar AccessLink (поврзување на Polar Flow)
+
+1. На **admin.polaraccesslink.com** најави се со Polar Flow сметка и креирај клиент:
+   - Callback URL: `https://api.activen.app/v1/connections/polar/callback`;
+   - добиваш `client_id` и `client_secret`.
+2. Тајни во хостингот (никогаш во git):
+   - `POLAR_CLIENT_ID`, `POLAR_CLIENT_SECRET`;
+   - `ACTIVEN_TOKEN_KEY`: 32 бајти base64, за енкрипција на токените;
+   - `PUBLIC_API_URL=https://api.activen.app`.
+3. Webhook, еднаш по деплојот: `POST https://www.polaraccesslink.com/v3/webhooks` со Basic auth
+   (client_id:client_secret) и тело `{"events":["EXERCISE"],"url":"https://api.activen.app/v1/webhooks/polar"}`.
+   Polar праќа PING (API-то одговара 200) и враќа `signature_secret_key` **само еднаш**: зачувај го
+   како `POLAR_WEBHOOK_SECRET`.
+4. Опционално `SYNC_INTERVAL_SECONDS` (стандардно 60): колку често се повторуваат неуспешните настани.
+5. Оригиналните датотеки се во `ACTIVEN_FILE_STORE_DIR` (стандардно `.data/files`). Во продукција:
+   трајно складиште со backup (подоцна S3/R2).
+
 ## Пошта на тимот: Zoho Mail (поставено 21.11.2026)
 
 - План: Zoho Mail Lite, 1 корисник (`vlatko.petrevski@activen.app`) со алијаси `info@` и `support@`, центар zoho.com.

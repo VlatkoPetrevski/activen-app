@@ -9,3 +9,7 @@ export const MAILER = Symbol("MAILER");
 export const WORKOUT_AI = Symbol("WORKOUT_AI");
 /** Where original uploaded activity files are kept (local disk, object storage, memory in tests). */
 export const FILE_STORE = Symbol("FILE_STORE");
+/** Polar AccessLink client (null when Polar is not configured). */
+export const POLAR_CLIENT = Symbol("POLAR_CLIENT");
+/** Encrypts vendor tokens and signs OAuth state (null without ACTIVEN_TOKEN_KEY). */
+export const TOKEN_CIPHER = Symbol("TOKEN_CIPHER");

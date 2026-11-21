@@ -320,6 +320,36 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "map.finish": "Финиш",
   "map.km": "{value} km",
   "map.attribution": "© OpenStreetMap соработници",
+  "sources.apps": "Поврзани апликации",
+  "sources.appsHint":
+    "Апликацијата на часовникот е најдобриот извор: тренинзите стигнуваат сами откако часовникот ќе се синхронизира.",
+  "sources.connect": "Поврзи",
+  "sources.connected": "Поврзано",
+  "sources.connectedSynced": "Поврзано · синхронизирано {when}",
+  "sources.notConnected": "Не е поврзано",
+  "sources.lastFailed": "Последната синхронизација не успеа",
+  "sources.soon": "Наскоро",
+  "sources.sync": "Синхронизирај",
+  "sources.syncing": "Се синхронизира…",
+  "sources.syncDone":
+    "{count, plural, =0 {Нема нови тренинзи.} one {Синхронизиран # тренинг.} other {Синхронизирани # тренинзи.}}",
+  "sources.disconnect": "Прекини",
+  "sources.disconnectConfirm":
+    "Да се прекине врската со {app}? Тренинзите што дојдоа од {app} ќе се отстранат од ActiveN (во {app} остануваат). Качените датотеки остануваат.",
+  "sources.disconnected": "Врската со {app} е прекината.",
+  "sources.connectError": "Поврзувањето со {app} не можеше да започне. Обиди се повторно.",
+  "sources.syncError": "{app} моментално не одговара. Обиди се подоцна.",
+  "sources.disconnectError": "Прекинувањето не успеа. Обиди се повторно.",
+  "sources.justNow": "сега",
+  "sources.minutesAgo": "пред {count} мин",
+  "sources.result.connected":
+    "Polar е поврзан. Тренинзите од последните 30 дена се увезени, а новите ќе стигнуваат сами.",
+  "sources.result.denied": "Поврзувањето со Polar е откажано.",
+  "sources.result.expired": "Линкот за поврзување истече. Обиди се повторно.",
+  "sources.result.taken": "Оваа Polar сметка е веќе поврзана со друг корисник на ActiveN.",
+  "sources.result.consents":
+    "Во Polar Flow прифати ги задолжителните согласности, па обиди се повторно.",
+  "sources.result.error": "Поврзувањето со Polar не успеа. Обиди се повторно.",
   "sources.files": "Датотеки од часовник",
   "sources.filesSummary":
     "{count, plural, =0 {Уште нема увезени датотеки} one {# увезена датотека} other {# увезени датотеки}}",

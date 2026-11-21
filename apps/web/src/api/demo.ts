@@ -33,6 +33,7 @@ import {
   type SessionDto,
   type WellnessDto,
   importOutcome,
+  type ConnectionDto,
   type ImportResultDto,
   type ImportsSummaryDto,
 } from "@activen/contracts";
@@ -224,6 +225,8 @@ export class DemoApi implements Api {
   /** The coach's own training (coaches train too). */
   private coachSelf: DemoAthlete | null = null;
   private seq = 0;
+  /** Simulated Polar connection (the demo has no server to receive Polar's callback). */
+  private polarConnectedAt: string | null = null;
   /** Laps, route and device of activities imported from files in this session. */
   private imported = new Map<string, ActivityDetail>();
   /** Upload attempts in this session, newest first (with the file hash for duplicates). */
@@ -758,6 +761,28 @@ export class DemoApi implements Api {
         .slice(0, 10)
         .map(({ fileName, status, error, createdAt }) => ({ fileName, status, error, createdAt })),
     });
+  };
+  /** The demo cannot reach Polar: connecting is simulated (no workouts arrive). */
+  connections = async (): Promise<ConnectionDto[]> =>
+    this.delay([
+      {
+        vendor: "polar",
+        available: true,
+        connected: this.polarConnectedAt !== null,
+        status: this.polarConnectedAt ? "active" : null,
+        connectedAt: this.polarConnectedAt,
+        lastSyncAt: this.polarConnectedAt,
+        lastError: null,
+      },
+    ]);
+  connectPolar = async () => {
+    this.polarConnectedAt = this.now().toISOString();
+    // Back to the profile, as Polar Flow would send the browser after approval.
+    return this.delay({ authorizeUrl: "/profile?polar=connected" });
+  };
+  syncPolar = async () => this.delay({ stored: 0, skipped: 0 });
+  disconnectPolar = async () => {
+    this.polarConnectedAt = null;
   };
   saveFeedback = async (activityId: string, input: FeedbackInput) => {
     const a = this.me_();

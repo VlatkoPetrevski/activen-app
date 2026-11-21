@@ -20,6 +20,7 @@ import type {
   UserDto,
   WeatherDto,
   WellnessDto,
+  ConnectionDto,
   ImportResultDto,
   ImportsSummaryDto,
 } from "@activen/contracts";
@@ -107,6 +108,14 @@ export interface Api {
   importActivities(files: readonly File[]): Promise<ImportResultDto[]>;
   /** Files imported so far and the latest attempts (Profile › Sources). */
   imports(): Promise<ImportsSummaryDto>;
+  /** Connectable apps (Polar…) and the athlete's connections. */
+  connections(): Promise<ConnectionDto[]>;
+  /** The Polar Flow page that asks the athlete to allow ActiveN (the browser goes there). */
+  connectPolar(): Promise<{ authorizeUrl: string }>;
+  /** Fetches what Polar Flow offers now (last 30 days). */
+  syncPolar(): Promise<{ stored: number; skipped: number }>;
+  /** Disconnects Polar; its workouts are removed here (they stay in Polar Flow). */
+  disconnectPolar(): Promise<void>;
   saveFeedback(activityId: string, input: FeedbackInput): Promise<FeedbackDto>;
   progress(weeks: number): Promise<ProgressDto>;
   /** "Структурирај": steps suggested for a plan text (null when nothing is structured). */

@@ -3,6 +3,7 @@ import { ActivitiesRepository } from "./activities.js";
 import { ActivityFilesRepository } from "./activity-files.js";
 import { CoachingRepository } from "./coaching.js";
 import { CommentsRepository } from "./comments.js";
+import { ConnectionsRepository } from "./connections.js";
 import { FeedbackRepository } from "./feedback.js";
 import { HrZonesRepository } from "./hr-zones.js";
 import { LoginTokensRepository, type LoginTokenPolicy } from "./login-tokens.js";
@@ -25,6 +26,7 @@ export interface Repositories {
   sessions: SessionsRepository;
   loginTokens: LoginTokensRepository;
   comments: CommentsRepository;
+  connections: ConnectionsRepository;
 }
 
 export interface RepositoryOptions {
@@ -46,5 +48,6 @@ export function createRepositories(db: Db, options: RepositoryOptions = {}): Rep
     sessions: new SessionsRepository(db, options.sessionPolicy),
     loginTokens: new LoginTokensRepository(db, options.loginTokenPolicy),
     comments: new CommentsRepository(db),
+    connections: new ConnectionsRepository(db),
   };
 }

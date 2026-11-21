@@ -187,4 +187,26 @@ describe("HttpApi", () => {
     expect((init.body as FormData).getAll("files")).toHaveLength(1);
     expect((await api.imports()).imported).toBe(1);
   });
+
+  it("manages app connections", async () => {
+    const { fn, calls } = fake([
+      () => json(200, []),
+      () => json(200, { authorizeUrl: "https://flow.polar.com/oauth2/authorization?x" }),
+      () => json(200, { stored: 2, skipped: 0 }),
+      () => new Response(null, { status: 204 }),
+    ]);
+    const api = new HttpApi("https://api.activen.app", fn);
+    expect(await api.connections()).toEqual([]);
+    expect((await api.connectPolar()).authorizeUrl).toContain("flow.polar.com");
+    expect(await api.syncPolar()).toEqual({ stored: 2, skipped: 0 });
+    await api.disconnectPolar();
+    expect(
+      calls.map((c) => `${c.init.method} ${c.url.replace("https://api.activen.app", "")}`),
+    ).toEqual([
+      "GET /v1/me/connections",
+      "POST /v1/me/connections/polar",
+      "POST /v1/me/connections/polar/sync",
+      "DELETE /v1/me/connections/polar",
+    ]);
+  });
 });

@@ -2760,3 +2760,16 @@ div.import-report {
   text-transform: uppercase;
   color: var(--muted);
 }
+.conn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--border);
+}
+.conn-dot.good {
+  background: var(--good);
+}
+.conn-dot.warn {
+  background: var(--warn);
+}

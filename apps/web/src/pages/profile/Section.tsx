@@ -6,15 +6,19 @@ export function Section({
   title,
   info,
   children,
+  defaultOpen = false,
 }: {
   title: string;
   /** Current value shown while collapsed. */
   info?: string | undefined;
   children: ReactNode;
+  /** Open on arrival (e.g. back from connecting an app). */
+  defaultOpen?: boolean;
 }) {
   return (
     <Segment
       label={title}
+      defaultOpen={defaultOpen}
       summary={
         <span className="seg-line">
           <strong>{title}</strong>

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { useApi } from "../../api/ApiContext.js";
 import { useI18n } from "../../i18n/I18nContext.js";
 import { relativeDay, todayIn } from "../../lib/dates.js";
@@ -6,6 +7,7 @@ import { VENDOR_NAMES } from "../../lib/vendors.js";
 import type { SettingsEditor } from "../../settings/useSettingsEditor.js";
 import { ImportButton, ImportReport, useActivityImport } from "../../training/ImportFiles.js";
 import { Icon } from "../../ui/Icon.js";
+import { ConnectedApps, isPolarResult } from "./ConnectedApps.js";
 import { Section } from "./Section.js";
 
 /**
@@ -18,6 +20,9 @@ export function SourcesSection({ editor }: { editor: SettingsEditor }) {
   const { t, f } = useI18n();
   const { settings, save, saving } = editor;
   const importer = useActivityImport();
+  const [params] = useSearchParams();
+  const polarResult = params.get("polar");
+  const result = isPolarResult(polarResult) ? polarResult : null;
   const imports = useQuery({ queryKey: ["me", "imports"], queryFn: () => api.imports() });
   const order = settings.sourcePriority;
   const move = (i: number, dir: -1 | 1) => {
@@ -32,7 +37,12 @@ export function SourcesSection({ editor }: { editor: SettingsEditor }) {
   const today = todayIn(settings.timeZone);
   const rel = lastDay ? relativeDay(lastDay, today) : null;
   return (
-    <Section title={t("profile.sources")} info={order.map((v) => VENDOR_NAMES[v]).join(" › ")}>
+    <Section
+      title={t("profile.sources")}
+      info={order.map((v) => VENDOR_NAMES[v]).join(" › ")}
+      defaultOpen={result !== null}
+    >
+      <ConnectedApps result={result} />
       <div className="stack" style={{ gap: 6 }}>
         <h3 className="sub-label">{t("sources.files")}</h3>
         <div className="list-item">

@@ -60,6 +60,20 @@ const ConfigSchema = z
     /** AI for "Структурирај" (optional): both set = on; the parser works without it. */
     ACTIVEN_AI_API_KEY: z.string().min(1).optional(),
     ACTIVEN_AI_MODEL: z.string().min(1).optional(),
+    /** Public base URL of this API (OAuth callbacks from vendors come back here). */
+    PUBLIC_API_URL: z.string().url().default("http://localhost:3000"),
+    /**
+     * 32-byte key (base64) for vendor-token encryption and OAuth state. Vendor connections are off
+     * without it. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+     */
+    ACTIVEN_TOKEN_KEY: z.string().min(1).optional(),
+    /** Polar AccessLink client (admin.polaraccesslink.com); both set = Polar can be connected. */
+    POLAR_CLIENT_ID: z.string().min(1).optional(),
+    POLAR_CLIENT_SECRET: z.string().min(1).optional(),
+    /** `signature_secret_key` returned when the Polar webhook was created. */
+    POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
+    /** How often pending vendor events are retried (0 = only right after a webhook). */
+    SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
     /** Directory for original uploaded activity files (kept for re-reading, deleted with the account). */
     ACTIVEN_FILE_STORE_DIR: z.string().min(1).default(".data/files"),
   })
