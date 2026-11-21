@@ -1,18 +1,32 @@
-import type { WellnessDto } from "@activen/contracts";
-import { trainingReadinessLevel } from "@activen/domain";
-import type { MessageKey } from "@activen/i18n";
+import type { BriefingDto } from "@activen/contracts";
+import type { FactorStatus, ReadinessFactor, ReadinessFactorKey, Vendor } from "@activen/domain";
 import { useI18n } from "../i18n/I18nContext.js";
-import { Icon } from "../ui/Icon.js";
+import { vendorName } from "../lib/vendors.js";
+import { Icon, type IconName } from "../ui/Icon.js";
 import { Ring } from "../ui/Ring.js";
 import { Segment } from "../ui/Segment.js";
 
-const HRV_COLOR: Record<WellnessDto["hrvStatus"], string> = {
-  balanced: "var(--good)",
-  unbalanced: "var(--warn)",
-  low: "var(--bad)",
+const STATUS_COLOR: Record<FactorStatus, string> = {
+  good: "var(--good)",
+  fair: "var(--warn)",
   poor: "var(--bad)",
-  none: "var(--border)",
+  missing: "var(--border)",
 };
+
+const FACTOR_ICON: Record<ReadinessFactorKey, IconName> = {
+  sleep: "sleep",
+  hrv: "hrv",
+  restingHr: "heart",
+  load: "progress",
+};
+
+/** Which wellness field each factor reads (for "from Polar" / "entered"). */
+const FACTOR_FIELD = {
+  sleep: "sleepDurationInSeconds",
+  hrv: "lastNightHrvMs",
+  restingHr: "restingHeartRate",
+  load: null,
+} as const;
 
 export const readinessColor = (v: number) =>
   v >= 75 ? "var(--good)" : v >= 50 ? "var(--teal)" : v >= 25 ? "var(--warn)" : "var(--bad)";
@@ -23,10 +37,42 @@ const sleepText = (seconds: number | null) => {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
 };
 
-/** Morning readiness in one compact row (score, HRV, recovery, sleep, resting HR); details on tap. */
-export function ReadinessSegment({ wellness }: { wellness: WellnessDto | null }) {
+function useFactorText() {
+  const { t, f } = useI18n();
+  return {
+    value(x: ReadinessFactor | undefined): string {
+      if (!x || x.value === null) return "—";
+      switch (x.unit) {
+        case "seconds":
+          return sleepText(x.value);
+        case "score":
+          return t("today.sleepScore", { score: x.value });
+        case "ms":
+          return `${f.number(x.value, 0)} ms`;
+        case "bpm":
+          return String(x.value);
+        case "ratio":
+          return `${f.number(x.value, 1)}×`;
+      }
+    },
+    baseline(x: ReadinessFactor): string | null {
+      if (x.baseline === null) return null;
+      if (x.key === "sleep") return t("briefing.need", { value: sleepText(x.baseline) });
+      if (x.key === "load") return null;
+      return t("briefing.usual", { value: x.baseline });
+    },
+  };
+}
+
+/**
+ * Morning readiness in one compact row (score, sleep, HRV, resting pulse, load); the details show
+ * each factor against the athlete's own baseline and where the value came from.
+ */
+export function ReadinessSegment({ briefing }: { briefing: BriefingDto | null }) {
   const { t } = useI18n();
-  if (!wellness || wellness.trainingReadiness === null)
+  const text = useFactorText();
+  const r = briefing?.readiness;
+  if (!briefing || !r || r.score === null || !r.level)
     return (
       <section className="segment">
         <div className="segment-head static">
@@ -38,15 +84,25 @@ export function ReadinessSegment({ wellness }: { wellness: WellnessDto | null })
       </section>
     );
 
-  const score = wellness.trainingReadiness;
-  const level = trainingReadinessLevel(Math.max(1, score));
-  const levelText = t(`trainingReadiness.level.${level}`);
-  const hrvKey =
-    `hrvStatus.${wellness.hrvStatus === "none" ? "NO_STATUS" : wellness.hrvStatus.toUpperCase()}` as MessageKey;
-  const recoveryHours =
-    wellness.recoveryTimeInMinutes === null
-      ? null
-      : Math.round(wellness.recoveryTimeInMinutes / 60);
+  const score = r.score;
+  const levelText = t(`trainingReadiness.level.${r.level}`);
+  const factor = (key: ReadinessFactorKey) => r.factors.find((x) => x.key === key);
+  const sources = briefing.today?.sources ?? {};
+  const sourceOf = (key: ReadinessFactorKey): string | null => {
+    const field = FACTOR_FIELD[key];
+    const s: Vendor | undefined = field ? sources[field] : undefined;
+    if (!s) return null;
+    return s === "manual"
+      ? t("briefing.source.manual")
+      : t("briefing.source.vendor", { vendor: vendorName(s) });
+  };
+  const vendorReadinessSource = sources.vendorReadiness;
+  const shortLabel: Record<ReadinessFactorKey, string> = {
+    sleep: t("readiness.short.sleep"),
+    hrv: t("readiness.short.hrv"),
+    restingHr: t("readiness.short.restingHr"),
+    load: t("readiness.short.load"),
+  };
 
   return (
     <Segment
@@ -60,27 +116,24 @@ export function ReadinessSegment({ wellness }: { wellness: WellnessDto | null })
             </span>
             <span className="stat-label">{levelText.toLowerCase()}</span>
           </span>
-          <span className="stat">
-            <span className="stat-value num">
-              <span className="dot" style={{ background: HRV_COLOR[wellness.hrvStatus] }} />
-              {wellness.lastNightHrvMs ?? "—"}
-            </span>
-            <span className="stat-label">{t("readiness.short.hrv")}</span>
-          </span>
-          <span className="stat">
-            <span className="stat-value num">
-              {recoveryHours === null ? "—" : t("readiness.hours", { value: recoveryHours })}
-            </span>
-            <span className="stat-label">{t("readiness.short.recovery")}</span>
-          </span>
-          <span className="stat">
-            <span className="stat-value num">{sleepText(wellness.sleepDurationInSeconds)}</span>
-            <span className="stat-label">{t("readiness.short.sleep")}</span>
-          </span>
-          <span className="stat">
-            <span className="stat-value num">{wellness.restingHeartRate ?? "—"}</span>
-            <span className="stat-label">{t("readiness.short.restingHr")}</span>
-          </span>
+          {(["sleep", "hrv", "restingHr", "load"] as const).map((key) => {
+            const x = factor(key);
+            return (
+              <span className="stat" key={key}>
+                <span className="stat-value num">
+                  {x && x.status !== "missing" && (
+                    <span className="dot" style={{ background: STATUS_COLOR[x.status] }} />
+                  )}
+                  {key === "sleep" && x?.unit === "score"
+                    ? sleepText(briefing.today?.sleepDurationInSeconds ?? null)
+                    : key === "hrv" && x?.value != null
+                      ? Math.round(x.value)
+                      : text.value(x)}
+                </span>
+                <span className="stat-label">{shortLabel[key]}</span>
+              </span>
+            );
+          })}
         </span>
       }
     >
@@ -90,45 +143,36 @@ export function ReadinessSegment({ wellness }: { wellness: WellnessDto | null })
           <div className="stack" style={{ gap: 4 }}>
             <span className="eyebrow">{t("trainingReadiness.title")}</span>
             <h2>{levelText}</h2>
-            <p className="muted small">{t(`trainingReadiness.message.${level}`)}</p>
+            <p className="muted small">{t(`briefing.confidence.${r.confidence}`)}</p>
+            {r.vendorReadiness !== null && vendorReadinessSource && (
+              <p className="tiny muted">
+                {t("briefing.vendorReadiness", {
+                  vendor: vendorName(vendorReadinessSource),
+                  score: r.vendorReadiness,
+                })}
+              </p>
+            )}
           </div>
         </div>
         <div className="tiles">
-          <div className="tile">
-            <div className="row small muted">
-              <Icon name="hrv" size={16} /> {t("today.hrv")}
-            </div>
-            <div className="value">{wellness.lastNightHrvMs ?? "—"} ms</div>
-            <div className="tiny" style={{ color: HRV_COLOR[wellness.hrvStatus] }}>
-              {t(hrvKey)}
-            </div>
-          </div>
-          <div className="tile">
-            <div className="row small muted">
-              <Icon name="battery" size={16} /> {t("today.recovery")}
-            </div>
-            <div className="value">
-              {recoveryHours === null ? "—" : t("readiness.hours", { value: recoveryHours })}
-            </div>
-          </div>
-          <div className="tile">
-            <div className="row small muted">
-              <Icon name="sleep" size={16} /> {t("today.sleep")}
-            </div>
-            <div className="value">{sleepText(wellness.sleepDurationInSeconds)}</div>
-            {wellness.sleepScore !== null && (
-              <div className="tiny muted">
-                {t("today.sleepScore", { score: wellness.sleepScore })}
+          {r.factors.map((x) => {
+            const baseline = text.baseline(x);
+            const source = sourceOf(x.key);
+            return (
+              <div className="tile" key={x.key}>
+                <div className="row small muted">
+                  <Icon name={FACTOR_ICON[x.key]} size={16} /> {t(`briefing.factor.${x.key}`)}
+                </div>
+                <div className="value num">
+                  <span className="dot" style={{ background: STATUS_COLOR[x.status] }} />
+                  {text.value(x)}
+                </div>
+                {(baseline || source) && (
+                  <div className="tiny muted">{[baseline, source].filter(Boolean).join(" · ")}</div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="tile">
-            <div className="row small muted">
-              <Icon name="heart" size={16} /> {t("today.restingHr")}
-            </div>
-            <div className="value">{wellness.restingHeartRate ?? "—"}</div>
-            <div className="tiny muted">bpm</div>
-          </div>
+            );
+          })}
         </div>
       </div>
     </Segment>

@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { asCoach, nav, start } from "../support/app.js";
 
 /** Coach journeys: athletes, planner, messages and analytics. */
@@ -8,6 +8,27 @@ beforeEach(() => {
 });
 
 describe("coach workplace (demo)", () => {
+  it("sees the athlete's morning briefing with consent, and low readiness as a signal", async () => {
+    // A Thursday on which Петар has intervals (the demo plan depends on the day).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-19T07:00:00Z"));
+    onTestFinished(() => void vi.useRealTimers());
+    const { user } = start();
+    await asCoach(user);
+    const petar = await screen.findByRole("button", { name: /^Петар Костов/ });
+    await user.click(petar);
+    const details = screen.getByRole("region", { name: "Петар Костов" });
+    expect(details).toHaveTextContent(/Ниска спремност \(\d+\) пред тежок тренинг/);
+    await user.click(within(details).getByRole("link", { name: "Профил" }));
+    const card = await screen.findByRole("region", { name: "Утрински брифинг" });
+    expect(within(card).getByText("Ова утро")).toBeInTheDocument();
+    expect(within(card).getByRole("heading", { level: 2 })).toHaveTextContent(
+      /Одмор денес|Замени со лесно/,
+    );
+    // Read-only for the coach.
+    expect(within(card).queryByRole("button", { name: /сон и пулс/ })).toBeNull();
+  });
+
   it("shows athletes needing attention, opens one and replies", async () => {
     const { user } = start();
     await asCoach(user);
@@ -113,7 +134,8 @@ describe("coach analytics (demo)", () => {
     const consent = await screen.findByRole("dialog");
     expect(within(consent).getByText("Активности и оценки")).toBeInTheDocument();
     await user.keyboard("{Escape}");
-    await user.click(screen.getAllByRole("link", { name: /^Анализа: / })[0]!);
+    // Open an athlete who shares activities (the attention order depends on the demo's day).
+    await user.click(screen.getByRole("link", { name: /^Анализа: Влатко/ }));
     // Athlete page: key numbers first, charts on demand.
     expect(await screen.findByText("Исполнет план (28 д.)")).toBeInTheDocument();
     const weekly = await screen.findByRole("button", { name: /^Неделен волумен \(12 нед\.\)/ });
@@ -138,9 +160,8 @@ describe("coach analytics (demo)", () => {
     await asCoach(user);
     await nav(user, "Анализи");
     await screen.findByText("Активни спортисти");
-    const rows = [...document.querySelectorAll<HTMLButtonElement>(".roster .segment-head")];
-    await user.click(rows[0]!);
-    await user.click(screen.getAllByRole("link", { name: /^Анализа: / })[0]!);
+    await user.click(screen.getByRole("button", { name: /^Влатко Петревски/ }));
+    await user.click(screen.getByRole("link", { name: /^Анализа: Влатко/ }));
     await screen.findByText("Исполнет план (28 д.)");
     await user.click(screen.getByRole("button", { name: "Трчање" }));
     await user.click(screen.getAllByRole("link", { name: /трчање/ })[0]!);

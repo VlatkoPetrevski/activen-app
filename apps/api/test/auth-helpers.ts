@@ -16,6 +16,7 @@ export const testConfig = (overrides: Record<string, string> = {}) =>
     GOOGLE_CLIENT_IDS: GOOGLE_CLIENT,
     APPLE_CLIENT_IDS: APPLE_CLIENT,
     PUBLIC_WEB_URL: "https://app.activen.test",
+    BRIEFING_REMINDER_INTERVAL_SECONDS: "0",
     ...overrides,
   });
 

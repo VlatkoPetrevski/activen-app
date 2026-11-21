@@ -31,7 +31,11 @@ import {
   type MeDto,
   type PlanEntryDto,
   type SessionDto,
-  type WellnessDto,
+  buildBriefing,
+  wellnessRecordsOf,
+  wellnessSeries,
+  type BriefingDto,
+  type MorningInputDto,
   importOutcome,
   type ConnectionDto,
   type ImportResultDto,
@@ -42,10 +46,12 @@ import {
   DEFAULT_ATHLETE_SETTINGS,
   localDateOf,
   parseWorkout,
+  sessionIntensity,
   type Activity,
   type ActivityDetail,
   type AthleteSettings,
   type LocalDate,
+  type WellnessRecord,
 } from "@activen/domain";
 import { createTranslator, type MessageKey } from "@activen/i18n";
 import {
@@ -68,7 +74,8 @@ interface DemoAthlete {
   entries: PlanEntryDto[];
   activities: Activity[];
   feedback: Map<string, FeedbackDto>;
-  wellness: WellnessDto[];
+  /** Vendor records (the demo watch is a Garmin) plus what was typed in the morning. */
+  wellness: WellnessRecord[];
   /** Relationship with the coach Ана. */
   link: { id: string; status: "active" | "invited"; scopes: ConsentScope[] } | null;
   comments: CommentDto[];
@@ -216,6 +223,30 @@ function demoTypeName(locale: DemoLocale, type: string): string {
   return t(`activityType.${type}` as MessageKey);
 }
 
+/**
+ * The demo watch's mornings. One coached athlete with a demanding session today slept badly
+ * (5 h, pulse up), so the coach sees "needs attention".
+ */
+function demoMornings(
+  list: Parameters<typeof wellnessRecordsOf>[0],
+  today: LocalDate,
+  badNight: boolean,
+): WellnessRecord[] {
+  const records = wellnessRecordsOf(list, "garmin");
+  if (!badNight) return records;
+  return records.map((r) =>
+    r.calendarDate === today
+      ? {
+          ...r,
+          sleepScore: 38,
+          sleepDurationInSeconds: 5 * 3600,
+          restingHeartRate: (r.restingHeartRate ?? 48) + 8,
+          lastNightHrvMs: Math.round((r.lastNightHrvMs ?? 60) * 0.7),
+        }
+      : r,
+  );
+}
+
 export class DemoApi implements Api {
   readonly mode = "demo" as const;
   private persona: Persona | null = null;
@@ -257,6 +288,7 @@ export class DemoApi implements Api {
     const today = this.today();
     const locale = this.locale();
     this.athletes.clear();
+    let badNightGiven = false;
     for (const [i, r] of ROSTER.entries()) {
       const demo = buildDemoTraining({
         today,
@@ -268,6 +300,16 @@ export class DemoApi implements Api {
         // 12 weeks of analytics plus 6 weeks to warm up the fitness curve.
         weeksBack: 18,
       });
+      // The first coached athlete (not the signed-in one) with a hard or long session today.
+      const badNight =
+        i > 0 &&
+        !badNightGiven &&
+        demo.planEntries.some(
+          (e) =>
+            e.calendarDate === today &&
+            ["hard", "long"].includes(sessionIntensity({ ...e, structure: null })),
+        );
+      if (badNight) badNightGiven = true;
       const activities: Activity[] = demo.activities.map(({ vendor, externalId, ...a }) => ({
         ...a,
         id: `${r.id}-${externalId}`,
@@ -301,7 +343,7 @@ export class DemoApi implements Api {
         })),
         activities,
         feedback,
-        wellness: demo.wellness,
+        wellness: demoMornings(demo.wellness, today, badNight),
         link: {
           id: `link-${r.id}`,
           status: "active",
@@ -374,7 +416,7 @@ export class DemoApi implements Api {
         deleted: false,
       })),
       feedback: new Map(),
-      wellness: own.wellness,
+      wellness: wellnessRecordsOf(own.wellness, "garmin"),
       link: null,
       comments: [],
     };
@@ -577,8 +619,26 @@ export class DemoApi implements Api {
   }
 
   weather = async () => this.delay(buildDemoWeather());
-  wellness = async (date: LocalDate) =>
-    this.delay(this.me_().wellness.find((w) => w.calendarDate === date) ?? null);
+  briefing = async (date?: LocalDate) =>
+    this.delay(this.briefingFor(this.me_(), date ?? this.today()));
+  saveMorningInput = async (date: LocalDate, input: MorningInputDto) => {
+    const a = this.me_();
+    const today = this.today();
+    if (date > today || date < addDays(today, -7))
+      throw new ApiError(422, "The morning input is for today or at most 7 days back");
+    a.wellness = a.wellness.filter((w) => !(w.calendarDate === date && w.source === "manual"));
+    if (input.sleepDurationInSeconds !== null || input.restingHeartRate !== null)
+      a.wellness.push({
+        calendarDate: date,
+        source: "manual",
+        sleepDurationInSeconds: input.sleepDurationInSeconds,
+        sleepScore: null,
+        restingHeartRate: input.restingHeartRate,
+        lastNightHrvMs: null,
+        vendorReadiness: null,
+      });
+    return this.delay(this.briefingFor(a, date));
+  };
   calendar = async (from: LocalDate, to: LocalDate) =>
     this.delay(this.calendarFor(this.me_(), from, to));
   createPlan = async (input: PlanInput) => this.delay(this.addPlan(this.me_(), input));
@@ -780,7 +840,7 @@ export class DemoApi implements Api {
     // Back to the profile, as Polar Flow would send the browser after approval.
     return this.delay({ authorizeUrl: "/profile?polar=connected" });
   };
-  syncPolar = async () => this.delay({ stored: 0, skipped: 0 });
+  syncPolar = async () => this.delay({ stored: 0, skipped: 0, mornings: 0 });
   disconnectPolar = async () => {
     this.polarConnectedAt = null;
   };
@@ -838,7 +898,30 @@ export class DemoApi implements Api {
       scopes,
       calendar: this.calendarFor(a, range.from, range.to, this.viewerOf(a)),
       today,
-      wellness: scopes.includes("sleep_recovery") ? a.wellness : null,
+      wellness: scopes.includes("sleep_recovery")
+        ? wellnessSeries({
+            from: addDays(today, -13),
+            to: today,
+            records: a.wellness,
+            priority: a.settings.sourcePriority,
+            activities: a.activities,
+            sleepNeedMinutes: a.settings.sleepNeedMinutes,
+          })
+        : null,
+    });
+  }
+
+  /** Same builder as the server (ADR-0013). */
+  private briefingFor(a: DemoAthlete, date: LocalDate, viewer?: Viewer): BriefingDto {
+    return buildBriefing({
+      athleteId: a.id,
+      calendarDate: date,
+      records: a.wellness.filter((w) => w.calendarDate <= date),
+      priority: a.settings.sourcePriority,
+      activities: a.activities.filter((x) => x.calendarDate < date),
+      entries: a.entries.filter((e) => e.calendarDate === date),
+      sleepNeedMinutes: a.settings.sleepNeedMinutes,
+      ...(viewer ? { viewer } : {}),
     });
   }
   /** Demo: the rule-based parser only (no AI in the demo). */
@@ -871,6 +954,16 @@ export class DemoApi implements Api {
             ? {
                 calendar: this.calendarFor(a, range.from, range.to, coachViewer(link.scopes)),
                 lastComment: a.comments[0] ?? null,
+                briefing: link.scopes.includes("sleep_recovery")
+                  ? (() => {
+                      const b = this.briefingFor(a, today, coachViewer(link.scopes));
+                      return {
+                        score: b.readiness.score,
+                        needsAttention: b.advice.needsAttention,
+                        calendarDate: today,
+                      };
+                    })()
+                  : null,
               }
             : {}),
         }),
@@ -905,6 +998,12 @@ export class DemoApi implements Api {
     const viewer = this.viewerOf(a);
     if (!viewer.activities) throw new ApiError(403, "The athlete has not shared activities");
     return this.delay(this.detailFor(a, id, viewer));
+  };
+  athleteBriefing = async (athleteId: string) => {
+    const a = this.athlete(athleteId);
+    if (!a.link?.scopes.includes("sleep_recovery"))
+      return Promise.reject(new ApiError(403, "The athlete has not shared sleep and recovery"));
+    return this.delay(this.briefingFor(a, this.today(), this.viewerOf(a)));
   };
   athleteProgress = async (athleteId: string, weeks: number) => {
     const a = this.athlete(athleteId);

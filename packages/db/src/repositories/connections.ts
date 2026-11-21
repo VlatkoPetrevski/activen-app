@@ -1,7 +1,7 @@
 import type { Vendor } from "@activen/domain";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
-import { sourceActivities, vendorConnections } from "../schema.js";
+import { dailyWellness, sourceActivities, vendorConnections } from "../schema.js";
 
 export type ConnectionStatus = "active" | "revoked" | "error";
 
@@ -125,6 +125,9 @@ export class ConnectionsRepository {
         .delete(sourceActivities)
         .where(and(eq(sourceActivities.userId, userId), eq(sourceActivities.vendor, vendor)))
         .returning({ id: sourceActivities.id });
+      await tx
+        .delete(dailyWellness)
+        .where(and(eq(dailyWellness.userId, userId), eq(dailyWellness.source, vendor)));
       await tx
         .delete(vendorConnections)
         .where(and(eq(vendorConnections.userId, userId), eq(vendorConnections.vendor, vendor)));

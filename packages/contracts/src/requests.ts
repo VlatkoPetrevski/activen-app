@@ -60,8 +60,31 @@ export const SettingsPatch = z
     maxHeartRate: z.number().int().min(100).max(250).nullable(),
     birthDate: z.iso.date().nullable(),
     workoutSuggestions: z.boolean(),
+    sleepNeedMinutes: z.number().int().min(300).max(720),
+    briefingReminder: z
+      .object({
+        enabled: z.boolean(),
+        time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:MM"),
+      })
+      .strict(),
   })
   .partial()
+  .strict();
+
+/**
+ * The morning input: measured values only (sleep and resting pulse), no self-assessment.
+ * Null clears a value; both null removes the input for the day.
+ */
+export const MorningInput = z
+  .object({
+    sleepDurationInSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .max(16 * 3600)
+      .nullable(),
+    restingHeartRate: z.number().int().min(25).max(120).nullable(),
+  })
   .strict();
 
 export const SelfServiceRole = z.enum(["athlete", "coach"]);
@@ -89,6 +112,9 @@ export const DateRange = z
     (r) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 <= MAX_RANGE_DAYS,
     `range must be at most ${MAX_RANGE_DAYS} days`,
   );
+
+/** `?date=` of the briefing; defaults to today in the athlete's timezone. */
+export const BriefingQuery = z.object({ date: localDate.optional() }).strict();
 
 const stepDuration = z.discriminatedUnion("type", [
   z.object({ type: z.literal("distance"), meters: z.number().min(1).max(500_000) }),

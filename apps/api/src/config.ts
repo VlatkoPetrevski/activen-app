@@ -55,8 +55,17 @@ const ConfigSchema = z
     GOOGLE_CLIENT_IDS: list,
     /** Apple Services ID (web) and bundle ID (iOS) accepted as audience. Empty = disabled. */
     APPLE_CLIENT_IDS: list,
-    /** `log` writes emails to the log (links only outside production). */
-    EMAIL_TRANSPORT: z.enum(["log"]).default("log"),
+    /** `log` writes emails to the log (links only outside production); `smtp` sends them. */
+    EMAIL_TRANSPORT: z.enum(["log", "smtp"]).default("log"),
+    /** SMTP server (Zoho Mail: smtp.zoho.eu, 465, an app password of the sending mailbox). */
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    /** Sender; with Zoho it must be the mailbox or one of its aliases. */
+    EMAIL_FROM: z.string().min(3).default("ActiveN <info@activen.app>"),
+    /** How often the morning-email scheduler looks for athletes whose time has come (0 = off). */
+    BRIEFING_REMINDER_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(300),
     /** AI for "Структурирај" (optional): both set = on; the parser works without it. */
     ACTIVEN_AI_API_KEY: z.string().min(1).optional(),
     ACTIVEN_AI_MODEL: z.string().min(1).optional(),
@@ -78,6 +87,9 @@ const ConfigSchema = z
     ACTIVEN_FILE_STORE_DIR: z.string().min(1).default(".data/files"),
   })
   .superRefine((c, ctx) => {
+    if (c.EMAIL_TRANSPORT === "smtp")
+      for (const key of ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"] as const)
+        if (!c[key]) ctx.addIssue({ code: "custom", path: [key], message: "is required for smtp" });
     if (c.NODE_ENV === "production" && !c.AUTH_SIGNING_KEY)
       ctx.addIssue({
         code: "custom",

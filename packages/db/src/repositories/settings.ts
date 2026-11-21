@@ -1,5 +1,6 @@
 import {
   DEFAULT_ATHLETE_SETTINGS,
+  isClockTime,
   isLocalDate,
   type AthleteSettings,
   type HrZoneSourceSetting,
@@ -27,6 +28,8 @@ function toDomain(row: Row): AthleteSettings {
     maxHeartRate: row.maxHeartRate,
     birthDate: row.birthDate,
     workoutSuggestions: row.workoutSuggestions,
+    sleepNeedMinutes: row.sleepNeedMinutes,
+    briefingReminder: { enabled: row.briefingReminder, time: row.briefingTime },
   };
 }
 
@@ -40,6 +43,10 @@ function validate(s: AthleteSettings): void {
     throw new ValidationError(`Invalid birth date: ${s.birthDate}`);
   if (s.maxHeartRate !== null && (s.maxHeartRate < 100 || s.maxHeartRate > 250))
     throw new ValidationError("Max heart rate must be 100–250 bpm");
+  if (!Number.isInteger(s.sleepNeedMinutes) || s.sleepNeedMinutes < 300 || s.sleepNeedMinutes > 720)
+    throw new ValidationError("Sleep need must be 300–720 minutes");
+  if (!isClockTime(s.briefingReminder.time))
+    throw new ValidationError(`Invalid reminder time: ${s.briefingReminder.time}`);
   if (new Set(s.sourcePriority).size !== s.sourcePriority.length)
     throw new ValidationError("Source priority contains duplicates");
 }
@@ -53,7 +60,12 @@ export class SettingsRepository {
       .select()
       .from(athleteSettings)
       .where(eq(athleteSettings.userId, userId));
-    return row ? toDomain(row) : { ...DEFAULT_ATHLETE_SETTINGS };
+    return row
+      ? toDomain(row)
+      : {
+          ...DEFAULT_ATHLETE_SETTINGS,
+          briefingReminder: { ...DEFAULT_ATHLETE_SETTINGS.briefingReminder },
+        };
   }
 
   async save(userId: string, settings: AthleteSettings): Promise<AthleteSettings> {
@@ -69,6 +81,9 @@ export class SettingsRepository {
       maxHeartRate: settings.maxHeartRate,
       birthDate: settings.birthDate,
       workoutSuggestions: settings.workoutSuggestions,
+      sleepNeedMinutes: settings.sleepNeedMinutes,
+      briefingReminder: settings.briefingReminder.enabled,
+      briefingTime: settings.briefingReminder.time,
     };
     const [row] = await this.db
       .insert(athleteSettings)

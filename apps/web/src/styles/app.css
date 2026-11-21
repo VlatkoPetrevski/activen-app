@@ -773,6 +773,64 @@ dialog.sheet::backdrop {
   border-radius: 3px;
   flex: 1;
 }
+/* Morning briefing: the verdict's tone is a coloured edge, the text stays readable. */
+.briefing {
+  border-left: 4px solid var(--teal);
+}
+.briefing.tone-good {
+  border-left-color: var(--good);
+}
+.briefing.tone-warn {
+  border-left-color: var(--warn);
+}
+.briefing.tone-bad {
+  border-left-color: var(--bad);
+}
+.briefing-verdict {
+  margin: 0;
+}
+.briefing.tone-teal .briefing-verdict {
+  color: var(--teal);
+}
+.briefing.tone-good .briefing-verdict {
+  color: var(--good);
+}
+.briefing.tone-warn .briefing-verdict {
+  color: var(--warn);
+}
+.briefing.tone-bad .briefing-verdict {
+  color: var(--bad);
+}
+.briefing-change {
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-sunken);
+}
+.morning-input {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.morning-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.morning-fields fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.morning-fields .row .input {
+  width: 4.5em;
+  min-width: 0;
+}
+@media (max-width: 420px) {
+  .morning-fields {
+    grid-template-columns: 1fr;
+  }
+}
 .coach-note {
   display: flex;
   gap: 10px;
@@ -1019,6 +1077,12 @@ dialog.sheet::backdrop {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
+}
+/* Signals can be a short sentence; they wrap inside the card instead of being cut off. */
+.attention .chip {
+  white-space: normal;
+  max-width: 100%;
+  border-radius: 12px;
 }
 .table {
   width: 100%;

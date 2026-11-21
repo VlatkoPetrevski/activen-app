@@ -62,6 +62,68 @@ export function PreferenceSections() {
         </label>
         <p className="small muted">{t("profile.suggestionsHint")}</p>
       </Section>
+      <Section
+        title={t("profile.notifications")}
+        info={
+          settings.briefingReminder.enabled
+            ? t("profile.briefing.on", { time: settings.briefingReminder.time })
+            : t("profile.briefing.off")
+        }
+      >
+        <div className="form-grid">
+          <label className="check full">
+            <input
+              type="checkbox"
+              checked={settings.briefingReminder.enabled}
+              disabled={saving}
+              onChange={(e) =>
+                void save({
+                  briefingReminder: { ...settings.briefingReminder, enabled: e.target.checked },
+                })
+              }
+            />
+            {t("profile.briefingEmail")}
+          </label>
+          <div className="field">
+            <label htmlFor="briefing-time">{t("profile.briefingTime")}</label>
+            <input
+              id="briefing-time"
+              className="input num"
+              type="time"
+              step={300}
+              defaultValue={settings.briefingReminder.time}
+              disabled={saving}
+              onBlur={(e) => {
+                const time = e.target.value.slice(0, 5);
+                if (
+                  /^([01]\d|2[0-3]):[0-5]\d$/.test(time) &&
+                  time !== settings.briefingReminder.time
+                )
+                  void save({ briefingReminder: { ...settings.briefingReminder, time } });
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="sleep-need">{t("profile.sleepNeed")}</label>
+            <input
+              id="sleep-need"
+              className="input num"
+              type="number"
+              min={5}
+              max={12}
+              step={0.25}
+              defaultValue={settings.sleepNeedMinutes / 60}
+              onBlur={(e) => {
+                const minutes = Math.round(Number(e.target.value) * 60);
+                if (minutes >= 300 && minutes <= 720 && minutes !== settings.sleepNeedMinutes)
+                  void save({ sleepNeedMinutes: minutes });
+              }}
+            />
+          </div>
+        </div>
+        <p className="small muted">{t("profile.briefingHint")}</p>
+        <p className="small muted">{t("profile.sleepNeedHint")}</p>
+      </Section>
       <SourcesSection editor={editor} />
       <Section
         title={t("profile.hrZones")}

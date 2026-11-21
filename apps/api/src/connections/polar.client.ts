@@ -1,8 +1,11 @@
 /**
  * Polar AccessLink v3 (https://www.polar.com/accesslink-api/), the calls ActiveN needs:
- * OAuth2 code exchange, user registration, exercises without transactions and their FIT files.
- * Access tokens do not expire unless revoked; exercises are available for 30 days after upload.
+ * OAuth2 code exchange, user registration, exercises without transactions and their FIT files,
+ * sleep and Nightly Recharge (last 28 days). Access tokens do not expire unless revoked; exercises
+ * are available for 30 days after upload.
  */
+import type { PolarNight, PolarRecharge } from "./polar-wellness.js";
+
 export interface PolarExercise {
   id: string;
   upload_time?: string;
@@ -110,6 +113,53 @@ export class PolarClient {
     );
     if (!res.ok) throw new PolarError(res.status, `FIT download failed (${res.status})`);
     return new Uint8Array(await res.arrayBuffer());
+  }
+
+  /** Nights of the last 28 days. */
+  async listSleep(token: string): Promise<PolarNight[]> {
+    return this.listOf<PolarNight>(token, "/v3/users/sleep", "nights", "List sleep");
+  }
+
+  async sleep(token: string, date: string): Promise<PolarNight | null> {
+    return this.oneOf<PolarNight>(
+      token,
+      `/v3/users/sleep/${encodeURIComponent(date)}`,
+      "Get sleep",
+    );
+  }
+
+  /** Nightly Recharge of the last 28 days. */
+  async listNightlyRecharge(token: string): Promise<PolarRecharge[]> {
+    return this.listOf<PolarRecharge>(
+      token,
+      "/v3/users/nightly-recharge",
+      "recharges",
+      "List nightly recharge",
+    );
+  }
+
+  async nightlyRecharge(token: string, date: string): Promise<PolarRecharge | null> {
+    return this.oneOf<PolarRecharge>(
+      token,
+      `/v3/users/nightly-recharge/${encodeURIComponent(date)}`,
+      "Get nightly recharge",
+    );
+  }
+
+  private async listOf<T>(token: string, path: string, key: string, what: string): Promise<T[]> {
+    const res = await this.call(token, "GET", path);
+    if (res.status === 204 || res.status === 404) return [];
+    if (!res.ok) throw new PolarError(res.status, `${what} failed (${res.status})`);
+    const body = (await res.json()) as Record<string, unknown> | null;
+    const list = body?.[key];
+    return Array.isArray(list) ? (list as T[]) : [];
+  }
+
+  private async oneOf<T>(token: string, path: string, what: string): Promise<T | null> {
+    const res = await this.call(token, "GET", path);
+    if (res.status === 204 || res.status === 404) return null;
+    if (!res.ok) throw new PolarError(res.status, `${what} failed (${res.status})`);
+    return (await res.json()) as T;
   }
 
   private call(

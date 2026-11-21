@@ -1,4 +1,4 @@
-import type { CoachLinkDto } from "@activen/contracts";
+import type { CoachLinkDto, MorningInputDto } from "@activen/contracts";
 import { addDays, type LocalDate } from "@activen/domain";
 import type { MessageKey } from "@activen/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { WeekStrip } from "../training/WeekStrip.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
 import { QueryView } from "../ui/States.js";
+import { BriefingCard } from "../training/BriefingCard.js";
 import { ReadinessSegment } from "../training/ReadinessSegment.js";
 import { WeatherSegment } from "../training/WeatherSegment.js";
 import { CheckInForm } from "../training/CheckInForm.js";
@@ -76,14 +77,22 @@ function TodayEntry({ d, coach }: { d: DayEntry; coach: CoachLinkDto | undefined
 
 export function TodayPage() {
   const api = useApi();
+  const queryClient = useQueryClient();
   const me = useMe();
   const { t, f } = useI18n();
   const today: LocalDate = todayIn(me.settings.timeZone);
   const week = weekOf(today);
-  const wellness = useQuery({
-    queryKey: ["me", "wellness", today],
-    queryFn: () => api.wellness(today),
+  const briefing = useQuery({
+    queryKey: ["me", "briefing", today],
+    queryFn: () => api.briefing(today),
   });
+  const saveMorning = async (input: MorningInputDto | null) => {
+    const next = await api.saveMorningInput(
+      today,
+      input ?? { sleepDurationInSeconds: null, restingHeartRate: null },
+    );
+    queryClient.setQueryData(["me", "briefing", today], next);
+  };
   const calendar = useQuery({
     queryKey: ["me", "calendar", week.from, week.to],
     queryFn: () => api.calendar(week.from, week.to),
@@ -95,7 +104,6 @@ export function TodayPage() {
   });
   const coaches = useQuery({ queryKey: ["me", "coaches"], queryFn: () => api.coaches() });
   const coach = coaches.data?.find((c) => c.status === "active");
-  const queryClient = useQueryClient();
   const [rated, setRated] = useState<string | null>(null);
   const pending = recent.data?.find((a) => !a.feedback || a.id === rated);
   const firstName = me.user.displayName.split(" ")[0] ?? me.user.displayName;
@@ -109,10 +117,10 @@ export function TodayPage() {
 
       <div className="segments">
         <WeatherSegment timeZone={me.settings.timeZone} />
-        {wellness.isPending ? (
+        {briefing.isPending ? (
           <div className="segment skeleton" aria-hidden />
         ) : (
-          <ReadinessSegment wellness={wellness.data ?? null} />
+          <ReadinessSegment briefing={briefing.data ?? null} />
         )}
       </div>
 
@@ -128,6 +136,9 @@ export function TodayPage() {
 
           return (
             <>
+              {briefing.data && (
+                <BriefingCard briefing={briefing.data} onSaveMorning={saveMorning} />
+              )}
               <section className="card stack">
                 <div className="card-title" style={{ marginBottom: 0 }}>
                   <h2>{t("today.planToday")}</h2>

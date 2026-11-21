@@ -54,12 +54,26 @@ SPF мора да биде **еден** запис за сите испраќа�
    - `ACTIVEN_TOKEN_KEY`: 32 бајти base64, за енкрипција на токените;
    - `PUBLIC_API_URL=https://api.activen.app`.
 3. Webhook, еднаш по деплојот: `POST https://www.polaraccesslink.com/v3/webhooks` со Basic auth
-   (client_id:client_secret) и тело `{"events":["EXERCISE"],"url":"https://api.activen.app/v1/webhooks/polar"}`.
+   (client_id:client_secret) и тело
+   `{"events":["EXERCISE","SLEEP","NIGHTLY_RECHARGE"],"url":"https://api.activen.app/v1/webhooks/polar"}`
+   (тренинзи, сон и Nightly Recharge за утринскиот брифинг, ADR-0013).
    Polar праќа PING (API-то одговара 200) и враќа `signature_secret_key` **само еднаш**: зачувај го
    како `POLAR_WEBHOOK_SECRET`.
 4. Опционално `SYNC_INTERVAL_SECONDS` (стандардно 60): колку често се повторуваат неуспешните настани.
 5. Оригиналните датотеки се во `ACTIVEN_FILE_STORE_DIR` (стандардно `.data/files`). Во продукција:
    трајно складиште со backup (подоцна S3/R2).
+
+## Е-пошта од апликацијата (најава, утрински брифинг)
+
+- `EMAIL_TRANSPORT=smtp` и тајни во хостингот (никогаш во git):
+  - `SMTP_HOST=smtp.zoho.eu` (центарот на сметката; за zoho.com: `smtp.zoho.com`), `SMTP_PORT=465`;
+  - `SMTP_USER` = сандачето, `SMTP_PASSWORD` = **лозинка за апликација** од Zoho (My Account ›
+    Security › App Passwords), не главната лозинка;
+  - `EMAIL_FROM=ActiveN <info@activen.app>`: мора да е сандачето или негов алијас.
+- SPF `include:zohomail.com` и DKIM `zmail` веќе ги покриваат овие пораки.
+- Ако обемот порасне, се префрла на посебен сервис (Postmark, Resend, SES): нов `Mailer`, ист интерфејс.
+- `BRIEFING_REMINDER_INTERVAL_SECONDS` (стандардно 300): колку често се бараат спортистите на кои
+  им дошло времето за утринската порака.
 
 ## Пошта на тимот: Zoho Mail (поставено 21.11.2026)
 

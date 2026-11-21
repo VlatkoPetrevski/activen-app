@@ -14,12 +14,23 @@ import type { AppConfig } from "../config.js";
 import { ImportService } from "../imports/import.service.js";
 import { APP_CONFIG, POLAR_CLIENT, REPOSITORIES, TOKEN_CIPHER } from "../tokens.js";
 import { PolarError, type PolarClient } from "./polar.client.js";
+import {
+  polarRecharge,
+  polarSleep,
+  type PolarNight,
+  type PolarRecharge,
+} from "./polar-wellness.js";
 import type { TokenCipher } from "./token-cipher.js";
+
+const polarSleepOf = (n: PolarNight | null) => (n ? polarSleep(n) : null);
+const polarRechargeOf = (r: PolarRecharge | null) => (r ? polarRecharge(r) : null);
 
 export interface PolarWebhookPayload {
   event?: string;
   user_id?: number | string;
   entity_id?: string;
+  /** SLEEP and NIGHTLY_RECHARGE: the date the data is for. */
+  date?: string;
   timestamp?: string;
 }
 
@@ -28,11 +39,20 @@ export interface SyncResult {
   stored: number;
   /** Exercises that could not be read (e.g. no samples). */
   skipped: number;
+  /** Mornings with sleep or Nightly Recharge data stored. */
+  mornings: number;
 }
+
+/** Webhook events ActiveN subscribes to, and the sync aspect each is recorded under. */
+const POLAR_EVENTS: Record<string, string> = {
+  EXERCISE: "exercise",
+  SLEEP: "sleep",
+  NIGHTLY_RECHARGE: "nightly_recharge",
+};
 
 /**
  * Polar Flow as a source: the athlete connects once (OAuth), then every workout synced to Polar
- * Flow arrives by webhook and is read from its FIT file with the same importers as uploads.
+ * Flow — and every night's sleep and Nightly Recharge — arrives by webhook and is read from its FIT file with the same importers as uploads.
  * Polar is a connected app, so its workouts rank above uploaded files by default; the same
  * workout from both is shown once (merged on read).
  */
@@ -160,12 +180,14 @@ export class PolarService {
    * Deliveries are idempotent: the same event again is ignored.
    */
   async receive(payload: PolarWebhookPayload): Promise<string | null> {
-    if (payload.event !== "EXERCISE" || !payload.entity_id || payload.user_id === undefined)
-      return null;
+    const aspect = payload.event ? POLAR_EVENTS[payload.event] : undefined;
+    const objectId =
+      aspect === "exercise" ? payload.entity_id : (payload.date ?? payload.entity_id);
+    if (!aspect || !objectId || payload.user_id === undefined) return null;
     const { id } = await this.repos.syncEvents.record({
       vendor: "polar",
-      objectId: payload.entity_id,
-      aspect: "exercise",
+      objectId,
+      aspect,
       eventTime: new Date(payload.timestamp ?? Date.now()),
       payload,
     });
@@ -174,7 +196,7 @@ export class PolarService {
 
   /** Handles one recorded webhook event (called by the sync worker). */
   async process(payload: PolarWebhookPayload): Promise<void> {
-    if (!payload.entity_id || payload.user_id === undefined) return;
+    if (payload.user_id === undefined) return;
     const connection = await this.repos.connections.byExternalUser(
       "polar",
       String(payload.user_id),
@@ -182,25 +204,54 @@ export class PolarService {
     // A user who disconnected meanwhile: nothing to do.
     if (!connection?.accessTokenEnc) return;
     const { polar, cipher } = this.ready();
-    await this.store(
-      connection,
-      polar,
-      cipher.decrypt(connection.accessTokenEnc),
-      payload.entity_id,
-    );
+    const token = cipher.decrypt(connection.accessTokenEnc);
+    const event = payload.event ?? "EXERCISE";
+    if (event === "EXERCISE") {
+      if (!payload.entity_id) return;
+      await this.store(connection, polar, token, payload.entity_id);
+    } else if (event === "SLEEP" || event === "NIGHTLY_RECHARGE") {
+      const date = payload.date;
+      if (date) {
+        const one =
+          event === "SLEEP"
+            ? polarSleepOf(await polar.sleep(token, date))
+            : polarRechargeOf(await polar.nightlyRecharge(token, date));
+        if (one)
+          await this.repos.wellness.patch(connection.userId, one.calendarDate, "polar", one.fields);
+      } else await this.storeMornings(connection.userId, polar, token);
+    } else return;
     await this.repos.connections.markSynced(connection.id);
+  }
+
+  /** Sleep and Nightly Recharge of the last 28 days; returns the mornings stored. */
+  private async storeMornings(userId: string, polar: PolarClient, token: string): Promise<number> {
+    const [nights, recharges] = await Promise.all([
+      polar.listSleep(token),
+      polar.listNightlyRecharge(token),
+    ]);
+    const mornings = new Set<string>();
+    for (const item of [
+      ...nights.map((n) => polarSleep(n)),
+      ...recharges.map((r) => polarRecharge(r)),
+    ]) {
+      if (!item) continue;
+      await this.repos.wellness.patch(userId, item.calendarDate, "polar", item.fields);
+      mornings.add(item.calendarDate);
+    }
+    return mornings.size;
   }
 
   private async syncConnection(connection: VendorConnection): Promise<SyncResult> {
     const { polar, cipher } = this.ready();
     if (!connection.accessTokenEnc) throw new NotFoundException("Polar is not connected");
     const token = cipher.decrypt(connection.accessTokenEnc);
-    const result: SyncResult = { stored: 0, skipped: 0 };
+    const result: SyncResult = { stored: 0, skipped: 0, mornings: 0 };
     try {
       for (const exercise of await polar.listExercises(token)) {
         if (await this.store(connection, polar, token, exercise.id)) result.stored += 1;
         else result.skipped += 1;
       }
+      result.mornings = await this.storeMornings(connection.userId, polar, token);
       await this.repos.connections.markSynced(connection.id);
     } catch (err) {
       await this.repos.connections.markSynced(

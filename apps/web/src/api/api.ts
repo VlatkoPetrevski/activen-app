@@ -19,7 +19,8 @@ import type {
   SignInResponse,
   UserDto,
   WeatherDto,
-  WellnessDto,
+  BriefingDto,
+  MorningInputDto,
   ConnectionDto,
   ImportResultDto,
   ImportsSummaryDto,
@@ -92,7 +93,10 @@ export interface Api {
   verifyEmailLink(token: string): Promise<IdentityDto[]>;
   deleteAccount(): Promise<void>;
 
-  wellness(date: LocalDate): Promise<WellnessDto | null>;
+  /** Readiness and the advice for today's session (or another morning). */
+  briefing(date?: LocalDate): Promise<BriefingDto>;
+  /** What the athlete measured this morning: sleep and resting pulse (both null removes it). */
+  saveMorningInput(date: LocalDate, input: MorningInputDto): Promise<BriefingDto>;
   /** Today's weather and air quality at a place (null when the provider is unreachable). */
   weather(place: Place): Promise<WeatherDto | null>;
   calendar(from: LocalDate, to: LocalDate): Promise<CalendarDto>;
@@ -113,7 +117,7 @@ export interface Api {
   /** The Polar Flow page that asks the athlete to allow ActiveN (the browser goes there). */
   connectPolar(): Promise<{ authorizeUrl: string }>;
   /** Fetches what Polar Flow offers now (last 30 days). */
-  syncPolar(): Promise<{ stored: number; skipped: number }>;
+  syncPolar(): Promise<{ stored: number; skipped: number; mornings: number }>;
   /** Disconnects Polar; its workouts are removed here (they stay in Polar Flow). */
   disconnectPolar(): Promise<void>;
   saveFeedback(activityId: string, input: FeedbackInput): Promise<FeedbackDto>;
@@ -136,6 +140,8 @@ export interface Api {
   /** One activity of a coached athlete (requires the activities consent). */
   athleteActivity(athleteId: string, id: string): Promise<ActivityDetailDto>;
   athleteProgress(athleteId: string, weeks: number): Promise<ProgressDto>;
+  /** The athlete's morning briefing (requires the sleep_recovery consent). */
+  athleteBriefing(athleteId: string): Promise<BriefingDto>;
   createAthletePlan(athleteId: string, input: PlanInput): Promise<PlanEntryDto>;
   updateAthletePlan(athleteId: string, id: string, patch: PlanPatch): Promise<PlanEntryDto>;
   deleteAthletePlan(athleteId: string, id: string): Promise<void>;

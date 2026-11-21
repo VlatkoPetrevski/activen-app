@@ -6,6 +6,7 @@ import {
   type Formatter,
   type Locale,
   type MessageKey,
+  type Translator,
 } from "@activen/i18n";
 import type { UnitSystem } from "@activen/domain";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
@@ -16,6 +17,8 @@ interface I18n {
   locale: Locale;
   t: T;
   f: Formatter;
+  /** For shared text builders in @activen/i18n (e.g. the briefing). */
+  translator: Translator;
   setLocale(locale: Locale): void;
   setUnitSystem(unitSystem: UnitSystem): void;
 }
@@ -49,6 +52,7 @@ export function I18nProvider({
     return {
       locale,
       t: (key, values) => translator.t(key, values),
+      translator,
       f: createFormatter(translator, unitSystem),
       setLocale: (next) => {
         setLocaleState(next);

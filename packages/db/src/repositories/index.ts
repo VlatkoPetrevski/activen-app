@@ -6,12 +6,14 @@ import { CommentsRepository } from "./comments.js";
 import { ConnectionsRepository } from "./connections.js";
 import { FeedbackRepository } from "./feedback.js";
 import { HrZonesRepository } from "./hr-zones.js";
+import { NotificationsRepository } from "./notifications.js";
 import { LoginTokensRepository, type LoginTokenPolicy } from "./login-tokens.js";
 import { PlansRepository } from "./plans.js";
 import { SessionsRepository, type SessionPolicy } from "./sessions.js";
 import { SettingsRepository } from "./settings.js";
 import { SyncEventsRepository } from "./sync-events.js";
 import { UsersRepository } from "./users.js";
+import { WellnessRepository } from "./wellness.js";
 
 export interface Repositories {
   users: UsersRepository;
@@ -27,6 +29,8 @@ export interface Repositories {
   loginTokens: LoginTokensRepository;
   comments: CommentsRepository;
   connections: ConnectionsRepository;
+  wellness: WellnessRepository;
+  notifications: NotificationsRepository;
 }
 
 export interface RepositoryOptions {
@@ -49,5 +53,7 @@ export function createRepositories(db: Db, options: RepositoryOptions = {}): Rep
     loginTokens: new LoginTokensRepository(db, options.loginTokenPolicy),
     comments: new CommentsRepository(db),
     connections: new ConnectionsRepository(db),
+    wellness: new WellnessRepository(db),
+    notifications: new NotificationsRepository(db),
   };
 }

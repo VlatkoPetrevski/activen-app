@@ -137,6 +137,34 @@ describe("profile preferences", () => {
     expect(update).toHaveBeenLastCalledWith({ birthDate: "1985-04-12" });
   });
 
+  it("turns the morning email on at a chosen time and sets the sleep need", async () => {
+    const { user, api } = start();
+    const update = vi.spyOn(api, "updateSettings");
+    await asAthlete(user);
+    await openProfile(user);
+    const section = await screen.findByRole("button", { name: /^Известувања/ });
+    expect(section).toHaveTextContent("Е-пошта исклучена");
+    await user.click(section);
+    await user.click(screen.getByRole("checkbox", { name: "Утрински брифинг по е-пошта" }));
+    expect(update).toHaveBeenLastCalledWith({ briefingReminder: { enabled: true, time: "07:00" } });
+    await waitFor(() => expect(section).toHaveTextContent("Е-пошта во 07:00"));
+    const time = screen.getByLabelText("Време");
+    await waitFor(() => expect(time).toBeEnabled());
+    await user.clear(time);
+    await user.type(time, "06:15");
+    await user.tab();
+    expect(update).toHaveBeenLastCalledWith({ briefingReminder: { enabled: true, time: "06:15" } });
+    const need = screen.getByLabelText("Потреба од сон (часови)");
+    await user.clear(need);
+    await user.type(need, "3");
+    await user.tab();
+    expect(update).not.toHaveBeenCalledWith({ sleepNeedMinutes: 180 });
+    await user.clear(need);
+    await user.type(need, "7.5");
+    await user.tab();
+    expect(update).toHaveBeenLastCalledWith({ sleepNeedMinutes: 450 });
+  });
+
   it("changes the time zone and moves data sources both ways", async () => {
     const { user, api } = start();
     const update = vi.spyOn(api, "updateSettings");

@@ -5,6 +5,7 @@ import { useApi } from "../../api/ApiContext.js";
 import { useMe } from "../../auth/AuthContext.js";
 import { useI18n } from "../../i18n/I18nContext.js";
 import { todayIn } from "../../lib/dates.js";
+import { BriefingCard } from "../../training/BriefingCard.js";
 import { PlanWeek } from "../../training/PlanWeek.js";
 import { ProgressView } from "../../training/ProgressView.js";
 import { athleteTarget } from "../../training/target.js";
@@ -28,6 +29,12 @@ export function CoachAthletePage() {
   const row = rows.data?.find((r) => r.athleteId === athleteId);
   const target = useMemo(() => athleteTarget(api, athleteId), [api, athleteId]);
   const shared = row?.scopes.includes("activities") ?? false;
+  const sleepShared = row?.scopes.includes("sleep_recovery") ?? false;
+  const briefing = useQuery({
+    queryKey: ["athlete", athleteId, "briefing"],
+    queryFn: () => api.athleteBriefing(athleteId),
+    enabled: sleepShared,
+  });
   const progress = useQuery({
     queryKey: ["athlete", athleteId, "progress", 8],
     queryFn: () => api.athleteProgress(athleteId, 8),
@@ -88,6 +95,13 @@ export function CoachAthletePage() {
           <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />
         </div>
         <div className="stack-l">
+          {sleepShared ? (
+            briefing.data && (
+              <BriefingCard briefing={briefing.data} title={t("briefing.forCoach")} />
+            )
+          ) : (
+            <div className="alert info">{t("briefing.notShared", { name: row.displayName })}</div>
+          )}
           <div className="segments">
             <Segment
               defaultOpen={row.signals.some((x) => x.code === "awaiting_reply")}

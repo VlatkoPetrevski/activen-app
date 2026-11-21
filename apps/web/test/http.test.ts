@@ -92,7 +92,6 @@ describe("HttpApi", () => {
     await api.signOut();
     expect(calls[1]!.url).toBe("/v1/auth/logout");
     expect(await api.restoreSession()).toBe(false);
-    expect(await api.wellness()).toBeNull();
   });
 
   it("builds the coach and training URLs", async () => {
@@ -208,5 +207,26 @@ describe("HttpApi", () => {
       "POST /v1/me/connections/polar/sync",
       "DELETE /v1/me/connections/polar",
     ]);
+  });
+  it("reads and writes the morning briefing", async () => {
+    const { fn, calls } = fake(Array.from({ length: 4 }, () => () => json(200, {})));
+    const api = new HttpApi("", fn);
+    await api.briefing();
+    await api.briefing("2026-11-20");
+    await api.saveMorningInput("2026-11-21", {
+      sleepDurationInSeconds: 25_200,
+      restingHeartRate: 50,
+    });
+    await api.athleteBriefing("x");
+    expect(calls.map((c) => `${c.init.method} ${c.url}`)).toEqual([
+      "GET /v1/me/briefing",
+      "GET /v1/me/briefing?date=2026-11-20",
+      "PUT /v1/me/wellness/2026-11-21",
+      "GET /v1/coach/athletes/x/briefing",
+    ]);
+    expect(JSON.parse(String(calls[2]!.init.body))).toEqual({
+      sleepDurationInSeconds: 25_200,
+      restingHeartRate: 50,
+    });
   });
 });

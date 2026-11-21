@@ -95,6 +95,8 @@ export function coachRowView(input: {
   /** Calendar for {@link coachRowRange}; omitted for invitations. */
   calendar?: CalendarDto;
   lastComment?: { body: string; createdAt: string; authorId: string | null } | null;
+  /** Today's briefing; only with the sleep_recovery consent. */
+  briefing?: { score: number | null; needsAttention: boolean; calendarDate: LocalDate } | null;
 }): CoachAthleteDto {
   const row: CoachAthleteDto = {
     linkId: input.linkId,
@@ -167,6 +169,12 @@ export function coachRowView(input: {
         perceivedEffort: last.feedback?.perceivedEffort ?? null,
       };
   }
+  if (input.briefing?.needsAttention && input.briefing.score !== null)
+    signals.push({
+      code: "low_readiness",
+      score: input.briefing.score,
+      calendarDate: input.briefing.calendarDate,
+    });
   if (input.lastComment) {
     const fromAthlete = input.lastComment.authorId === input.athleteId;
     row.lastComment = {

@@ -7,6 +7,7 @@ import {
   ProgressQuery,
 } from "@activen/contracts/requests";
 import {
+  type BriefingDto,
   coachViewer,
   sortByAttention,
   type Viewer,
@@ -34,6 +35,7 @@ import { CurrentAuth, Roles } from "../auth/decorators.js";
 import { REPOSITORIES } from "../tokens.js";
 import { ApiZodBody, ValidBody, ValidQuery } from "../validation.js";
 import { createPlanEntry, removePlanEntry, updatePlanEntry } from "./plan-access.js";
+import { BriefingService } from "../briefing/briefing.service.js";
 import { TrainingService } from "./training.service.js";
 
 /**
@@ -48,6 +50,7 @@ export class CoachController {
   constructor(
     @Inject(REPOSITORIES) private readonly repos: Repositories,
     @Inject(TrainingService) private readonly training: TrainingService,
+    @Inject(BriefingService) private readonly briefings: BriefingService,
   ) {}
 
   @Get("athletes")
@@ -144,6 +147,19 @@ export class CoachController {
     const viewer = await this.viewer(a.userId, athleteId, "activities", "comments");
     if (!viewer.activities) throw new ForbiddenException("The athlete has not shared activities");
     return this.training.activityDetail(athleteId, id, viewer);
+  }
+
+  @Get("athletes/:athleteId/briefing")
+  @ApiOperation({ summary: "The athlete's morning readiness and advice (sleep_recovery consent)" })
+  async briefing(
+    @CurrentAuth() a: AuthContext,
+    @Param("athleteId", ParseUUIDPipe) athleteId: string,
+  ): Promise<BriefingDto> {
+    const viewer = await this.viewer(a.userId, athleteId, "sleep_recovery");
+    const scopes = await this.repos.coaching.scopes(a.userId, athleteId);
+    if (!scopes.includes("sleep_recovery"))
+      throw new ForbiddenException("The athlete has not shared sleep and recovery");
+    return this.briefings.briefing(athleteId, undefined, viewer);
   }
 
   @Get("athletes/:athleteId/progress")

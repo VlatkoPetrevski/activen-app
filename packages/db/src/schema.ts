@@ -185,9 +185,17 @@ export const athleteSettings = pgTable(
     maxHeartRate: smallint("max_heart_rate"),
     birthDate: date("birth_date", { mode: "string" }),
     workoutSuggestions: boolean("workout_suggestions").notNull().default(true),
+    sleepNeedMinutes: smallint("sleep_need_minutes").notNull().default(480),
+    briefingReminder: boolean("briefing_reminder").notNull().default(false),
+    briefingTime: text("briefing_time").notNull().default("07:00"),
     updatedAt: updatedAt(),
   },
   (t) => [
+    check("athlete_settings_sleep_need_ck", sql`${t.sleepNeedMinutes} between 300 and 720`),
+    check(
+      "athlete_settings_briefing_time_ck",
+      sql`${t.briefingTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`,
+    ),
     check(
       "athlete_settings_hr_zone_vendor_ck",
       sql`(${t.hrZoneMode} = 'vendor') = (${t.hrZoneVendor} is not null) and ${t.hrZoneVendor} is distinct from 'manual'`,
@@ -322,6 +330,52 @@ export const activityFiles = pgTable(
     index("activity_files_user_sha_idx").on(t.userId, t.sha256),
     index("activity_files_user_created_idx").on(t.userId, t.createdAt),
   ],
+);
+
+/**
+ * Morning recovery data per day and source (domain/readiness.ts `WellnessRecord`). Vendors write
+ * their own row; what the athlete types in the morning is the `manual` row. Merged on read.
+ */
+export const dailyWellness = pgTable(
+  "daily_wellness",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    calendarDate: date("calendar_date", { mode: "string" }).notNull(),
+    source: vendorEnum("source").notNull(),
+    sleepDurationInSeconds: integer("sleep_duration_s"),
+    sleepScore: smallint("sleep_score"),
+    restingHeartRate: smallint("resting_hr"),
+    lastNightHrvMs: doublePrecision("hrv_ms"),
+    vendorReadiness: smallint("vendor_readiness"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.calendarDate, t.source] }),
+    check(
+      "daily_wellness_ranges_ck",
+      sql`(${t.sleepDurationInSeconds} is null or ${t.sleepDurationInSeconds} between 0 and 86400)
+        and (${t.sleepScore} is null or ${t.sleepScore} between 0 and 100)
+        and (${t.restingHeartRate} is null or ${t.restingHeartRate} between 20 and 200)
+        and (${t.lastNightHrvMs} is null or ${t.lastNightHrvMs} between 0 and 500)
+        and (${t.vendorReadiness} is null or ${t.vendorReadiness} between 0 and 100)`,
+    ),
+  ],
+);
+
+/** Sent notifications; the unique key makes each one at-most-once per user, kind and day. */
+export const notificationLog = pgTable(
+  "notification_log",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    calendarDate: date("calendar_date", { mode: "string" }).notNull(),
+    sentAt: createdAt("sent_at"),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind, t.calendarDate] })],
 );
 
 /** Immutable, versioned HR zone profiles (HR-04, HR-05). */

@@ -8,17 +8,49 @@ beforeEach(() => {
 });
 
 describe("athlete app (demo)", () => {
+  it("the morning briefing: advice above today's session, sleep and pulse entered by hand", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
+    const card = await screen.findByRole("region", { name: "Утрински брифинг" });
+    expect(within(card).getByRole("heading", { level: 2 })).toBeInTheDocument();
+    expect(within(card).getByText(/^Спремност \d+ · /)).toBeInTheDocument();
+    // A short night with a raised pulse changes the advice right away.
+    await user.click(within(card).getByRole("button", { name: "Внеси сон и пулс" }));
+    await user.type(within(card).getByLabelText("Сон, часови"), "4");
+    await user.type(within(card).getByLabelText("Сон, минути"), "20");
+    await user.type(within(card).getByLabelText("Пулс во мирување (bpm)"), "61");
+    await user.click(within(card).getByRole("button", { name: "Зачувај" }));
+    await waitFor(() =>
+      expect(within(card).getByRole("heading", { level: 2 })).toHaveTextContent(
+        /Одмор денес|Замени со лесно|Полесно/,
+      ),
+    );
+    expect(within(card).getByText(/Спиеше 4 ч 20 мин|Пулс во мирување 61/)).toBeInTheDocument();
+    // Wrong values are explained, and what was entered can be removed again.
+    await user.click(within(card).getByRole("button", { name: "Измени сон и пулс" }));
+    const pulse = within(card).getByLabelText("Пулс во мирување (bpm)");
+    await user.clear(pulse);
+    await user.type(pulse, "300");
+    await user.click(within(card).getByRole("button", { name: "Зачувај" }));
+    expect(await within(card).findByRole("alert")).toHaveTextContent(/пулс 25–120/);
+    await user.click(within(card).getByRole("button", { name: "Избриши го внесеното" }));
+    await waitFor(() =>
+      expect(within(card).getByRole("button", { name: "Внеси сон и пулс" })).toBeInTheDocument(),
+    );
+  });
+
   it("signs in and shows today, the plan editor, check-in and messages", async () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
     expect(await screen.findByRole("heading", { level: 1, name: /Влатко/ })).toBeInTheDocument();
     expect(await screen.findByText("План за денес")).toBeInTheDocument();
     // Compact segments expand and collapse on the same tap.
-    const readiness = await screen.findByRole("button", { name: /^Спремност за тренинг\s*72/ });
+    const readiness = await screen.findByRole("button", { name: /^Спремност за тренинг\s*\d+/ });
     expect(readiness).toHaveAttribute("aria-expanded", "false");
     await user.click(readiness);
     expect(readiness).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Умерена")).toBeInTheDocument();
+    expect(screen.getByText("Пулс во мирување")).toBeInTheDocument();
+    expect(screen.getAllByText(/од Garmin/).length).toBeGreaterThan(0);
     await user.click(readiness);
     expect(readiness).toHaveAttribute("aria-expanded", "false");
     const weather = await screen.findByRole("button", { name: /Делумно облачно/ });

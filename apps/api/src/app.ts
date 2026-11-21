@@ -13,8 +13,11 @@ import { AuthController, WellKnownController } from "./auth/auth.controller.js";
 import { AuthGuard } from "./auth/auth.guard.js";
 import { AuthService } from "./auth/auth.service.js";
 import { IdTokenVerifier, remoteIdTokenKeys, type IdTokenKeys } from "./auth/id-token.verifier.js";
-import { LogMailer, type Mailer } from "./auth/mailer.js";
+import { LogMailer, SmtpMailer, type Mailer } from "./auth/mailer.js";
 import { TokenService } from "./auth/token.service.js";
+import { BriefingController } from "./briefing/briefing.controller.js";
+import { BriefingReminderWorker } from "./briefing/briefing-reminder.worker.js";
+import { BriefingService } from "./briefing/briefing.service.js";
 import { HealthController } from "./health/health.controller.js";
 import { MeController } from "./me/me.controller.js";
 import { AthleteController } from "./training/athlete.controller.js";
@@ -110,6 +113,7 @@ export class AppModule {
         WellKnownController,
         MeController,
         AthleteController,
+        BriefingController,
         CoachController,
         WorkoutsController,
         ImportsController,
@@ -129,10 +133,12 @@ export class AppModule {
         },
         {
           provide: MAILER,
-          useValue: overrides.mailer ?? new LogMailer(config.NODE_ENV !== "production"),
+          useValue: overrides.mailer ?? mailerFor(config),
         },
         AuthService,
         TrainingService,
+        BriefingService,
+        BriefingReminderWorker,
         ImportService,
         PolarService,
         SyncWorker,
@@ -199,4 +205,21 @@ export async function createApp(
     jsonDocumentUrl: "docs/openapi.json",
   });
   return app;
+}
+
+function mailerFor(config: AppConfig): Mailer {
+  if (
+    config.EMAIL_TRANSPORT === "smtp" &&
+    config.SMTP_HOST &&
+    config.SMTP_USER &&
+    config.SMTP_PASSWORD
+  )
+    return new SmtpMailer({
+      host: config.SMTP_HOST,
+      port: config.SMTP_PORT,
+      user: config.SMTP_USER,
+      password: config.SMTP_PASSWORD,
+      from: config.EMAIL_FROM,
+    });
+  return new LogMailer(config.NODE_ENV !== "production");
 }

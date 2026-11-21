@@ -43,6 +43,13 @@
       "when": 1795295942848,
       "tag": "0005_activity_files",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795300426575,
+      "tag": "0006_morning_briefing",
+      "breakpoints": true
     }
   ]
 }

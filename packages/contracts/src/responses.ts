@@ -242,7 +242,9 @@ export interface CoachAthleteDto {
 export type CoachSignal =
   | { code: "missed_sessions"; count: number }
   | { code: "high_effort_on_easy_day"; perceivedEffort: number; calendarDate: LocalDate }
-  | { code: "awaiting_reply" };
+  | { code: "awaiting_reply" }
+  /** Low readiness this morning before a hard or long session (needs the sleep_recovery consent). */
+  | { code: "low_readiness"; score: number; calendarDate: LocalDate };
 
 /** Morning wellness (Garmin principle). Not available until a device is connected. */
 export interface WellnessDto {

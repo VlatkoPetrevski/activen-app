@@ -33,6 +33,21 @@ export interface AthleteSettings {
   birthDate: LocalDate | null;
   /** Suggest workout steps automatically while a plan text is written (off: manual button). */
   workoutSuggestions: boolean;
+  /** Nightly sleep need for the readiness sleep factor (minutes). */
+  sleepNeedMinutes: number;
+  /** Morning briefing email at the athlete's local time ("HH:MM"). Off until the athlete enables it. */
+  briefingReminder: BriefingReminder;
+}
+
+export interface BriefingReminder {
+  enabled: boolean;
+  /** Local time in the athlete's timezone, 24-hour "HH:MM". */
+  time: string;
+}
+
+/** "HH:MM", 00:00–23:59. */
+export function isClockTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 export const DEFAULT_ATHLETE_SETTINGS: Readonly<AthleteSettings> = Object.freeze<AthleteSettings>({
@@ -44,6 +59,8 @@ export const DEFAULT_ATHLETE_SETTINGS: Readonly<AthleteSettings> = Object.freeze
   maxHeartRate: null,
   birthDate: null,
   workoutSuggestions: true,
+  sleepNeedMinutes: 480,
+  briefingReminder: Object.freeze({ enabled: false, time: "07:00" }),
 });
 
 /** Order in which zone profiles are looked up for the given setting. */

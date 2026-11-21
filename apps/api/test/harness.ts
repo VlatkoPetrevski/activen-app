@@ -33,7 +33,8 @@ export async function startHarness(
   overrides: Partial<AppOverrides> = {},
   env: Record<string, string> = {},
 ): Promise<Harness> {
-  const mailer = new CapturingMailer();
+  const mailer =
+    overrides.mailer instanceof CapturingMailer ? overrides.mailer : new CapturingMailer();
   const files = new MemoryFileStore();
   const app = await createApp(testConfig(env), { mailer, fileStore: files, ...overrides });
   await app.init();

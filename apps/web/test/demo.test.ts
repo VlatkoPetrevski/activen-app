@@ -15,7 +15,9 @@ describe("DemoApi as athlete", () => {
     await api.signInDemo("athlete");
     const me = await api.me();
     expect(me.user).toMatchObject({ displayName: "Влатко Петревски", roles: ["athlete"] });
-    expect(await api.wellness("2026-11-19")).toMatchObject({ trainingReadiness: 72 });
+    const briefing = await api.briefing("2026-11-19");
+    expect(briefing.today).toMatchObject({ sleepScore: 81, restingHeartRate: 48 });
+    expect(briefing.readiness.score).toBeGreaterThanOrEqual(50);
     const cal = await api.calendar("2026-11-16", "2026-11-22");
     expect(cal.entries).toHaveLength(7);
     expect(cal.links.some((l) => l.activityId)).toBe(true);
@@ -148,7 +150,7 @@ describe("DemoApi as coach", () => {
     await api.endAthlete("demo-petar");
     await expect(api.endAthlete("demo-petar")).rejects.toMatchObject({ status: 404 });
     expect(await api.coaches()).toEqual([]);
-    expect(await api.wellness("2026-11-19")).not.toBeNull();
+    expect((await api.briefing()).calendarDate).toBe("2026-11-19");
     expect(api.todayDate).toBe("2026-11-19");
     expect(api.relative(-1)).toBe("2026-11-18");
   });

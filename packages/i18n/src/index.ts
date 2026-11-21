@@ -7,3 +7,4 @@ export * from "./pseudo.js";
 export * from "./labels.js";
 export { en, type MessageKey } from "./messages/en.js";
 export { mk } from "./messages/mk.js";
+export * from "./briefing.js";

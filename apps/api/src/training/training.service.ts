@@ -40,6 +40,7 @@ import {
   type MergedActivity,
 } from "@activen/domain";
 import { Inject, Injectable } from "@nestjs/common";
+import { BriefingService } from "../briefing/briefing.service.js";
 import { REPOSITORIES } from "../tokens.js";
 
 const toPlanDto = ({ language: _l, ...e }: StoredPlanEntry): PlanEntryDto => e;
@@ -58,7 +59,10 @@ const toFeedbackDto = (f: Feedback): FeedbackDto => ({
  */
 @Injectable()
 export class TrainingService {
-  constructor(@Inject(REPOSITORIES) private readonly repos: Repositories) {}
+  constructor(
+    @Inject(REPOSITORIES) private readonly repos: Repositories,
+    @Inject(BriefingService) private readonly briefings: BriefingService,
+  ) {}
 
   async today(athleteId: string): Promise<LocalDate> {
     const { timeZone } = await this.repos.settings.get(athleteId);
@@ -241,8 +245,10 @@ export class TrainingService {
       scopes,
       calendar,
       today,
-      // Morning wellness arrives with the device integrations; shared only with consent.
-      wellness: scopes.includes("sleep_recovery") ? [] : null,
+      // Morning wellness and readiness only with the sleep and recovery consent.
+      wellness: scopes.includes("sleep_recovery")
+        ? await this.briefings.series(athleteId, addDays(today, -13), today, "coach")
+        : null,
     });
   }
 
@@ -265,6 +271,9 @@ export class TrainingService {
     const range = coachRowRange(today);
     const calendar = await this.calendar(link.athleteId, range.from, range.to, coachViewer(scopes));
     const [last] = await this.repos.comments.list(link.athleteId, { limit: 1 });
+    const briefing = scopes.includes("sleep_recovery")
+      ? await this.briefings.briefing(link.athleteId, today, coachViewer(scopes))
+      : null;
     return coachRowView({
       ...base,
       primarySource: settings.sourcePriority[0] ?? null,
@@ -273,6 +282,11 @@ export class TrainingService {
       lastComment: last
         ? { body: last.body, createdAt: last.createdAt.toISOString(), authorId: last.authorId }
         : null,
+      briefing: briefing && {
+        score: briefing.readiness.score,
+        needsAttention: briefing.advice.needsAttention,
+        calendarDate: briefing.calendarDate,
+      },
     });
   }
 

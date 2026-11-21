@@ -1,4 +1,6 @@
 import type {
+  BriefingDto,
+  MorningInputDto,
   CalendarDto,
   CoachAthleteDto,
   CoachLinkDto,
@@ -180,8 +182,10 @@ export class HttpApi implements Api {
   // --- training -----------------------------------------------------------------------------------
 
   weather = (place: Place) => fetchWeather(place).catch(() => null);
-  /** Wellness sync arrives with the device integrations; until then there is none. */
-  wellness = async () => null;
+  briefing = (date?: LocalDate) =>
+    this.request<BriefingDto>("GET", date ? `/v1/me/briefing?date=${date}` : "/v1/me/briefing");
+  saveMorningInput = (date: LocalDate, input: MorningInputDto) =>
+    this.request<BriefingDto>("PUT", `/v1/me/wellness/${date}`, input);
   calendar = (from: LocalDate, to: LocalDate) =>
     this.request<CalendarDto>("GET", `/v1/me/calendar?from=${from}&to=${to}`);
   createPlan = (input: PlanInput) => this.request<PlanEntryDto>("POST", "/v1/me/plan", input);
@@ -203,7 +207,11 @@ export class HttpApi implements Api {
   connectPolar = () =>
     this.request<{ authorizeUrl: string }>("POST", "/v1/me/connections/polar", {});
   syncPolar = () =>
-    this.request<{ stored: number; skipped: number }>("POST", "/v1/me/connections/polar/sync", {});
+    this.request<{ stored: number; skipped: number; mornings: number }>(
+      "POST",
+      "/v1/me/connections/polar/sync",
+      {},
+    );
   disconnectPolar = () => this.request<undefined>("DELETE", "/v1/me/connections/polar");
   saveFeedback = (activityId: string, input: FeedbackInput) =>
     this.request<FeedbackDto>("PUT", `/v1/me/activities/${activityId}/feedback`, input);
@@ -238,6 +246,8 @@ export class HttpApi implements Api {
       "GET",
       `/v1/coach/athletes/${athleteId}/calendar?from=${from}&to=${to}`,
     );
+  athleteBriefing = (athleteId: string) =>
+    this.request<BriefingDto>("GET", `/v1/coach/athletes/${athleteId}/briefing`);
   athleteProgress = (athleteId: string, weeks: number) =>
     this.request<ProgressDto>("GET", `/v1/coach/athletes/${athleteId}/progress?weeks=${weeks}`);
   createAthletePlan = (athleteId: string, input: PlanInput) =>

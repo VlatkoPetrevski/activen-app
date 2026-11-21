@@ -104,8 +104,11 @@ describe("settings", () => {
       maxHeartRate: 186,
       birthDate: "1984-03-09",
       workoutSuggestions: false,
+      sleepNeedMinutes: 450,
+      briefingReminder: { enabled: true, time: "06:15" },
     });
     expect(await repos().settings.get(u.id)).toEqual(saved);
+    expect(saved.briefingReminder).toEqual({ enabled: true, time: "06:15" });
     expect(saved.workoutSuggestions).toBe(false);
     await repos().settings.save(u.id, { ...saved, hrZones: { mode: "manual" } });
     expect((await repos().settings.get(u.id)).hrZones).toEqual({ mode: "manual" });
@@ -123,6 +126,12 @@ describe("settings", () => {
     await expect(repos().settings.save(u.id, { ...base, maxHeartRate: 300 })).rejects.toThrow(
       ValidationError,
     );
+    await expect(repos().settings.save(u.id, { ...base, sleepNeedMinutes: 200 })).rejects.toThrow(
+      ValidationError,
+    );
+    await expect(
+      repos().settings.save(u.id, { ...base, briefingReminder: { enabled: true, time: "7:00" } }),
+    ).rejects.toThrow(ValidationError);
     await expect(repos().settings.save(u.id, { ...base, birthDate: "1984-02-30" })).rejects.toThrow(
       ValidationError,
     );

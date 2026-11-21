@@ -26,6 +26,8 @@ export function signalText(t: T, f: Formatter, s: CoachSignal): string {
       });
     case "awaiting_reply":
       return t("coachApp.signal.reply");
+    case "low_readiness":
+      return t("coachApp.signal.readiness", { score: s.score });
   }
 }
 
