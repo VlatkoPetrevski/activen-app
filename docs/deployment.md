@@ -44,6 +44,29 @@ TRUST_PROXY_HOPS=1
 SPF мора да биде **еден** запис за сите испраќачи. Мејловите од апликацијата одат преку посебен
 сервис (Postmark, Resend или Amazon SES), не преку сандачето на тимот.
 
+## Пошта на тимот: Zoho Mail (поставено 21.11.2026)
+
+- План: Zoho Mail Lite, 1 корисник (`vlatko.petrevski@activen.app`), центар zoho.com.
+- DNS во Cloudflare (сите „DNS only“):
+
+| Тип | Име                | Вредност                                                     |
+| --- | ------------------ | ------------------------------------------------------------ |
+| MX  | `@`                | `mx.zoho.com` (10), `mx2.zoho.com` (20), `mx3.zoho.com` (50) |
+| TXT | `@`                | `zoho-verification=zb42870744.zmverify.zoho.com`             |
+| TXT | `@`                | `v=spf1 include:zohomail.com ~all`                           |
+| TXT | `zmail._domainkey` | DKIM јавен клуч од Zoho (селектор `zmail`, вклучен)          |
+| TXT | `_dmarc`           | `v=DMARC1; p=none; rua=mailto:vlatko.petrevski@activen.app`  |
+
+- Тестирано: праќање и примање Zoho ↔ Gmail.
+- Да се направи:
+  - Додавање на сервисот за мејлови од апликацијата: SPF останува **еден** запис со двата include-а
+    (`v=spf1 include:zohomail.com include:<сервис> ~all`), а DKIM на сервисот е посебен селектор.
+  - DMARC: по неколку недели чисти извештаи, `p=none` → `p=quarantine`.
+  - MTA-STS и TLS-RPT: кога ќе има веб на `activen.app`. Политиката
+    `https://mta-sts.activen.app/.well-known/mta-sts.txt` може да ја сервира Cloudflare. Без неа не се
+    додава `_mta-sts` записот. BIMI е опционален, по `p=quarantine`.
+  - Алијаси `hello@`, `support@`.
+
 ## Безбедност на доменот
 
 - 2FA и auto-renew на сметката кај регистрарот.
