@@ -4,8 +4,8 @@ import { VENDOR_NAMES } from "../../lib/vendors.js";
 import { FormatFields } from "../../settings/FormatFields.js";
 import { SettingsError } from "../../settings/SettingsError.js";
 import { useSettingsEditor } from "../../settings/useSettingsEditor.js";
-import { Icon } from "../../ui/Icon.js";
 import { Section } from "./Section.js";
+import { SourcesSection } from "./SourcesSection.js";
 
 const TIME_ZONES = (() => {
   try {
@@ -20,14 +20,6 @@ export function PreferenceSections() {
   const { t, locale } = useI18n();
   const editor = useSettingsEditor();
   const { settings, save, saving, error } = editor;
-  const order = settings.sourcePriority;
-  const move = (i: number, dir: -1 | 1) => {
-    const next = [...order];
-    const [item] = next.splice(i, 1);
-    if (!item) return;
-    next.splice(i + dir, 0, item);
-    void save({ sourcePriority: next });
-  };
   const hr = settings.hrZones;
   return (
     <>
@@ -70,35 +62,7 @@ export function PreferenceSections() {
         </label>
         <p className="small muted">{t("profile.suggestionsHint")}</p>
       </Section>
-      <Section title={t("profile.sources")} info={order.map((v) => VENDOR_NAMES[v]).join(" › ")}>
-        <p className="small muted">{t("profile.sourcesHint")}</p>
-        <ol className="list" style={{ padding: 0, margin: 0, listStyle: "none" }}>
-          {order.map((v, i) => (
-            <li key={v} className="list-item">
-              <span className="chip num">{i + 1}</span>
-              <span className="grow">{VENDOR_NAMES[v] ?? v}</span>
-              <button
-                type="button"
-                className="icon-btn"
-                disabled={saving || i === 0}
-                aria-label={`${t("profile.moveUp")}: ${VENDOR_NAMES[v]}`}
-                onClick={() => move(i, -1)}
-              >
-                <Icon name="arrowUp" size={18} />
-              </button>
-              <button
-                type="button"
-                className="icon-btn"
-                disabled={saving || i === order.length - 1}
-                aria-label={`${t("profile.moveDown")}: ${VENDOR_NAMES[v]}`}
-                onClick={() => move(i, 1)}
-              >
-                <Icon name="arrowDown" size={18} />
-              </button>
-            </li>
-          ))}
-        </ol>
-      </Section>
+      <SourcesSection editor={editor} />
       <Section
         title={t("profile.hrZones")}
         info={settings.maxHeartRate ? `max ${settings.maxHeartRate}` : undefined}

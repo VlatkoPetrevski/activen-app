@@ -32,6 +32,9 @@ import {
   type PlanEntryDto,
   type SessionDto,
   type WellnessDto,
+  importOutcome,
+  type ImportResultDto,
+  type ImportsSummaryDto,
 } from "@activen/contracts";
 import {
   addDays,
@@ -39,9 +42,11 @@ import {
   localDateOf,
   parseWorkout,
   type Activity,
+  type ActivityDetail,
   type AthleteSettings,
   type LocalDate,
 } from "@activen/domain";
+import { createTranslator, type MessageKey } from "@activen/i18n";
 import {
   ApiError,
   type Api,
@@ -199,6 +204,17 @@ const storage = {
  * In-memory sample data with the same rules as the server (domain matching, shared view builders),
  * so screens can be reviewed without an account or a connected device. Nothing leaves the browser.
  */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** "Трчање" / "Run" for an uploaded file without a name. */
+function demoTypeName(locale: DemoLocale, type: string): string {
+  const { t } = createTranslator(locale);
+  return t(`activityType.${type}` as MessageKey);
+}
+
 export class DemoApi implements Api {
   readonly mode = "demo" as const;
   private persona: Persona | null = null;
@@ -208,6 +224,13 @@ export class DemoApi implements Api {
   /** The coach's own training (coaches train too). */
   private coachSelf: DemoAthlete | null = null;
   private seq = 0;
+  /** Laps, route and device of activities imported from files in this session. */
+  private imported = new Map<string, ActivityDetail>();
+  /** Upload attempts in this session, newest first (with the file hash for duplicates). */
+  private uploads: (ImportsSummaryDto["recent"][number] & {
+    sha256: string | null;
+    activityId: string | null;
+  })[] = [];
 
   constructor(
     private readonly locale: () => DemoLocale = () => "mk",
@@ -575,6 +598,31 @@ export class DemoApi implements Api {
     const link = day.links.find((l) => l.activityId === id);
     const planEntry = day.entries.find((e) => e.id === link?.planEntryId) ?? null;
     const outdoors = found.distanceInMeters && found.activityType !== "TREADMILL_RUNNING";
+    const file = this.imported.get(id);
+    if (file)
+      return {
+        activity: day.activities.find((x) => x.id === id) as ActivityDto,
+        laps: file.laps.map((l, index) => ({
+          index,
+          intensity: l.intensity,
+          startOffsetInSeconds: l.startOffsetInSeconds,
+          durationInSeconds: l.durationInSeconds,
+          distanceInMeters: l.distanceInMeters,
+          averageHeartRateInBeatsPerMinute: l.averageHeartRateInBeatsPerMinute,
+          maxHeartRateInBeatsPerMinute: l.maxHeartRateInBeatsPerMinute,
+        })),
+        exercises: file.exercises,
+        device: {
+          vendor: "manual",
+          deviceName: file.device?.deviceName ?? null,
+          heartRateSensor: file.device?.heartRateSensor ?? null,
+          heartRateSensorName: null,
+        },
+        route: viewer.location && file.route ? { points: file.route } : null,
+        planEntry,
+        comments: viewer.comments ? a.comments.filter((c) => c.activityId === id) : [],
+        insights: activityInsights(found, a.activities, planEntry),
+      };
     return {
       activity: day.activities.find((x) => x.id === id) as ActivityDto,
       laps: buildDemoLaps(found, planEntry?.description ?? null),
@@ -592,6 +640,125 @@ export class DemoApi implements Api {
       insights: activityInsights(found, a.activities, planEntry),
     };
   }
+  /** Reads the files in the browser with the same importers and rules as the server. */
+  importActivities = async (files: readonly File[]): Promise<ImportResultDto[]> => {
+    const { parseActivityFile, ImportError, simplifyRoute, trackOf } =
+      await import("@activen/importers");
+    const a = this.me_();
+    const results: ImportResultDto[] = [];
+    for (const file of files) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const sha256 = await sha256Hex(bytes);
+      const empty = {
+        fileName: file.name,
+        activityId: null,
+        activityName: null,
+        activityType: null,
+        calendarDate: null,
+        mergedWith: null,
+        error: null,
+      };
+      const record = (
+        status: "imported" | "duplicate" | "failed",
+        activityId: string | null,
+        error: string | null = null,
+      ) =>
+        this.uploads.unshift({
+          fileName: file.name,
+          status,
+          error,
+          createdAt: this.now().toISOString(),
+          sha256: status === "imported" ? sha256 : null,
+          activityId,
+        });
+      const summary = (x: Activity) => ({
+        activityId: x.id,
+        activityName: x.activityName,
+        activityType: x.activityType,
+        calendarDate: x.calendarDate,
+      });
+      const sameFile = this.uploads.find((u) => u.sha256 === sha256);
+      const known = sameFile && a.activities.find((x) => x.id === sameFile.activityId);
+      if (known) {
+        record("duplicate", known.id);
+        results.push({ ...empty, ...summary(known), status: "duplicate" });
+        continue;
+      }
+      let parsed;
+      try {
+        parsed = parseActivityFile(bytes);
+      } catch (err) {
+        const code = err instanceof ImportError ? err.code : "corrupt";
+        record("failed", null, code);
+        results.push({ ...empty, status: "failed", error: code });
+        continue;
+      }
+      const outcome = importOutcome(
+        parsed,
+        a.activities.filter(
+          (x) => Math.abs(x.startTimeInSeconds - parsed.startTimeInSeconds) <= 3600,
+        ),
+      );
+      if (outcome.kind !== "new") {
+        record(outcome.kind === "duplicate" ? "duplicate" : "imported", outcome.activity.id);
+        results.push({
+          ...empty,
+          ...summary(outcome.activity),
+          status: outcome.kind,
+          mergedWith: outcome.kind === "merged" ? outcome.activity.source.vendor : null,
+        });
+        continue;
+      }
+      const offset = parsed.startTimeOffsetInSeconds ?? 3600;
+      const activity: Activity = {
+        id: this.id("upload"),
+        athleteId: a.id,
+        source: { vendor: "manual", externalId: sha256 },
+        activityName: parsed.activityName ?? demoTypeName(this.locale(), parsed.activityType),
+        activityType: parsed.activityType,
+        calendarDate: localDateOf(
+          new Date((parsed.startTimeInSeconds + offset) * 1000).toISOString(),
+          "UTC",
+        ),
+        startTimeInSeconds: parsed.startTimeInSeconds,
+        startTimeOffsetInSeconds: offset,
+        distanceInMeters: parsed.distanceInMeters,
+        durationInSeconds: parsed.durationInSeconds,
+        movingDurationInSeconds: parsed.movingDurationInSeconds,
+        totalElevationGainInMeters: parsed.totalElevationGainInMeters,
+        trainingLoad: parsed.trainingLoad,
+        averageHeartRateInBeatsPerMinute: parsed.averageHeartRateInBeatsPerMinute,
+        maxHeartRateInBeatsPerMinute: parsed.maxHeartRateInBeatsPerMinute,
+        averagePowerInWatts: parsed.averagePowerInWatts,
+        activeKilocalories: parsed.activeKilocalories,
+        gearName: null,
+        isRace: false,
+        deleted: false,
+      };
+      const track = trackOf(parsed.streams);
+      this.imported.set(activity.id, {
+        laps: parsed.laps,
+        streams: null,
+        route: track.length > 1 ? simplifyRoute(track) : null,
+        device: parsed.device,
+        exercises: parsed.exercises,
+      });
+      a.activities.push(activity);
+      record("imported", activity.id);
+      results.push({ ...empty, ...summary(activity), status: "imported" });
+    }
+    return this.delay(results);
+  };
+  imports = async (): Promise<ImportsSummaryDto> => {
+    const done = this.uploads.filter((u) => u.status === "imported");
+    return this.delay({
+      imported: done.length,
+      lastImportAt: done[0]?.createdAt ?? null,
+      recent: this.uploads
+        .slice(0, 10)
+        .map(({ fileName, status, error, createdAt }) => ({ fileName, status, error, createdAt })),
+    });
+  };
   saveFeedback = async (activityId: string, input: FeedbackInput) => {
     const a = this.me_();
     const fb: FeedbackDto = {

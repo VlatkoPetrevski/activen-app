@@ -18,6 +18,8 @@ import type {
   AnalyticsSummaryDto,
   AthleteAnalyticsDto,
   ActivityDto,
+  ImportResultDto,
+  ImportsSummaryDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import {
@@ -55,7 +57,9 @@ export class HttpApi implements Api {
 
   private async raw(method: Method, path: string, body?: unknown, auth = true): Promise<Response> {
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    // Multipart bodies set their own Content-Type (with the boundary).
+    const form = body instanceof FormData;
+    if (body !== undefined && !form) headers["Content-Type"] = "application/json";
     if (auth && this.accessToken) headers.Authorization = `Bearer ${this.accessToken}`;
     if (path.startsWith("/v1/auth/")) Object.assign(headers, CSRF);
     try {
@@ -63,7 +67,7 @@ export class HttpApi implements Api {
         method,
         headers,
         credentials: "include",
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined ? {} : { body: form ? body : JSON.stringify(body) }),
       });
     } catch {
       throw new ApiError(0, "Network error");
@@ -186,6 +190,14 @@ export class HttpApi implements Api {
   activities = (from: LocalDate, to: LocalDate) =>
     this.request<ActivityDto[]>("GET", `/v1/me/activities?from=${from}&to=${to}`);
   activity = (id: string) => this.request<ActivityDetailDto>("GET", `/v1/me/activities/${id}`);
+  importActivities = async (files: readonly File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append("files", file, file.name);
+    return (
+      await this.request<{ results: ImportResultDto[] }>("POST", "/v1/me/activities/import", form)
+    ).results;
+  };
+  imports = () => this.request<ImportsSummaryDto>("GET", "/v1/me/imports");
   saveFeedback = (activityId: string, input: FeedbackInput) =>
     this.request<FeedbackDto>("PUT", `/v1/me/activities/${activityId}/feedback`, input);
   progress = (weeks: number) => this.request<ProgressDto>("GET", `/v1/me/progress?weeks=${weeks}`);

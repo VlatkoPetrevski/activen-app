@@ -20,6 +20,8 @@ import type {
   UserDto,
   WeatherDto,
   WellnessDto,
+  ImportResultDto,
+  ImportsSummaryDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import type { z } from "zod";
@@ -56,6 +58,9 @@ export class ApiError extends Error {
  * Everything the app needs from the server. Two implementations: HTTP (the real API) and Demo
  * (in-memory sample data computed with the same domain rules).
  */
+/** Files per upload request (the server accepts up to 20). */
+export const IMPORT_BATCH = 20;
+
 export interface Api {
   readonly mode: "http" | "demo";
 
@@ -95,6 +100,13 @@ export interface Api {
   deletePlan(id: string): Promise<void>;
   activities(from: LocalDate, to: LocalDate): Promise<ActivityDto[]>;
   activity(id: string): Promise<ActivityDetailDto>;
+  /**
+   * Uploads FIT/GPX/TCX files (at most {@link IMPORT_BATCH} per call); one result per file, in
+   * order. The same workout is never stored twice (see ImportResultDto).
+   */
+  importActivities(files: readonly File[]): Promise<ImportResultDto[]>;
+  /** Files imported so far and the latest attempts (Profile › Sources). */
+  imports(): Promise<ImportsSummaryDto>;
   saveFeedback(activityId: string, input: FeedbackInput): Promise<FeedbackDto>;
   progress(weeks: number): Promise<ProgressDto>;
   /** "Структурирај": steps suggested for a plan text (null when nothing is structured). */

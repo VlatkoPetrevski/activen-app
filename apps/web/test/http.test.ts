@@ -169,4 +169,22 @@ describe("HttpApi", () => {
     expect(JSON.parse(String(calls[5]!.init.body))).toEqual({ text: "6 × 1 km", locale: "mk" });
     expect(JSON.parse(String(calls[9]!.init.body))).toEqual({ confirm: "DELETE" });
   });
+
+  it("uploads files as multipart and reads the import summary", async () => {
+    const { fn, calls } = fake([
+      () => json(200, { results: [{ fileName: "a.fit", status: "imported" }] }),
+      () => json(200, { imported: 1, lastImportAt: null, recent: [] }),
+    ]);
+    const api = new HttpApi("https://api.activen.app", fn);
+    const results = await api.importActivities([new File([new Uint8Array([1])], "a.fit")]);
+    expect(results).toEqual([{ fileName: "a.fit", status: "imported" }]);
+    const init = calls[0]!.init;
+    expect(calls[0]!.url).toBe("https://api.activen.app/v1/me/activities/import");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    // The browser sets the multipart boundary itself.
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
+    expect((init.body as FormData).getAll("files")).toHaveLength(1);
+    expect((await api.imports()).imported).toBe(1);
+  });
 });

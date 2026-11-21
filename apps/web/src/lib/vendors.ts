@@ -9,7 +9,7 @@ export const VENDOR_NAMES: Record<Vendor, string> = {
   strava: "Strava",
   apple_health: "Apple Health",
   google_health: "Health Connect",
-  manual: "FIT / GPX",
+  manual: "FIT / GPX / TCX",
 };
 
 export const vendorName = (v: string): string => VENDOR_NAMES[v as Vendor] ?? v;

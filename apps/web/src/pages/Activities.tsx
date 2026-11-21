@@ -26,6 +26,13 @@ import { relativeDay, todayIn } from "../lib/dates.js";
 import { groupOf } from "../lib/plan.js";
 import { insightText } from "../training/Insights.js";
 import { activitySummary, paceOrSpeed } from "../training/labels.js";
+import {
+  DropHint,
+  ImportButton,
+  ImportReport,
+  useActivityImport,
+  useFileDrop,
+} from "../training/ImportFiles.js";
 import { RouteMap } from "../training/RouteMap.js";
 import { Dialog } from "../ui/Dialog.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
@@ -228,15 +235,22 @@ export function ActivitiesPage() {
   const sum = totals(shown);
   const extra = activeFilterCount({ ...filter, group: "all", run: "all", query: "" });
 
+  const importer = useActivityImport();
+  const drop = useFileDrop((files) => void importer.run(files));
+  const busy = importer.state.phase === "working";
+
   const dayLabel = (a: ActivityDto) => {
     const rel = relativeDay(a.calendarDate, today);
     return rel ? t(`common.${rel}`) : f.date(a.calendarDate, "long");
   };
 
   return (
-    <div className="stack-l">
+    <div className={`stack-l drop-area${drop.dragging ? " dragging" : ""}`} {...drop.handlers}>
       <div className="stack" style={{ gap: 4 }}>
-        <h1>{t("nav.activities")}</h1>
+        <div className="row-between">
+          <h1>{t("nav.activities")}</h1>
+          <ImportButton busy={busy} onFiles={(files) => void importer.run(files)} />
+        </div>
         {query.data && (
           <span className="small muted num" aria-live="polite">
             {t("activities.summary", {
@@ -247,6 +261,9 @@ export function ActivitiesPage() {
           </span>
         )}
       </div>
+
+      <DropHint dragging={drop.dragging} />
+      <ImportReport state={importer.state} onClose={importer.reset} />
 
       <div className="stack" style={{ gap: 8 }}>
         <Chips

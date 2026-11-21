@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import type { ImportResultDto, ImportsSummaryDto } from "@activen/contracts";
+import { importOutcome, type ImportResultDto, type ImportsSummaryDto } from "@activen/contracts";
 import type { Repositories } from "@activen/db";
-import { localDateOf, sameWorkout, type Activity } from "@activen/domain";
+import { localDateOf, type Activity } from "@activen/domain";
 import { createTranslator, negotiateLocale } from "@activen/i18n";
 import {
   ImportError,
@@ -115,19 +115,19 @@ export class ImportService {
       return { ...empty, status: "failed", error: code };
     }
 
-    const candidates = (
-      await this.repos.activities.startingNear(userId, parsed.startTimeInSeconds)
-    ).filter((a) => sameWorkout(a, parsed));
-    const uploaded = candidates.find((a) => a.source.vendor === "manual");
-    if (uploaded) {
+    const outcome = importOutcome(
+      parsed,
+      await this.repos.activities.startingNear(userId, parsed.startTimeInSeconds),
+    );
+    if (outcome.kind === "duplicate") {
       await this.repos.activityFiles.record({
         ...base,
         format: parsed.format,
         status: "duplicate",
-        activityId: uploaded.id,
+        activityId: outcome.activity.id,
         errorCode: null,
       });
-      return { ...empty, ...summaryOf(uploaded), status: "duplicate" };
+      return { ...empty, ...summaryOf(outcome.activity), status: "duplicate" };
     }
 
     const settings = await this.repos.settings.get(userId);
@@ -181,9 +181,13 @@ export class ImportService {
       errorCode: null,
     });
 
-    const app = candidates[0];
-    return app
-      ? { ...empty, ...summaryOf(app), status: "merged", mergedWith: app.source.vendor }
+    return outcome.kind === "merged"
+      ? {
+          ...empty,
+          ...summaryOf(outcome.activity),
+          status: "merged",
+          mergedWith: outcome.activity.source.vendor,
+        }
       : { ...empty, ...summaryOf(activity), status: "imported" };
   }
 

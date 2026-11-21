@@ -172,11 +172,8 @@ export function ActivityStats({
   hideHeader?: boolean;
 }) {
   const { t, f } = useI18n();
-  const { activity: a, laps, device, exercises } = detail;
+  const { activity: a } = detail;
   const pace = readsPace(a.activityType);
-  const structured = laps.some((l) => l.intensity !== "active");
-  const groups = lapBreakdown(laps);
-  const sensor = device.heartRateSensor ?? "unknown";
   // Only what the session has: a strength session shows no distance, pace or elevation.
   const tiles = (
     [
@@ -199,15 +196,6 @@ export function ActivityStats({
       [t("stats.load"), a.trainingLoad === null ? null : String(a.trainingLoad)],
     ] as const
   ).filter((x): x is readonly [string, string] => x[1] !== null);
-  const reps = groups.find((g) => g.intensity === "active");
-  const best = fastest(laps);
-  const lapsSummary =
-    laps.length === 0
-      ? ""
-      : structured && reps
-        ? `${reps.count} × ${t("lap.active")} · ${rate(f, pace, reps.distanceInMeters, reps.durationInSeconds)} · ♥ ${hrPair(reps.averageHeartRateInBeatsPerMinute, reps.maxHeartRateInBeatsPerMinute)}`
-        : `${laps.length} × ${t("lap.auto")} · ${rate(f, pace, best?.distanceInMeters ?? null, best?.durationInSeconds ?? 0)}`;
-
   return (
     <div className="stack activity-stats">
       {!hideHeader && (
@@ -233,133 +221,149 @@ export function ActivityStats({
         ))}
       </div>
 
-      <div className="segments">
-        {exercises.length > 0 && <ExerciseList exercises={exercises} />}
+      <DetailSegments detail={detail} />
+    </div>
+  );
+}
+
+/**
+ * Exercises, the recording source and the laps or intervals of an activity, as segments that open
+ * for details. Shared by the coach's statistics and the athlete's activity page.
+ */
+export function DetailSegments({ detail }: { detail: ActivityDetailDto }) {
+  const { t, f } = useI18n();
+  const { activity: a, laps, device, exercises } = detail;
+  const pace = readsPace(a.activityType);
+  const structured = laps.some((l) => l.intensity !== "active");
+  const groups = lapBreakdown(laps);
+  const sensor = device.heartRateSensor ?? "unknown";
+  const reps = groups.find((g) => g.intensity === "active");
+  const best = fastest(laps);
+  const lapsSummary =
+    laps.length === 0
+      ? ""
+      : structured && reps
+        ? `${reps.count} × ${t("lap.active")} · ${rate(f, pace, reps.distanceInMeters, reps.durationInSeconds)} · ♥ ${hrPair(reps.averageHeartRateInBeatsPerMinute, reps.maxHeartRateInBeatsPerMinute)}`
+        : `${laps.length} × ${t("lap.auto")} · ${rate(f, pace, best?.distanceInMeters ?? null, best?.durationInSeconds ?? 0)}`;
+  return (
+    <div className="segments">
+      {exercises.length > 0 && <ExerciseList exercises={exercises} />}
+      <Segment
+        label={t("stats.sourceTitle")}
+        summary={
+          <span className="seg-line">
+            <strong>{t("stats.sourceTitle")}</strong>
+            <span className="small muted">
+              {[vendorName(device.vendor), device.deviceName, t(`stats.sensor.${sensor}`)]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </span>
+        }
+      >
+        <dl className="facts">
+          <div>
+            <dt>{t("stats.source")}</dt>
+            <dd>{vendorName(device.vendor)}</dd>
+          </div>
+          <div>
+            <dt>{t("stats.device")}</dt>
+            <dd>{device.deviceName ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>{t("stats.hrSensor")}</dt>
+            <dd>
+              {t(`stats.sensor.${sensor}`)}
+              {device.heartRateSensorName ? ` · ${device.heartRateSensorName}` : ""}
+            </dd>
+          </div>
+        </dl>
+        {sensor === "optical" && structured && (
+          <p className="tiny muted">{t("stats.opticalHint")}</p>
+        )}
+      </Segment>
+      {(laps.length > 0 || !exercises.length) && (
         <Segment
-          label={t("stats.sourceTitle")}
+          defaultOpen={structured}
+          label={t(structured ? "stats.intervals" : "stats.laps")}
           summary={
             <span className="seg-line">
-              <strong>{t("stats.sourceTitle")}</strong>
-              <span className="small muted">
-                {[vendorName(device.vendor), device.deviceName, t(`stats.sensor.${sensor}`)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
+              <strong>{t(structured ? "stats.intervals" : "stats.laps")}</strong>
+              <span className="small muted num">{lapsSummary}</span>
             </span>
           }
         >
-          <dl className="facts">
-            <div>
-              <dt>{t("stats.source")}</dt>
-              <dd>{vendorName(device.vendor)}</dd>
-            </div>
-            <div>
-              <dt>{t("stats.device")}</dt>
-              <dd>{device.deviceName ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>{t("stats.hrSensor")}</dt>
-              <dd>
-                {t(`stats.sensor.${sensor}`)}
-                {device.heartRateSensorName ? ` · ${device.heartRateSensorName}` : ""}
-              </dd>
-            </div>
-          </dl>
-          {sensor === "optical" && structured && (
-            <p className="tiny muted">{t("stats.opticalHint")}</p>
+          {laps.length === 0 ? (
+            <p className="small muted">{t("stats.noLaps")}</p>
+          ) : (
+            <>
+              <IntervalChart laps={laps} structured={structured} />
+              {structured && (
+                <div className="lap-groups">
+                  {groups.map((g) => (
+                    <div key={g.intensity} className={`lap-group lap-${g.intensity}`}>
+                      <div className="small" style={{ fontWeight: 700 }}>
+                        {g.count > 1 ? `${g.count} × ` : ""}
+                        {t(`lap.${g.intensity}`)}
+                      </div>
+                      <div className="tiny muted num">
+                        {g.distanceInMeters ? f.distance(g.distanceInMeters, 2) : "—"} ·{" "}
+                        {f.duration(g.durationInSeconds)} ·{" "}
+                        {rate(f, pace, g.distanceInMeters, g.durationInSeconds)}
+                      </div>
+                      <div className="tiny muted num">
+                        ♥{" "}
+                        {hrPair(g.averageHeartRateInBeatsPerMinute, g.maxHeartRateInBeatsPerMinute)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="table-scroll" tabIndex={0} role="region" aria-label={t("stats.laps")}>
+                <table className="table lap-table">
+                  <thead>
+                    <tr>
+                      <th>{t("stats.col.lap")}</th>
+                      <th>{t("stats.col.type")}</th>
+                      <th className="num">{t("stats.col.distance")}</th>
+                      <th className="num">{t("stats.col.time")}</th>
+                      <th className="num">{t(pace ? "stats.col.pace" : "stats.col.speed")}</th>
+                      <th className="num">{t("stats.col.hr")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {laps.map((l) => (
+                      <tr
+                        key={l.index}
+                        className={structured ? `lap-row-${l.intensity}` : undefined}
+                      >
+                        <td className="num">{l.index}</td>
+                        <td>
+                          <i className={`lap-swatch lap-${l.intensity}`} />{" "}
+                          {lapLabel(t, l.intensity, structured)}
+                        </td>
+                        <td className="num">
+                          {l.distanceInMeters ? f.distance(l.distanceInMeters, 2) : "—"}
+                        </td>
+                        <td className="num">{f.duration(l.durationInSeconds)}</td>
+                        <td className="num">
+                          {rate(f, pace, l.distanceInMeters, l.durationInSeconds)}
+                        </td>
+                        <td className="num">
+                          {hrPair(
+                            l.averageHeartRateInBeatsPerMinute,
+                            l.maxHeartRateInBeatsPerMinute,
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Segment>
-        {(laps.length > 0 || !exercises.length) && (
-          <Segment
-            defaultOpen={structured}
-            label={t(structured ? "stats.intervals" : "stats.laps")}
-            summary={
-              <span className="seg-line">
-                <strong>{t(structured ? "stats.intervals" : "stats.laps")}</strong>
-                <span className="small muted num">{lapsSummary}</span>
-              </span>
-            }
-          >
-            {laps.length === 0 ? (
-              <p className="small muted">{t("stats.noLaps")}</p>
-            ) : (
-              <>
-                <IntervalChart laps={laps} structured={structured} />
-                {structured && (
-                  <div className="lap-groups">
-                    {groups.map((g) => (
-                      <div key={g.intensity} className={`lap-group lap-${g.intensity}`}>
-                        <div className="small" style={{ fontWeight: 700 }}>
-                          {g.count > 1 ? `${g.count} × ` : ""}
-                          {t(`lap.${g.intensity}`)}
-                        </div>
-                        <div className="tiny muted num">
-                          {g.distanceInMeters ? f.distance(g.distanceInMeters, 2) : "—"} ·{" "}
-                          {f.duration(g.durationInSeconds)} ·{" "}
-                          {rate(f, pace, g.distanceInMeters, g.durationInSeconds)}
-                        </div>
-                        <div className="tiny muted num">
-                          ♥{" "}
-                          {hrPair(
-                            g.averageHeartRateInBeatsPerMinute,
-                            g.maxHeartRateInBeatsPerMinute,
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div
-                  className="table-scroll"
-                  tabIndex={0}
-                  role="region"
-                  aria-label={t("stats.laps")}
-                >
-                  <table className="table lap-table">
-                    <thead>
-                      <tr>
-                        <th>{t("stats.col.lap")}</th>
-                        <th>{t("stats.col.type")}</th>
-                        <th className="num">{t("stats.col.distance")}</th>
-                        <th className="num">{t("stats.col.time")}</th>
-                        <th className="num">{t(pace ? "stats.col.pace" : "stats.col.speed")}</th>
-                        <th className="num">{t("stats.col.hr")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {laps.map((l) => (
-                        <tr
-                          key={l.index}
-                          className={structured ? `lap-row-${l.intensity}` : undefined}
-                        >
-                          <td className="num">{l.index}</td>
-                          <td>
-                            <i className={`lap-swatch lap-${l.intensity}`} />{" "}
-                            {lapLabel(t, l.intensity, structured)}
-                          </td>
-                          <td className="num">
-                            {l.distanceInMeters ? f.distance(l.distanceInMeters, 2) : "—"}
-                          </td>
-                          <td className="num">{f.duration(l.durationInSeconds)}</td>
-                          <td className="num">
-                            {rate(f, pace, l.distanceInMeters, l.durationInSeconds)}
-                          </td>
-                          <td className="num">
-                            {hrPair(
-                              l.averageHeartRateInBeatsPerMinute,
-                              l.maxHeartRateInBeatsPerMinute,
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </Segment>
-        )}
-      </div>
+      )}
     </div>
   );
 }
