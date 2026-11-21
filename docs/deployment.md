@@ -4,12 +4,12 @@
 
 ## Адреси
 
-| Адреса                            | Намена                                                |
-| --------------------------------- | ----------------------------------------------------- |
-| `https://activen.app`             | web апликација (PWA)                                  |
-| `https://api.activen.app`         | REST API (`/v1`, `/docs`, `/.well-known/jwks.json`)   |
-| `noreply@activen.app`             | автоматски мејлови: магични линкови за најава, покани |
-| `hello@activen.app`, лични адреси | сандаче на тимот (посебен провајдер)                  |
+| Адреса                                                  | Намена                                                |
+| ------------------------------------------------------- | ----------------------------------------------------- |
+| `https://activen.app`                                   | web апликација (PWA)                                  |
+| `https://api.activen.app`                               | REST API (`/v1`, `/docs`, `/.well-known/jwks.json`)   |
+| `noreply@activen.app`                                   | автоматски мејлови: магични линкови за најава, покани |
+| `info@activen.app`, `support@activen.app`, лични адреси | сандаче на тимот (посебен провајдер)                  |
 
 ## Конфигурација во продукција
 
@@ -46,7 +46,7 @@ SPF мора да биде **еден** запис за сите испраќа�
 
 ## Пошта на тимот: Zoho Mail (поставено 21.11.2026)
 
-- План: Zoho Mail Lite, 1 корисник (`vlatko.petrevski@activen.app`), центар zoho.com.
+- План: Zoho Mail Lite, 1 корисник (`vlatko.petrevski@activen.app`) со алијаси `info@` и `support@`, центар zoho.com.
 - DNS во Cloudflare (сите „DNS only“):
 
 | Тип | Име                | Вредност                                                     |
@@ -65,7 +65,7 @@ SPF мора да биде **еден** запис за сите испраќа�
   - MTA-STS и TLS-RPT: кога ќе има веб на `activen.app`. Политиката
     `https://mta-sts.activen.app/.well-known/mta-sts.txt` може да ја сервира Cloudflare. Без неа не се
     додава `_mta-sts` записот. BIMI е опционален, по `p=quarantine`.
-  - Алијаси `hello@`, `support@`.
+  - Алијаси `info@` и `support@` (додадени).
 
 ## Безбедност на доменот
 
