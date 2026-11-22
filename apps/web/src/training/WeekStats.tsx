@@ -3,6 +3,7 @@ import type { LocalDate } from "@activen/domain";
 import { useI18n } from "../i18n/I18nContext.js";
 import { groupOf } from "../lib/plan.js";
 import { SportIcon } from "../ui/Icon.js";
+import { Segment } from "../ui/Segment.js";
 
 export interface WeekTotals {
   sessions: { done: number; planned: number };
@@ -159,5 +160,54 @@ export function WeekStats({
         )}
       </dl>
     </section>
+  );
+}
+
+/**
+ * Phones: the week's totals fold up under the calendar; the folded line keeps the essentials
+ * ("4/5 · 48,7 / 56 km · 5 ч 7 мин / 5 ч 49 мин").
+ */
+export function WeekStatsSegment({
+  calendar,
+  from,
+  to,
+}: {
+  calendar: CalendarDto;
+  from: LocalDate;
+  to: LocalDate;
+}) {
+  const { t, f } = useI18n();
+  const w = weekTotals(calendar, from, to);
+  const title = t("planner.weekStats", {
+    from: f.date(from, "dayMonth"),
+    to: f.date(to, "dayMonth"),
+  });
+  const pair = (done: string, planned: string | null) => (planned ? `${done} / ${planned}` : done);
+  const line = [
+    `${w.sessions.done}/${w.sessions.planned}`,
+    calendar.activitiesVisible
+      ? pair(
+          f.distance(w.distance.done, 1),
+          w.distance.planned ? f.distance(w.distance.planned, 1) : null,
+        )
+      : null,
+    calendar.activitiesVisible
+      ? pair(f.totalTime(w.time.done) || "0", w.time.planned ? f.totalTime(w.time.planned) : null)
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <Segment
+      label={title}
+      summary={
+        <span className="seg-line">
+          <strong>{title}</strong>
+          <span className="small muted num">{line}</span>
+        </span>
+      }
+    >
+      <WeekStats calendar={calendar} from={from} to={to} bare />
+    </Segment>
   );
 }

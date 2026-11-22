@@ -3262,3 +3262,38 @@ div.import-report {
 .cmp {
   min-width: 0;
 }
+/* Thinner day rows on a phone. */
+.cmp-day.compact {
+  padding: 0;
+}
+.cmp-summary {
+  padding: 4px 0;
+  gap: 8px;
+}
+.cmp-summary .grow,
+.cmp-summary .grow > .stack {
+  gap: 2px !important;
+}
+.cmp-summary .plan-date {
+  width: 32px;
+  line-height: 1.1;
+}
+.cmp-summary .plan-date .dow {
+  font-size: 10px;
+}
+.cmp-summary .plan-date .dom {
+  font-size: 16px;
+}
+.cmp-short {
+  padding: 1px 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  border-radius: 6px;
+}
+/* Week totals folded under the calendar (phones): tighter. */
+.segment .week-stats-list {
+  gap: 6px 8px;
+}
+.segment .week-stats-list dd {
+  margin: 0 0 2px;
+}

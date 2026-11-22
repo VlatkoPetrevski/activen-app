@@ -122,5 +122,10 @@ describe("coach on a phone (demo)", () => {
     expect(within(details).getAllByRole("button").length).toBeGreaterThan(0);
     await user.click(day);
     expect(day).toHaveAttribute("aria-expanded", "false");
+    // The week's totals fold under the calendar with the essentials on one line.
+    const week = screen.getByRole("button", { name: /^Недела .*\d+\/\d+ · / });
+    expect(week).toHaveAttribute("aria-expanded", "false");
+    await user.click(week);
+    expect(screen.getByText("Тренинзи")).toBeInTheDocument();
   });
 });

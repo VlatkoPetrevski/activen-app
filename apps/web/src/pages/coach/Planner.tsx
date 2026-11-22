@@ -11,7 +11,8 @@ import { MonthCalendar, monthGrid, monthOf } from "../../training/MonthCalendar.
 import { PlanCompare } from "../../training/PlanCompare.js";
 import { PlanEditor } from "../../training/PlanEditor.js";
 import { athleteTarget, type PlanTarget } from "../../training/target.js";
-import { WeekStats } from "../../training/WeekStats.js";
+import { WeekStats, WeekStatsSegment } from "../../training/WeekStats.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
 import { Dialog } from "../../ui/Dialog.js";
 import { Icon } from "../../ui/Icon.js";
 import { Empty, QueryView } from "../../ui/States.js";
@@ -27,6 +28,7 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
     null,
   );
   const [opened, setOpened] = useState<{ id: string; name: string } | null>(null);
+  const mobile = useIsMobile();
   const week = weekOf(anchor);
   const grid = monthGrid(month);
 
@@ -119,7 +121,12 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
           onPickDay={goTo}
           onMonth={setMonth}
         />
-        {weekQuery.data && <WeekStats calendar={weekQuery.data} from={week.from} to={week.to} />}
+        {weekQuery.data &&
+          (mobile ? (
+            <WeekStatsSegment calendar={weekQuery.data} from={week.from} to={week.to} />
+          ) : (
+            <WeekStats calendar={weekQuery.data} from={week.from} to={week.to} />
+          ))}
       </aside>
 
       <PlanEditor
