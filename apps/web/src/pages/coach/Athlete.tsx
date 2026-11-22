@@ -16,6 +16,8 @@ import { Segment } from "../../ui/Segment.js";
 import { Loading, QueryView } from "../../ui/States.js";
 import { CoachThread } from "./CoachThread.js";
 import { signalText } from "./Dashboard.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
+import { Tabs } from "../../ui/Tabs.js";
 import { useCoachAthletes } from "./hooks.js";
 
 export function CoachAthletePage() {
@@ -26,6 +28,7 @@ export function CoachAthletePage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const rows = useCoachAthletes();
+  const mobile = useIsMobile();
   const row = rows.data?.find((r) => r.athleteId === athleteId);
   const target = useMemo(() => athleteTarget(api, athleteId), [api, athleteId]);
   const shared = row?.scopes.includes("activities") ?? false;
@@ -51,57 +54,109 @@ export function CoachAthletePage() {
       </div>
     );
 
+  const firstName = row.displayName.split(" ")[0] ?? "";
+  const endButton = (
+    <button
+      type="button"
+      className="btn btn-danger btn-small"
+      onClick={() =>
+        void confirm(t("coachApp.endConfirm", { name: row.displayName }), {
+          confirmLabel: t("coachApp.end"),
+        }).then(async (ok) => {
+          if (!ok) return;
+          await api.endAthlete(athleteId);
+          navigate("/coach");
+        })
+      }
+    >
+      {t("coachApp.end")}
+    </button>
+  );
+  const chips = (
+    <div className="row wrap" style={{ marginTop: 4 }}>
+      {row.scopes.map((s) => (
+        <span key={s} className="chip teal">
+          {t(`coach.scope.${s}`)}
+        </span>
+      ))}
+      {row.signals.map((s) => (
+        <span key={s.code} className="chip warn">
+          {signalText(t, f, s)}
+        </span>
+      ))}
+    </div>
+  );
+  const briefingView = sleepShared ? (
+    briefing.data && <BriefingCard briefing={briefing.data} title={t("briefing.forCoach")} />
+  ) : (
+    <div className="alert info">{t("briefing.notShared", { name: row.displayName })}</div>
+  );
+  const plan = <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />;
+  const progressView = (
+    <>
+      {shared && (
+        <Link to={`/coach/analytics/${athleteId}`} className="btn btn-secondary">
+          <Icon name="progress" size={16} /> {t("analytics.openAthlete", { name: row.displayName })}
+        </Link>
+      )}
+      {shared ? (
+        <QueryView query={progress}>{(data) => <ProgressView data={data} />}</QueryView>
+      ) : (
+        <div className="alert info">{t("coachApp.notShared", { name: row.displayName })}</div>
+      )}
+    </>
+  );
+  const back = (
+    <Link to="/coach" className="btn btn-ghost btn-small" style={{ alignSelf: "flex-start" }}>
+      <Icon name="chevronLeft" size={16} /> {t("nav.athletes")}
+    </Link>
+  );
+
+  if (mobile)
+    return (
+      <div className="stack-l coach-athlete-mobile">
+        {back}
+        <header className="row">
+          <Avatar name={row.displayName} />
+          <h1 className="grow">{row.displayName}</h1>
+        </header>
+        {chips}
+        {briefingView}
+        <Tabs
+          label={row.displayName}
+          tabs={[
+            { key: "plan", title: t("nav.plan"), content: plan },
+            {
+              key: "messages",
+              title: t("nav.messages"),
+              content: <CoachThread athleteId={athleteId} />,
+            },
+            { key: "progress", title: t("nav.progress"), content: progressView },
+          ]}
+          initial={row.signals.some((x) => x.code === "awaiting_reply") ? "messages" : "plan"}
+        />
+        <div>{endButton}</div>
+      </div>
+    );
+
   return (
     <div className="stack-l">
-      <Link to="/coach" className="btn btn-ghost btn-small" style={{ alignSelf: "flex-start" }}>
-        <Icon name="chevronLeft" size={16} /> {t("nav.athletes")}
-      </Link>
+      {back}
       <header className="row wrap">
         <Avatar name={row.displayName} large />
         <div className="grow">
           <h1>{row.displayName}</h1>
-          <div className="row wrap" style={{ marginTop: 4 }}>
-            {row.scopes.map((s) => (
-              <span key={s} className="chip teal">
-                {t(`coach.scope.${s}`)}
-              </span>
-            ))}
-            {row.signals.map((s) => (
-              <span key={s.code} className="chip warn">
-                {signalText(t, f, s)}
-              </span>
-            ))}
-          </div>
+          {chips}
         </div>
-        <button
-          type="button"
-          className="btn btn-danger btn-small"
-          onClick={() =>
-            void confirm(t("coachApp.endConfirm", { name: row.displayName }), {
-              confirmLabel: t("coachApp.end"),
-            }).then(async (ok) => {
-              if (!ok) return;
-              await api.endAthlete(athleteId);
-              navigate("/coach");
-            })
-          }
-        >
-          {t("coachApp.end")}
-        </button>
+        {endButton}
       </header>
       <div className="coach-grid">
         <div className="stack-l">
-          <h2>{t("coachApp.planFor", { name: row.displayName.split(" ")[0] ?? "" })}</h2>
-          <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />
+          <h2>{t("coachApp.planFor", { name: firstName })}</h2>
+          {plan}
         </div>
         <div className="stack-l">
-          {sleepShared ? (
-            briefing.data && (
-              <BriefingCard briefing={briefing.data} title={t("briefing.forCoach")} />
-            )
-          ) : (
-            <div className="alert info">{t("briefing.notShared", { name: row.displayName })}</div>
-          )}
+          {briefingView}
           <div className="segments">
             <Segment
               defaultOpen={row.signals.some((x) => x.code === "awaiting_reply")}
@@ -118,17 +173,7 @@ export function CoachAthletePage() {
               <CoachThread athleteId={athleteId} />
             </Segment>
           </div>
-          {shared && (
-            <Link to={`/coach/analytics/${athleteId}`} className="btn btn-secondary">
-              <Icon name="progress" size={16} />{" "}
-              {t("analytics.openAthlete", { name: row.displayName })}
-            </Link>
-          )}
-          {shared ? (
-            <QueryView query={progress}>{(data) => <ProgressView data={data} />}</QueryView>
-          ) : (
-            <div className="alert info">{t("coachApp.notShared", { name: row.displayName })}</div>
-          )}
+          {progressView}
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { Icon, SportIcon } from "../../ui/Icon.js";
 import { Segment } from "../../ui/Segment.js";
 import { Empty, QueryView } from "../../ui/States.js";
 import { ConsentInfo } from "../../training/ConsentInfo.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
 import { useCoachAthletes } from "./hooks.js";
 
 export function signalText(t: T, f: Formatter, s: CoachSignal): string {
@@ -198,10 +199,55 @@ function AthleteRow({ r }: { r: CoachAthleteDto }) {
   );
 }
 
+/**
+ * Phones: one compact card per athlete, attention first — name, the week (bar, sessions, km)
+ * and the signals. A tap opens the athlete.
+ */
+function AthleteCard({ r }: { r: CoachAthleteDto }) {
+  const { t, f } = useI18n();
+  const km = r.weekTotals?.distanceInMeters;
+  return (
+    <Link to={`/coach/athletes/${r.athleteId}`} className="card athlete-card">
+      <span className="row">
+        <Avatar name={r.displayName} />
+        <strong className="grow">{r.displayName}</strong>
+        {r.status === "invited" && <span className="chip">{t("coachApp.invited")}</span>}
+        <Icon name="chevronRight" size={18} />
+      </span>
+      {r.status === "active" && (
+        <span className="row">
+          <span className="progress-track grow">
+            <span
+              style={{
+                width: r.week.planned ? `${(r.week.completed / r.week.planned) * 100}%` : "0%",
+              }}
+            />
+          </span>
+          <span className="small num">
+            {r.week.completed}/{r.week.planned}
+            {km ? ` · ${f.distance(km, 1)}` : ""}
+          </span>
+        </span>
+      )}
+      {r.signals.length > 0 && (
+        <span className="row wrap">
+          {r.signals.map((s) => (
+            <span key={s.code} className={`chip ${s.code === "awaiting_reply" ? "teal" : "warn"}`}>
+              {s.code !== "awaiting_reply" && <Icon name="alert" size={14} />}
+              {signalText(t, f, s)}
+            </span>
+          ))}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export function CoachDashboard() {
   const { t, f } = useI18n();
   const query = useCoachAthletes();
   const [inviting, setInviting] = useState(false);
+  const mobile = useIsMobile();
 
   return (
     <div className="stack-l">
@@ -220,6 +266,14 @@ export function CoachDashboard() {
               </section>
             );
           const attention = rows.filter((r) => r.signals.length > 0);
+          if (mobile)
+            return (
+              <div className="athlete-cards">
+                {rows.map((r) => (
+                  <AthleteCard key={r.linkId} r={r} />
+                ))}
+              </div>
+            );
           return (
             <>
               <section className="stack">

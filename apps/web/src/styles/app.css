@@ -1129,6 +1129,108 @@ dialog.sheet::backdrop {
   display: grid;
   gap: 16px;
 }
+/* Grid children may shrink below their content (long plan texts, threads), never past the screen. */
+.coach-grid > * {
+  min-width: 0;
+}
+@media (min-width: 721px) {
+  .messages-grid {
+    grid-template-columns: minmax(240px, 1fr) 2fr;
+  }
+}
+
+/* --- Coach on phones: section menu, athlete cards, tabs ---------------------------------------- */
+
+.section-menu {
+  position: relative;
+}
+.section-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+}
+.section-menu-button[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.section-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 14%);
+  z-index: 20;
+}
+.section-menu-list[hidden] {
+  display: none;
+}
+.section-menu-list .nav-item {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.section-menu-list .nav-item.active {
+  background: var(--primary-soft);
+}
+.athlete-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.athlete-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+.athlete-card .chip {
+  white-space: normal;
+  border-radius: 12px;
+}
+.tab-list {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+}
+.tab-list [role="tab"] {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.tab-list [role="tab"][aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+.tab-panel {
+  padding-top: 12px;
+}
 @media (min-width: 960px) {
   .coach-grid {
     grid-template-columns: 1.4fr 1fr;
@@ -2845,4 +2947,9 @@ div.import-report {
 }
 .conn-dot.warn {
   background: var(--warn);
+}
+.coach-top .section-menu-list .nav-item svg {
+  display: inline;
+  width: 16px;
+  height: 16px;
 }
