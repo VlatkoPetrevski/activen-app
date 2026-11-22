@@ -3096,3 +3096,31 @@ div.import-report {
     max-width: 980px;
   }
 }
+
+/* Profile: one setting per row (label left, control right, hint below). */
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setting-group + .setting-group {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setting-row > label {
+  font-weight: 600;
+}
+.setting-control {
+  width: 140px;
+  flex: none;
+}
+.setting-control.narrow {
+  width: 96px;
+}

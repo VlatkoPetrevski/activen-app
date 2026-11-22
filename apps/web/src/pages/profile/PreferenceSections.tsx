@@ -70,8 +70,9 @@ export function PreferenceSections() {
             : t("profile.briefing.off")
         }
       >
-        <div className="form-grid">
-          <label className="check full">
+        {/* One setting per row: the choice on the left, its control on the right, the hint below. */}
+        <div className="setting-group">
+          <label className="check">
             <input
               type="checkbox"
               checked={settings.briefingReminder.enabled}
@@ -84,11 +85,11 @@ export function PreferenceSections() {
             />
             {t("profile.briefingEmail")}
           </label>
-          <div className="field">
+          <div className="setting-row">
             <label htmlFor="briefing-time">{t("profile.briefingTime")}</label>
             <input
               id="briefing-time"
-              className="input num"
+              className="input num setting-control"
               type="time"
               step={300}
               defaultValue={settings.briefingReminder.time}
@@ -103,11 +104,14 @@ export function PreferenceSections() {
               }}
             />
           </div>
-          <div className="field">
+          <p className="small muted">{t("profile.briefingHint")}</p>
+        </div>
+        <div className="setting-group">
+          <div className="setting-row">
             <label htmlFor="sleep-need">{t("profile.sleepNeed")}</label>
             <input
               id="sleep-need"
-              className="input num"
+              className="input num setting-control narrow"
               type="number"
               min={5}
               max={12}
@@ -120,9 +124,8 @@ export function PreferenceSections() {
               }}
             />
           </div>
+          <p className="small muted">{t("profile.sleepNeedHint")}</p>
         </div>
-        <p className="small muted">{t("profile.briefingHint")}</p>
-        <p className="small muted">{t("profile.sleepNeedHint")}</p>
       </Section>
       <SourcesSection editor={editor} />
       <Section
