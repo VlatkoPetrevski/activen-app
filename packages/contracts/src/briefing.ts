@@ -20,13 +20,15 @@ import {
 import type { PlanEntryDto, WellnessDto } from "./responses.js";
 import type { Viewer } from "./viewer.js";
 
-/** What the athlete entered this morning: sleep (a range), how the night was, resting pulse. */
+/**
+ * What the athlete entered this morning when the watch had no night: sleep (a range) and how the
+ * night was. The resting pulse comes only from a device.
+ */
 export interface MorningInputDto {
   /** The middle of the chosen range (see {@link SLEEP_RANGES}). */
   sleepDurationInSeconds: number | null;
   /** 1 (very poor) – 5 (excellent). */
   sleepQuality: number | null;
-  restingHeartRate: number | null;
 }
 
 /** Sleep is entered as a range; the ranges live in the domain with the readiness rules. */
@@ -100,7 +102,6 @@ export function buildBriefing(input: BriefingInput): BriefingDto {
       ? {
           sleepDurationInSeconds: manual.sleepDurationInSeconds,
           sleepQuality: manual.sleepQuality,
-          restingHeartRate: manual.restingHeartRate,
         }
       : null,
   };

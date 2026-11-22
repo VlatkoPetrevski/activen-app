@@ -34,7 +34,14 @@ export function BriefingCard({
   const [editing, setEditing] = useState(false);
   const text = briefingText(translator, f, readiness, advice);
   const tone = noData ? "teal" : VERDICT_TONE[advice.verdict];
-  const showForm = onSaveMorning && (noData || editing);
+  // Entering sleep is only for a morning the watch did not record (or to change what was entered).
+  const day = briefing.today;
+  const deviceNight =
+    !!day &&
+    ((day.sleepScore != null && day.sources.sleepScore !== "manual") ||
+      (day.sleepDurationInSeconds != null && day.sources.sleepDurationInSeconds !== "manual"));
+  const canEnter = !!onSaveMorning && !deviceNight;
+  const showForm = canEnter && (noData || editing);
 
   return (
     <section className={`card stack briefing tone-${tone}`} aria-label={t("briefing.title")}>
@@ -81,7 +88,7 @@ export function BriefingCard({
             : {})}
         />
       ) : (
-        onSaveMorning && (
+        canEnter && (
           <button
             type="button"
             className="btn btn-ghost btn-small"

@@ -87,7 +87,7 @@ export function TodayPage() {
   const saveMorning = async (input: MorningInputDto | null) => {
     const next = await api.saveMorningInput(
       today,
-      input ?? { sleepDurationInSeconds: null, sleepQuality: null, restingHeartRate: null },
+      input ?? { sleepDurationInSeconds: null, sleepQuality: null },
     );
     queryClient.setQueryData(["me", "briefing", today], next);
   };
@@ -99,22 +99,28 @@ export function TodayPage() {
   const coach = coaches.data?.find((c) => c.status === "active");
   const firstName = me.user.displayName.split(" ")[0] ?? me.user.displayName;
 
+  const head = (
+    <header className="today-head">
+      <h1>{t(greetingKey(new Date()), { name: firstName })}</h1>
+      <span className="muted small">{f.date(today, "long")}</span>
+    </header>
+  );
+  const readinessBlock = (
+    <div className="segments">
+      <WeatherSegment timeZone={me.settings.timeZone} />
+      {briefing.isPending ? (
+        <div className="segment skeleton" aria-hidden />
+      ) : (
+        <ReadinessSegment briefing={briefing.data ?? null} />
+      )}
+    </div>
+  );
+
+  // Phones: one column. Desktop: everything in one window — the morning on the left, today's
+  // session and the week on the right, the greeting up beside the logo.
   return (
-    <div className="stack-l">
-      <header className="stack" style={{ gap: 2 }}>
-        <span className="muted small">{f.date(today, "long")}</span>
-        <h1>{t(greetingKey(new Date()), { name: firstName })}</h1>
-      </header>
-
-      <div className="segments">
-        <WeatherSegment timeZone={me.settings.timeZone} />
-        {briefing.isPending ? (
-          <div className="segment skeleton" aria-hidden />
-        ) : (
-          <ReadinessSegment briefing={briefing.data ?? null} />
-        )}
-      </div>
-
+    <div className="today">
+      {head}
       <QueryView query={calendar}>
         {(cal) => {
           const days = buildDays(cal, week.days, today);
@@ -126,43 +132,50 @@ export function TodayPage() {
             .reduce((s, a) => s + (a.distanceInMeters ?? 0), 0);
 
           return (
-            <>
-              {briefing.data && (
-                <BriefingCard briefing={briefing.data} onSaveMorning={saveMorning} />
-              )}
-              <section className="card stack">
-                <div className="card-title" style={{ marginBottom: 0 }}>
-                  <h2>{t("today.planToday")}</h2>
-                  <Link to="/plan" className="btn btn-ghost btn-small">
-                    {t("nav.plan")} <Icon name="chevronRight" size={16} />
-                  </Link>
-                </div>
-                {todayView && todayView.entries.length > 0 ? (
-                  todayView.entries.map((d) => <TodayEntry key={d.entry.id} d={d} coach={coach} />)
-                ) : (
-                  <div className="row-between">
-                    <p className="muted">{t("today.noPlan")}</p>
-                    <Link to="/plan" className="btn btn-secondary btn-small">
-                      <Icon name="plus" size={16} /> {t("today.addPlan")}
+            <div className="today-grid">
+              <div className="today-morning stack-l">
+                {readinessBlock}
+                {briefing.data && (
+                  <BriefingCard briefing={briefing.data} onSaveMorning={saveMorning} />
+                )}
+              </div>
+              <div className="today-day stack-l">
+                <section className="card stack">
+                  <div className="card-title" style={{ marginBottom: 0 }}>
+                    <h2>{t("today.planToday")}</h2>
+                    <Link to="/plan" className="btn btn-ghost btn-small">
+                      {t("nav.plan")} <Icon name="chevronRight" size={16} />
                     </Link>
                   </div>
-                )}
-              </section>
+                  {todayView && todayView.entries.length > 0 ? (
+                    todayView.entries.map((d) => (
+                      <TodayEntry key={d.entry.id} d={d} coach={coach} />
+                    ))
+                  ) : (
+                    <div className="row-between">
+                      <p className="muted">{t("today.noPlan")}</p>
+                      <Link to="/plan" className="btn btn-secondary btn-small">
+                        <Icon name="plus" size={16} /> {t("today.addPlan")}
+                      </Link>
+                    </div>
+                  )}
+                </section>
 
-              <section className="card stack">
-                <div className="row-between">
-                  <h2>{t("today.week")}</h2>
-                  <span className="small muted num">
-                    {t("today.weekProgress", {
-                      done: done.length,
-                      planned: workouts.length,
-                      distance: f.distance(distance, 1),
-                    })}
-                  </span>
-                </div>
-                <WeekStrip days={days} today={today} />
-              </section>
-            </>
+                <section className="card stack">
+                  <div className="row-between">
+                    <h2>{t("today.week")}</h2>
+                    <span className="small muted num">
+                      {t("today.weekProgress", {
+                        done: done.length,
+                        planned: workouts.length,
+                        distance: f.distance(distance, 1),
+                      })}
+                    </span>
+                  </div>
+                  <WeekStrip days={days} today={today} />
+                </section>
+              </div>
+            </div>
           );
         }}
       </QueryView>

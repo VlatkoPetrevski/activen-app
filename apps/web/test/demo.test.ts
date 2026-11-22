@@ -15,8 +15,12 @@ describe("DemoApi as athlete", () => {
     await api.signInDemo("athlete");
     const me = await api.me();
     expect(me.user).toMatchObject({ displayName: "Влатко Петревски", roles: ["athlete"] });
+    // The demo watch recorded earlier nights; last night (today) it recorded pulse and HRV only.
+    const yesterday = await api.briefing("2026-11-18");
+    expect(yesterday.today?.sleepScore).toEqual(expect.any(Number));
     const briefing = await api.briefing("2026-11-19");
-    expect(briefing.today).toMatchObject({ sleepScore: 81, restingHeartRate: 48 });
+    expect(briefing.today).toMatchObject({ sleepScore: null, sleepDurationInSeconds: null });
+    expect(briefing.today?.restingHeartRate).toEqual(expect.any(Number));
     expect(briefing.readiness.score).toBeGreaterThanOrEqual(50);
     const cal = await api.calendar("2026-11-16", "2026-11-22");
     expect(cal.entries).toHaveLength(7);

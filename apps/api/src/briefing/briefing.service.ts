@@ -106,7 +106,7 @@ export class BriefingService {
       sleepDurationInSeconds: input.sleepDurationInSeconds,
       sleepScore: null,
       sleepQuality: input.sleepQuality,
-      restingHeartRate: input.restingHeartRate,
+      restingHeartRate: null,
       lastNightHrvMs: null,
       vendorReadiness: null,
     });

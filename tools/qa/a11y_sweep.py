@@ -21,7 +21,7 @@ async def run(width):
         await check(pg, f"{width} sign-in")
         await pg.get_by_role("button", name="Пробај како спортист").click(); await pg.wait_for_timeout(1500)
         await check(pg, f"{width} today")
-        await pg.get_by_role("button", name="Внеси сон и пулс").click(); await check(pg, f"{width} today-morning-input")
+        await pg.get_by_role("button", name="Внеси сон").click(); await check(pg, f"{width} today-morning-input")
         nav = lambda n: pg.get_by_role("link", name=n).last.click()
         await nav("План"); await check(pg, f"{width} plan")
         await nav("Активности"); await check(pg, f"{width} activities")

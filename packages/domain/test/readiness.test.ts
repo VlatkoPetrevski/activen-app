@@ -67,9 +67,10 @@ describe("mergeWellness", () => {
     );
     expect(day).toMatchObject({
       sleepScore: 80,
-      restingHeartRate: 47,
+      // What was entered only fills gaps: the devices' pulse wins.
+      restingHeartRate: 49,
       lastNightHrvMs: 55,
-      sources: { sleepScore: "garmin", restingHeartRate: "manual", lastNightHrvMs: "polar" },
+      sources: { sleepScore: "garmin", restingHeartRate: "polar", lastNightHrvMs: "polar" },
     });
   });
 
@@ -130,8 +131,19 @@ describe("factors", () => {
         day({ sleepScore: 90, sleepQuality: 2, sources: { sleepQuality: "manual" } }),
         8 * 3600,
       ),
-    ).toMatchObject({ score: 35, unit: "seconds" });
-    // Typed-in sleep wins over the watch's score of the same night.
+    ).toMatchObject({ score: 90, unit: "score" });
+    // A watch's duration without a score: the rating entered for that night does not count.
+    expect(
+      sleepFactor(
+        day({
+          sleepDurationInSeconds: 8 * 3600,
+          sleepQuality: 1,
+          sources: { sleepQuality: "manual" },
+        }),
+        8 * 3600,
+      ),
+    ).toMatchObject({ score: 100, quality: null, typed: false });
+    // The watch's night wins over what was typed.
     expect(
       sleepFactor(
         day({
@@ -141,7 +153,7 @@ describe("factors", () => {
         }),
         8 * 3600,
       ),
-    ).toMatchObject({ unit: "seconds", score: 0 });
+    ).toMatchObject({ unit: "score", score: 85 });
     expect(sleepFactor(day({ sleepDurationInSeconds: 0 }), 8 * 3600).status).toBe("missing");
   });
 

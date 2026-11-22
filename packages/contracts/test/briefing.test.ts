@@ -76,19 +76,21 @@ const base = {
 };
 
 describe("buildBriefing", () => {
-  it("a short night with a raised pulse turns intervals into an easy run, manual input wins", () => {
+  it("no night from the watch: the entered sleep counts; a later watch night replaces it", () => {
+    const records = [
+      ...history,
+      // The watch measured HRV and pulse, but recorded no sleep.
+      rec(TODAY, { sleepDurationInSeconds: null, restingHeartRate: 50 }),
+      rec(TODAY, {
+        source: "manual",
+        sleepDurationInSeconds: 4.5 * 3600,
+        lastNightHrvMs: null,
+        restingHeartRate: null,
+      }),
+    ];
     const b = buildBriefing({
       ...base,
-      records: [
-        ...history,
-        rec(TODAY, { sleepDurationInSeconds: 6.5 * 3600, restingHeartRate: 50 }),
-        rec(TODAY, {
-          source: "manual",
-          sleepDurationInSeconds: 4.5 * 3600,
-          lastNightHrvMs: null,
-          restingHeartRate: 56,
-        }),
-      ],
+      records,
       entries: [entry({ id: "pm", sequence: 1, description: "Easy" }), entry({})],
     });
     expect(b.planEntry?.id).toBe("p1");
@@ -96,11 +98,18 @@ describe("buildBriefing", () => {
       sleepDurationInSeconds: 4.5 * 3600,
       sources: { sleepDurationInSeconds: "manual", lastNightHrvMs: "polar" },
     });
-    expect(b.morningInput).toEqual({
-      sleepDurationInSeconds: 4.5 * 3600,
-      sleepQuality: null,
-      restingHeartRate: 56,
+    expect(b.morningInput).toEqual({ sleepDurationInSeconds: 4.5 * 3600, sleepQuality: null });
+    const later = buildBriefing({
+      ...base,
+      records: records.map((r) =>
+        r.calendarDate === TODAY && r.source === "polar"
+          ? { ...r, sleepDurationInSeconds: 8 * 3600 }
+          : r,
+      ),
+      entries: [entry({})],
     });
+    expect(later.today?.sources.sleepDurationInSeconds).toBe("polar");
+    expect(later.advice.verdict).toBe("as_planned");
     expect(b.readiness.level).toBe("LOW");
     expect(b.advice).toMatchObject({
       verdict: "swap_easy",

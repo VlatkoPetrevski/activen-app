@@ -120,7 +120,7 @@ describe("morning email", () => {
     await worker().runOnce(AT_0640);
     const [email] = to(athlete);
     expect(email?.subject).toBe("Good morning — how did you sleep?");
-    expect(email?.text).toContain("Enter them here: https://app.activen.test/");
+    expect(email?.text).toContain("Enter your sleep here: https://app.activen.test/");
     expect(email?.text).toContain("Good morning, ");
   });
 

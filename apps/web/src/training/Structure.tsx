@@ -10,7 +10,8 @@ export function Structure({
   entry: Pick<PlanEntryDto, "kind" | "description" | "plannedActivityType" | "structure">;
 }) {
   const blocks = workoutStructure(entry);
-  if (blocks.length === 0) return null;
+  // One block (an easy run) says nothing a bar could add.
+  if (blocks.length < 2) return null;
   return (
     <div className="workout-structure" aria-hidden>
       {blocks.map((b, i) => (

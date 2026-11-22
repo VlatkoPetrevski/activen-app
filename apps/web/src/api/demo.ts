@@ -231,8 +231,16 @@ function demoMornings(
   list: Parameters<typeof wellnessRecordsOf>[0],
   today: LocalDate,
   badNight: boolean,
+  /** The watch measured pulse and HRV but recorded no sleep (worn loose, charged overnight). */
+  missedNight = false,
 ): WellnessRecord[] {
   const records = wellnessRecordsOf(list, "garmin");
+  if (missedNight)
+    return records.map((r) =>
+      r.calendarDate === today
+        ? { ...r, sleepScore: null, sleepDurationInSeconds: null, vendorReadiness: null }
+        : r,
+    );
   if (!badNight) return records;
   return records.map((r) =>
     r.calendarDate === today
@@ -345,7 +353,8 @@ export class DemoApi implements Api {
         })),
         activities,
         feedback,
-        wellness: demoMornings(demo.wellness, today, badNight),
+        // The signed-in demo athlete's watch missed last night, so the sleep entry shows.
+        wellness: demoMornings(demo.wellness, today, badNight, i === 0),
         link: {
           id: `link-${r.id}`,
           status: "active",
@@ -629,18 +638,14 @@ export class DemoApi implements Api {
     if (date > today || date < addDays(today, -7))
       throw new ApiError(422, "The morning input is for today or at most 7 days back");
     a.wellness = a.wellness.filter((w) => !(w.calendarDate === date && w.source === "manual"));
-    if (
-      input.sleepDurationInSeconds !== null ||
-      input.sleepQuality !== null ||
-      input.restingHeartRate !== null
-    )
+    if (input.sleepDurationInSeconds !== null || input.sleepQuality !== null)
       a.wellness.push({
         calendarDate: date,
         source: "manual",
         sleepDurationInSeconds: input.sleepDurationInSeconds,
         sleepScore: null,
         sleepQuality: input.sleepQuality,
-        restingHeartRate: input.restingHeartRate,
+        restingHeartRate: null,
         lastNightHrvMs: null,
         vendorReadiness: null,
       });

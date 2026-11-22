@@ -7,8 +7,9 @@ import { useI18n } from "../i18n/I18nContext.js";
 const SLEEP_EMOJI = ["😫", "😕", "🙂", "😊", "🤩"] as const;
 
 /**
- * The morning input: roughly how long the athlete slept (a range), how the night was (1–5, the
- * check-in faces) and the resting pulse. Every part is optional; one is enough.
+ * The morning input when the watch recorded no night: roughly how long the athlete slept (a
+ * range) and how the night was (1–5, the check-in faces). Either is enough. The resting pulse
+ * comes only from a device.
  */
 export function MorningInputForm({
   initial,
@@ -26,17 +27,12 @@ export function MorningInputForm({
     sleepRangeIndex(initial?.sleepDurationInSeconds ?? null),
   );
   const [quality, setQuality] = useState<number | null>(initial?.sleepQuality ?? null);
-  const [pulse, setPulse] = useState(
-    initial?.restingHeartRate == null ? "" : String(initial.restingHeartRate),
-  );
   const [state, setState] = useState<"idle" | "saving" | "invalid" | "error">("idle");
 
   const parse = (): MorningInputDto | null => {
-    const p = pulse.trim() === "" ? null : Number(pulse);
-    if (p !== null && (!Number.isInteger(p) || p < 25 || p > 120)) return null;
     const seconds = range === null ? null : (SLEEP_RANGES[range]?.seconds ?? null);
-    if (seconds === null && quality === null && p === null) return null;
-    return { sleepDurationInSeconds: seconds, sleepQuality: quality, restingHeartRate: p };
+    if (seconds === null && quality === null) return null;
+    return { sleepDurationInSeconds: seconds, sleepQuality: quality };
   };
 
   const submit = async (e: FormEvent) => {
@@ -99,19 +95,6 @@ export function MorningInputForm({
             <span>{t(sleepQualityKey(i + 1))}</span>
           </button>
         ))}
-      </div>
-      <div className="field morning-pulse">
-        <label htmlFor={`${id}-p`}>{t("briefing.morning.pulse")}</label>
-        <input
-          id={`${id}-p`}
-          className="input num"
-          type="number"
-          inputMode="numeric"
-          min={25}
-          max={120}
-          value={pulse}
-          onChange={(e) => setPulse(e.target.value)}
-        />
       </div>
       {state === "invalid" && (
         <p className="small" role="alert" style={{ color: "var(--bad)" }}>

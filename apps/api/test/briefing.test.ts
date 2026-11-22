@@ -37,6 +37,24 @@ async function history(athlete: TestUser) {
   for (let i = 0; i < 12; i++) await addActivity(h, athlete.id, addDays(today(), -1 - i * 2));
 }
 
+/** What the watch delivered this morning: pulse and HRV, but no night. */
+async function watchMorning(
+  athlete: TestUser,
+  restingHeartRate: number,
+  sleep: number | null = null,
+) {
+  await h.repos.wellness.put(athlete.id, {
+    calendarDate: today(),
+    source: "polar",
+    sleepDurationInSeconds: sleep,
+    sleepScore: null,
+    sleepQuality: null,
+    restingHeartRate,
+    lastNightHrvMs: 61,
+    vendorReadiness: null,
+  });
+}
+
 const intervals = () =>
   planBody(today(), {
     description: "Интервали",
@@ -87,16 +105,17 @@ describe("morning briefing", () => {
     });
   });
 
-  it("the athlete types sleep and pulse; a short night turns intervals into an easy run", async () => {
+  it("no night from the watch: the athlete enters sleep; a short night turns intervals easy", async () => {
     const athlete = await signIn(h);
     await history(athlete);
+    await watchMorning(athlete, 48);
     await h.http().post("/v1/me/plan").set(athlete.auth).send(intervals()).expect(201);
 
     const good = await h
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: 8 * 3600, restingHeartRate: 48 })
+      .send({ sleepDurationInSeconds: 8 * 3600 })
       .expect(200);
     expect(good.body.advice.verdict).toBe("as_planned");
     expect(good.body.readiness).toMatchObject({ confidence: "high" });
@@ -105,11 +124,11 @@ describe("morning briefing", () => {
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: 4.5 * 3600, restingHeartRate: 56 })
+      .send({ sleepDurationInSeconds: 4.5 * 3600 })
       .expect(200);
     expect(bad.body).toMatchObject({
-      morningInput: { sleepDurationInSeconds: 16_200, restingHeartRate: 56 },
-      today: { sources: { sleepDurationInSeconds: "manual", restingHeartRate: "manual" } },
+      morningInput: { sleepDurationInSeconds: 16_200, sleepQuality: null },
+      today: { sources: { sleepDurationInSeconds: "manual", restingHeartRate: "polar" } },
       readiness: { level: "LOW" },
       advice: {
         verdict: "swap_easy",
@@ -128,25 +147,27 @@ describe("morning briefing", () => {
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: 5.5 * 3600, sleepQuality: 1, restingHeartRate: 48 })
+      .send({ sleepDurationInSeconds: 5.5 * 3600, sleepQuality: 1 })
       .expect(200);
-    expect(rated.body.morningInput).toEqual({
-      sleepDurationInSeconds: 19_800,
-      sleepQuality: 1,
-      restingHeartRate: 48,
-    });
+    expect(rated.body.morningInput).toEqual({ sleepDurationInSeconds: 19_800, sleepQuality: 1 });
     expect(rated.body.readiness.factors[0]).toMatchObject({
       key: "sleep",
       quality: 1,
       status: "poor",
     });
 
+    // The night from the watch arrives later: it replaces what was entered.
+    await watchMorning(athlete, 48, 7.8 * 3600);
+    const synced = await h.http().get("/v1/me/briefing").set(athlete.auth).expect(200);
+    expect(synced.body.today.sources.sleepDurationInSeconds).toBe("polar");
+    expect(synced.body.readiness.factors[0]).toMatchObject({ key: "sleep", quality: null });
+
     // Clearing the input.
     const cleared = await h
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: null, sleepQuality: null, restingHeartRate: null })
+      .send({ sleepDurationInSeconds: null, sleepQuality: null })
       .expect(200);
     expect(cleared.body.morningInput).toBeNull();
   });
@@ -155,16 +176,17 @@ describe("morning briefing", () => {
     const athlete = await signIn(h);
     const put = (date: string, body: object) =>
       h.http().put(`/v1/me/wellness/${date}`).set(athlete.auth).send(body);
-    const ok = { sleepDurationInSeconds: 25_000, restingHeartRate: 50 };
+    const ok = { sleepDurationInSeconds: 25_000 };
     await put(addDays(today(), 1), ok).expect(422);
     await put(addDays(today(), -8), ok).expect(422);
     await put(addDays(today(), -7), ok).expect(200);
     await put("21-11-2026", ok).expect(400);
-    await put(today(), { ...ok, restingHeartRate: 10 }).expect(422);
+    // The resting pulse comes only from a device.
+    await put(today(), { ...ok, restingHeartRate: 50 }).expect(422);
     await put(today(), { ...ok, mood: 3 }).expect(422);
     await put(today(), { ...ok, sleepQuality: 6 }).expect(422);
     await put(today(), { ...ok, sleepQuality: 2.5 }).expect(422);
-    await put(today(), { sleepDurationInSeconds: 20 * 3600, restingHeartRate: null }).expect(422);
+    await put(today(), { sleepDurationInSeconds: 20 * 3600 }).expect(422);
     await h.http().get("/v1/me/briefing?date=tomorrow").set(athlete.auth).expect(422);
     const past = await h
       .http()
@@ -207,11 +229,12 @@ describe("the coach and the briefing", () => {
     const athlete = await signIn(h);
     await history(athlete);
     await h.http().post("/v1/me/plan").set(athlete.auth).send(intervals()).expect(201);
+    await watchMorning(athlete, 57);
     await h
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: 4 * 3600, restingHeartRate: 57 })
+      .send({ sleepDurationInSeconds: 4 * 3600 })
       .expect(200);
 
     const linkId = await link(h, coach, athlete, ["comments"]);

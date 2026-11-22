@@ -64,15 +64,15 @@ export interface WellnessDay {
 }
 
 /**
- * Merges records field by field. What the athlete typed in the morning wins (it is a deliberate
- * correction); then vendors in the athlete's source priority; then any other vendor.
+ * Merges records field by field: vendors in the athlete's source priority, then any other
+ * vendor, and last what the athlete entered in the morning (it only fills what no device has).
  */
 export function mergeWellness(
   records: readonly WellnessRecord[],
   priority: readonly Vendor[] = [],
 ): WellnessDay[] {
   const rank = (s: WellnessSource) => {
-    if (s === "manual") return -1;
+    if (s === "manual") return priority.length + 1;
     const i = priority.indexOf(s);
     return i === -1 ? priority.length : i;
   };
@@ -258,17 +258,19 @@ export const SLEEP_QUALITY_SCORE: Readonly<Record<number, number>> = Object.free
 });
 
 /**
- * Sleep: the vendor's sleep score when present, otherwise duration vs. need (half the need → 0).
- * What the athlete typed in (duration range and/or quality) replaces the watch's night; duration
- * and quality are averaged when both are given.
+ * Sleep: the device's sleep score when present, otherwise duration vs. need (half the need → 0).
+ * Only without a night from a device does what the athlete entered count: the duration range
+ * and the rating of the night, averaged when both are given.
  */
 export function sleepFactor(day: WellnessDay | undefined, needSeconds: number): ReadinessFactor {
-  const typed =
-    day?.sources.sleepDurationInSeconds === "manual" || day?.sources.sleepQuality === "manual";
-  if (day?.sleepScore != null && !typed)
+  const fromDevice = (field: "sleepScore" | "sleepDurationInSeconds") =>
+    day?.[field] != null && day.sources[field] !== "manual";
+  // The watch recorded the night: its score (or duration) is the night; nothing typed counts.
+  if (fromDevice("sleepScore") && day?.sleepScore != null)
     return factor("sleep", "score", day.sleepScore, day.sleepScore, null);
+  const watchNight = fromDevice("sleepDurationInSeconds");
   const d = day?.sleepDurationInSeconds;
-  const q = day?.sleepQuality ?? null;
+  const q = watchNight ? null : (day?.sleepQuality ?? null);
   const qualityScore = q === null ? null : (SLEEP_QUALITY_SCORE[Math.round(q)] ?? null);
   const durationScore = d == null || d <= 0 ? null : ((d / needSeconds - 0.5) / 0.5) * 100;
   if (durationScore === null && qualityScore === null) return missing("sleep", "seconds");
