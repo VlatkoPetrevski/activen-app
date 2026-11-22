@@ -115,7 +115,8 @@ describe("coach on a phone (demo)", () => {
     // The interval session: total and main set in one line, what was done under it.
     const day = (await screen.findByText(/^\d+(,\d)?k: \d+×/)).closest("button")!;
     expect(day).toHaveAttribute("aria-expanded", "false");
-    expect(within(day).getByText(/^✓ .*RPE \d+/)).toBeInTheDocument();
+    expect(within(day).getByText(/RPE \d+/)).toBeInTheDocument();
+    expect(within(day).getByText("План")).toBeInTheDocument();
     await user.click(day);
     expect(day).toHaveAttribute("aria-expanded", "true");
     const details = document.getElementById(day.getAttribute("aria-controls")!)!;

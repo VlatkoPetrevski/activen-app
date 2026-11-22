@@ -210,12 +210,17 @@ export function PlanCompare({
                         <span
                           className={`cmp-short plan ${p.plan.entry.kind === "rest" ? "rest" : groupOf(p.plan.entry.plannedActivityType)}`}
                         >
+                          <span className="cmp-tag">{t("planner.plan")}</span>
                           {compactPlanText(f, t, p.plan.entry)}
                         </span>
                       )}
                       {p.activity ? (
                         <span className="cmp-short done num">
-                          ✓ {compactDoneText(f, p.activity, p.plan?.entry ?? null)}
+                          <span className="cmp-tag" aria-hidden>
+                            ✓
+                          </span>
+                          <span className="sr-only">{t("planner.done")}: </span>
+                          {compactDoneText(f, p.activity, p.plan?.entry ?? null)}
                         </span>
                       ) : p.plan?.status === "missed" ? (
                         <span className="cmp-short missed">{t("planner.missed")}</span>

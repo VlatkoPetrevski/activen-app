@@ -3297,3 +3297,12 @@ div.import-report {
 .segment .week-stats-list dd {
   margin: 0 0 2px;
 }
+/* Discreet "План" / "Направено" tag at the start of the short lines. */
+.cmp-tag {
+  margin-right: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
