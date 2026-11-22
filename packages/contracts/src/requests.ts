@@ -5,6 +5,7 @@
 import { ACTIVITY_TYPES, VENDORS, isLocalDate } from "@activen/domain";
 import { z } from "zod";
 import { CONSENT_SCOPES } from "./constants.js";
+import { isStartTime } from "./imports.js";
 
 const LOCALES = ["mk", "en"] as const;
 
@@ -194,6 +195,39 @@ export const PlanEntryUpdate = z
   .partial()
   .extend({ expectedVersion: z.number().int().min(1) })
   .strict();
+
+const optionalNumber = (min: number, max: number) => z.number().min(min).max(max).nullable();
+
+/** A workout entered by hand; see ManualActivityInput. */
+export const ManualActivityCreate = z
+  .object({
+    activityType: z.enum(ACTIVITY_TYPES),
+    activityName: z.string().trim().min(1).max(100).nullable().default(null),
+    date: localDate,
+    startTime: z.string().refine(isStartTime, "must be a time HH:MM"),
+    durationInSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(48 * 3600),
+    distanceInMeters: optionalNumber(0, 1_000_000).default(null),
+    totalElevationGainInMeters: optionalNumber(0, 20_000).default(null),
+    averageHeartRateInBeatsPerMinute: optionalNumber(30, 250).default(null),
+    maxHeartRateInBeatsPerMinute: optionalNumber(30, 250).default(null),
+    averagePowerInWatts: optionalNumber(0, 3000).default(null),
+    activeKilocalories: optionalNumber(0, 20_000).default(null),
+    perceivedEffort: z.number().int().min(1).max(10).nullable().default(null),
+    feel: z.number().int().min(1).max(5).nullable().default(null),
+    comment: z.string().max(2000).nullable().default(null),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      v.averageHeartRateInBeatsPerMinute === null ||
+      v.maxHeartRateInBeatsPerMinute === null ||
+      v.maxHeartRateInBeatsPerMinute >= v.averageHeartRateInBeatsPerMinute,
+    { message: "max heart rate below the average", path: ["maxHeartRateInBeatsPerMinute"] },
+  );
 
 export const FeedbackPut = z.object({
   /** 1 very easy … 10 maximal. */

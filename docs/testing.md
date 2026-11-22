@@ -107,4 +107,4 @@ TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres pnpm --fi
 ## Реален стек и пристапност
 
 Видете [tools/qa/README.md](../tools/qa/README.md): `e2e_real_stack.py` (Playwright низ web + API + база)
-и `a11y_sweep.py` (axe-core WCAG 2.1 A/AA на 50 екрани, мора да има 0 прекршувања).
+и `a11y_sweep.py` (axe-core WCAG 2.1 A/AA на 62 екрани, мора да има 0 прекршувања).

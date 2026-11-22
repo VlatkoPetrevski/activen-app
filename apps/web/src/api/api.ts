@@ -24,6 +24,7 @@ import type {
   ConnectionDto,
   ImportResultDto,
   ImportsSummaryDto,
+  ManualActivityInput,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import type { z } from "zod";
@@ -110,6 +111,8 @@ export interface Api {
    * order. The same workout is never stored twice (see ImportResultDto).
    */
   importActivities(files: readonly File[]): Promise<ImportResultDto[]>;
+  /** A workout entered by hand, with its check-in. */
+  createActivity(input: ManualActivityInput): Promise<{ activityId: string }>;
   /** Files imported so far and the latest attempts (Profile › Sources). */
   imports(): Promise<ImportsSummaryDto>;
   /** Connectable apps (Polar…) and the athlete's connections. */

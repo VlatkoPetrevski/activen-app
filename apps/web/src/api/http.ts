@@ -23,6 +23,7 @@ import type {
   ConnectionDto,
   ImportResultDto,
   ImportsSummaryDto,
+  ManualActivityInput,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import {
@@ -202,6 +203,8 @@ export class HttpApi implements Api {
       await this.request<{ results: ImportResultDto[] }>("POST", "/v1/me/activities/import", form)
     ).results;
   };
+  createActivity = (input: ManualActivityInput) =>
+    this.request<{ activityId: string }>("POST", "/v1/me/activities", input);
   imports = () => this.request<ImportsSummaryDto>("GET", "/v1/me/imports");
   connections = () => this.request<ConnectionDto[]>("GET", "/v1/me/connections");
   connectPolar = () =>

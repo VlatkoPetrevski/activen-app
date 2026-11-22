@@ -1,6 +1,6 @@
 import type { Activity } from "@activen/domain";
 import { describe, expect, it } from "vitest";
-import { importOutcome } from "../src/imports.js";
+import { importOutcome, isEnteredActivity, isStartTime } from "../src/imports.js";
 
 const base: Activity = {
   id: "a",
@@ -49,5 +49,24 @@ describe("importOutcome", () => {
     expect(importOutcome(parsed, [base, file])).toEqual({ kind: "duplicate", activity: file });
     // Trail and road runs are the same sport group.
     expect(importOutcome({ ...parsed, activityType: "TRAIL_RUNNING" }, [base]).kind).toBe("merged");
+  });
+
+  it("replaces a workout entered by hand, unless an app or a file already has it", () => {
+    const entered = {
+      ...base,
+      id: "e",
+      source: { vendor: "manual" as const, externalId: "u:entered:1" },
+    };
+    const file = { ...base, id: "f", source: { vendor: "manual" as const, externalId: "u:sha" } };
+    expect(isEnteredActivity(entered)).toBe(true);
+    expect(isEnteredActivity(file)).toBe(false);
+    expect(importOutcome(parsed, [entered])).toEqual({ kind: "replaces", activity: entered });
+    expect(importOutcome(parsed, [entered, base]).kind).toBe("merged");
+    expect(importOutcome(parsed, [entered, file]).kind).toBe("duplicate");
+  });
+
+  it("reads start times on a 24-hour clock", () => {
+    expect(["00:00", "07:05", "23:59"].every(isStartTime)).toBe(true);
+    expect(["7:00", "24:00", "12:60", "12-00"].some(isStartTime)).toBe(false);
   });
 });

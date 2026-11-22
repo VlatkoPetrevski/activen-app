@@ -2,6 +2,7 @@ import type { CoachLinkDto, MorningInputDto } from "@activen/contracts";
 import type { LocalDate } from "@activen/domain";
 import type { MessageKey } from "@activen/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
@@ -14,7 +15,7 @@ import { WeekStrip } from "../training/WeekStrip.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
 import { QueryView } from "../ui/States.js";
-import { BriefingCard } from "../training/BriefingCard.js";
+import { BriefingCard, hasDeviceNight } from "../training/BriefingCard.js";
 import { ReadinessSegment } from "../training/ReadinessSegment.js";
 import { WeatherSegment } from "../training/WeatherSegment.js";
 import { StructureLine } from "../training/WorkoutSteps.js";
@@ -91,6 +92,17 @@ export function TodayPage() {
     );
     queryClient.setQueryData(["me", "briefing", today], next);
   };
+  // The sleep tile's edit button opens the entry in the briefing card below it.
+  const [editingSleep, setEditingSleep] = useState(false);
+  const canEditSleep = !!briefing.data && !hasDeviceNight(briefing.data);
+  const editSleep = () => {
+    setEditingSleep(true);
+    requestAnimationFrame(() =>
+      document
+        .getElementById("morning-briefing")
+        ?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }),
+    );
+  };
   const calendar = useQuery({
     queryKey: ["me", "calendar", week.from, week.to],
     queryFn: () => api.calendar(week.from, week.to),
@@ -111,7 +123,10 @@ export function TodayPage() {
       {briefing.isPending ? (
         <div className="segment skeleton" aria-hidden />
       ) : (
-        <ReadinessSegment briefing={briefing.data ?? null} />
+        <ReadinessSegment
+          briefing={briefing.data ?? null}
+          onEditSleep={canEditSleep ? editSleep : undefined}
+        />
       )}
     </div>
   );
@@ -136,7 +151,14 @@ export function TodayPage() {
               <div className="today-morning stack-l">
                 {readinessBlock}
                 {briefing.data && (
-                  <BriefingCard briefing={briefing.data} onSaveMorning={saveMorning} />
+                  <div id="morning-briefing">
+                    <BriefingCard
+                      briefing={briefing.data}
+                      onSaveMorning={saveMorning}
+                      editing={editingSleep}
+                      onEditingChange={setEditingSleep}
+                    />
+                  </div>
                 )}
               </div>
               <div className="today-day stack-l">

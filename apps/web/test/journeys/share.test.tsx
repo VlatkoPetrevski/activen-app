@@ -12,9 +12,8 @@ describe("share an activity (demo)", () => {
     const { user } = start();
     await asAthlete(user);
     await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
-    const runs = await screen.findAllByRole("button", { name: /Скопје — трчање/ });
+    const runs = await screen.findAllByRole("link", { name: /Скопје — трчање/ });
     await user.click(runs[0]!);
-    await user.click(screen.getAllByRole("link", { name: "Детали" })[0]!);
     await user.click(await screen.findByRole("link", { name: "Сподели" }));
     expect(await screen.findByRole("heading", { name: "Сподели" })).toBeInTheDocument();
     expect(
@@ -55,9 +54,8 @@ type Nav = Omit<Navigator, "canShare" | "share"> & {
 async function openStudio(user: Parameters<typeof asAthlete>[0]) {
   await asAthlete(user);
   await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
-  const runs = await screen.findAllByRole("button", { name: /Скопје — трчање/ });
+  const runs = await screen.findAllByRole("link", { name: /Скопје — трчање/ });
   await user.click(runs[0]!);
-  await user.click(screen.getAllByRole("link", { name: "Детали" })[0]!);
   await user.click(await screen.findByRole("link", { name: "Сподели" }));
   await screen.findByRole("img", { name: "Преглед на сликата за споделување" });
 }

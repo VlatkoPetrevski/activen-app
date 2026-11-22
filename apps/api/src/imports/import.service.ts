@@ -1,5 +1,11 @@
-import { createHash } from "node:crypto";
-import { importOutcome, type ImportResultDto, type ImportsSummaryDto } from "@activen/contracts";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  ENTERED_MARK,
+  importOutcome,
+  type ImportResultDto,
+  type ImportsSummaryDto,
+  type ManualActivityInput,
+} from "@activen/contracts";
 import type { Repositories } from "@activen/db";
 import { localDateOf, type Activity, type Vendor } from "@activen/domain";
 import { createTranslator, negotiateLocale } from "@activen/i18n";
@@ -10,9 +16,19 @@ import {
   trackOf,
   type ImportedActivity,
 } from "@activen/importers";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, UnprocessableEntityException } from "@nestjs/common";
 import { FILE_STORE, REPOSITORIES } from "../tokens.js";
 import type { FileStore } from "./file-store.js";
+
+/** Unix seconds of a local date and "HH:MM" in a time zone (DST-aware). */
+export function localToUnix(date: string, time: string, timeZone: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  const asUtc = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0) / 1000;
+  // Two passes: the offset at the guess, then at the corrected instant (around DST changes).
+  const first = asUtc - zoneOffsetSeconds(timeZone, asUtc);
+  return asUtc - zoneOffsetSeconds(timeZone, first);
+}
 
 export interface UploadedFile {
   fileName: string;
@@ -136,6 +152,7 @@ export class ImportService {
       externalId: `${userId}:${sha256}`,
       raw: { format: parsed.format, fileName },
     });
+    if (outcome.kind === "replaces") await this.replaceEntered(userId, outcome.activity, activity);
     const storageKey = `${userId}/${sha256}.${parsed.format}`;
     await this.files.put(storageKey, upload.bytes);
     await this.repos.activityFiles.record({
@@ -164,7 +181,7 @@ export class ImportService {
    */
   async ingest(
     userId: string,
-    parsed: ImportedActivity,
+    parsed: Omit<ImportedActivity, "format">,
     source: { vendor: Vendor; externalId: string; raw?: unknown },
   ): Promise<Activity> {
     const settings = await this.repos.settings.get(userId);
@@ -209,6 +226,68 @@ export class ImportService {
     // Rated on the watch: the rating comes with the file, so the athlete is not asked again.
     if (parsed.rating) await this.repos.feedback.fromDevice(userId, activity.id, parsed.rating);
     return activity;
+  }
+
+  /**
+   * Stores a workout the athlete entered by hand, with its check-in. Like an uploaded file it is a
+   * "manual" source, so a file or app sync of the same workout later merges with it.
+   */
+  async createManual(userId: string, input: ManualActivityInput): Promise<Activity> {
+    const { timeZone, locale } = await this.repos.settings.get(userId);
+    const startTimeInSeconds = localToUnix(input.date, input.startTime, timeZone);
+    if (startTimeInSeconds > Date.now() / 1000 + 15 * 60)
+      throw new UnprocessableEntityException("An entered workout cannot start in the future");
+    const activity = await this.ingest(
+      userId,
+      {
+        activityType: input.activityType,
+        activityName: input.activityName,
+        startTimeInSeconds,
+        startTimeOffsetInSeconds: zoneOffsetSeconds(timeZone, startTimeInSeconds),
+        durationInSeconds: input.durationInSeconds,
+        movingDurationInSeconds: null,
+        distanceInMeters: input.distanceInMeters,
+        totalElevationGainInMeters: input.totalElevationGainInMeters,
+        averageHeartRateInBeatsPerMinute: input.averageHeartRateInBeatsPerMinute,
+        maxHeartRateInBeatsPerMinute: input.maxHeartRateInBeatsPerMinute,
+        averagePowerInWatts: input.averagePowerInWatts,
+        activeKilocalories: input.activeKilocalories,
+        trainingLoad: null,
+        laps: [],
+        streams: { time: [] },
+        device: { manufacturer: null, deviceName: null, heartRateSensor: null, creator: null },
+        exercises: [],
+        rating: null,
+      },
+      {
+        vendor: "manual",
+        externalId: `${userId}${ENTERED_MARK}${randomUUID()}`,
+        raw: { entered: true },
+      },
+    );
+    if (input.perceivedEffort !== null || input.feel !== null || input.comment)
+      await this.repos.feedback.upsert(userId, activity.id, {
+        perceivedEffort: input.perceivedEffort,
+        feel: input.feel,
+        comment: input.comment,
+        language: locale,
+      });
+    return activity;
+  }
+
+  /** A file of a hand-entered workout takes its place; the entered check-in moves to it. */
+  private async replaceEntered(userId: string, entered: Activity, file: Activity): Promise<void> {
+    const fb = (await this.repos.feedback.forActivities([entered.id])).get(entered.id);
+    if (fb && fb.source === "athlete") {
+      const { locale } = await this.repos.settings.get(userId);
+      await this.repos.feedback.upsert(userId, file.id, {
+        perceivedEffort: fb.perceivedEffort,
+        feel: fb.feel,
+        comment: fb.comment,
+        language: fb.language ?? locale,
+      });
+    }
+    await this.repos.activities.markDeleted("manual", entered.source.externalId);
   }
 
   async summary(userId: string): Promise<ImportsSummaryDto> {

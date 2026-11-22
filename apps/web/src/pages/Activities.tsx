@@ -1,9 +1,9 @@
 import type { ActivityDto } from "@activen/contracts";
 import { addDays, type ActivityGroup } from "@activen/domain";
 import type { MessageKey } from "@activen/i18n";
-import { useQuery } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
 import { useI18n, type T } from "../i18n/I18nContext.js";
@@ -24,18 +24,17 @@ import {
 } from "../lib/activityFilters.js";
 import { relativeDay, todayIn } from "../lib/dates.js";
 import { groupOf } from "../lib/plan.js";
-import { insightText } from "../training/Insights.js";
 import { activitySummary, paceOrSpeed } from "../training/labels.js";
 import {
-  DropHint,
   ImportButton,
   ImportReport,
   useActivityImport,
   useFileDrop,
 } from "../training/ImportFiles.js";
-import { RouteMap } from "../training/RouteMap.js";
+import { ManualActivityForm } from "../training/ManualActivityForm.js";
 import { Dialog } from "../ui/Dialog.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
+import { Pager } from "../ui/Pager.js";
 import { Empty, QueryView } from "../ui/States.js";
 
 const GROUPS: (ActivityGroup | "all")[] = [
@@ -100,117 +99,54 @@ function Chips<T extends string>({
   );
 }
 
-/** Expanded row: a small route map, one line of summary, key numbers and the actions. */
-function ActivityPreview({ activity }: { activity: ActivityDto }) {
-  const api = useApi();
-  const { t, f } = useI18n();
-  const detail = useQuery({
-    queryKey: ["me", "activity", activity.id],
-    queryFn: () => api.activity(activity.id),
-  });
-  const ps = paceOrSpeed(f, activity);
-  const facts: [string, string | null][] = [
-    [ps?.kind === "speed" ? t("activity.speed") : t("activity.pace"), ps?.text ?? null],
-    [
-      t("activity.avgHr"),
-      activity.averageHeartRateInBeatsPerMinute
-        ? String(Math.round(activity.averageHeartRateInBeatsPerMinute))
-        : null,
-    ],
-    [
-      t("activity.elevation"),
-      activity.totalElevationGainInMeters ? f.elevation(activity.totalElevationGainInMeters) : null,
-    ],
-    [t("activity.load"), activity.trainingLoad ? f.number(activity.trainingLoad, 0) : null],
-  ];
-  const first = detail.data?.insights[0];
-  return (
-    <div className="preview">
-      {detail.data?.route && (
-        <RouteMap
-          route={detail.data.route}
-          tiles={api.mode === "http"}
-          distanceInMeters={activity.distanceInMeters}
-          height={210}
-        />
-      )}
-      {first && <p className="preview-insight small">✦ {insightText(t, first)}</p>}
-      <div className="preview-facts">
-        {facts
-          .filter(([, v]) => v)
-          .map(([label, value]) => (
-            <div key={label}>
-              <span className="num">{value}</span>
-              <span className="tiny muted">{label}</span>
-            </div>
-          ))}
-      </div>
-      <div className="preview-actions">
-        {!activity.feedback && (
-          <Link className="btn btn-primary btn-small" to={`/activities/${activity.id}`}>
-            {t("activities.rate")}
-          </Link>
-        )}
-        <Link className="btn btn-secondary btn-small" to={`/activities/${activity.id}`}>
-          {t("activities.open")} <Icon name="chevronRight" size={16} />
-        </Link>
-      </div>
-    </div>
-  );
-}
+/** Activities per page: a page fits one window, also on a laptop. */
+export const PAGE_SIZE = 10;
 
-function ActivityRow({
+/**
+ * One compact line per activity: on a computer the numbers sit in aligned columns, on a phone
+ * they follow the name in one muted line. The whole line opens the activity.
+ */
+function ActivityLine({
   activity: a,
-  open,
-  onToggle,
   dayLabel,
+  shortDay,
 }: {
   activity: ActivityDto;
-  open: boolean;
-  onToggle(): void;
   dayLabel: string;
+  shortDay: string;
 }) {
   const { t, f } = useI18n();
-  const id = useId();
+  const ps = paceOrSpeed(f, a);
+  const rating = a.feedback?.perceivedEffort ? (
+    <span
+      className="chip"
+      title={a.feedback.source === "device" ? t("checkin.fromWatch") : undefined}
+    >
+      {a.feedback.source === "device" && <Icon name="watch" size={14} />}
+      RPE {a.feedback.perceivedEffort}
+    </span>
+  ) : (
+    <span className="chip warn">{t("activities.noCheckIn")}</span>
+  );
   return (
-    <div className={`activity-row${open ? " open" : ""}`}>
-      <button
-        type="button"
-        className="list-item activity-head"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={onToggle}
-      >
+    <li>
+      <Link className="activity-line" to={`/activities/${a.id}`}>
         <SportIcon group={groupOf(a.activityType)} />
-        <span className="grow">
-          <span className="row-between">
-            <strong className="activity-name">{a.activityName ?? ""}</strong>
-            {a.feedback?.perceivedEffort ? (
-              <span
-                className="chip"
-                title={a.feedback.source === "device" ? t("checkin.fromWatch") : undefined}
-              >
-                {a.feedback.source === "device" && <Icon name="watch" size={14} />}
-                RPE {a.feedback.perceivedEffort}
-              </span>
-            ) : (
-              <span className="chip warn">{t("activities.noCheckIn")}</span>
-            )}
-          </span>
-          <span className="small muted">
+        <span className="activity-line-main">
+          <strong className="activity-name">{a.activityName ?? ""}</strong>
+          <span className="small muted activity-line-meta">
             {dayLabel} · {activitySummary(f, a)}
           </span>
         </span>
-        <span className="segment-chevron" aria-hidden>
-          <Icon name="chevronDown" size={18} />
+        <span className="activity-col small muted">{shortDay}</span>
+        <span className="activity-col num">
+          {a.distanceInMeters ? f.distance(a.distanceInMeters, 1) : ""}
         </span>
-      </button>
-      {open && (
-        <div id={id} role="region" aria-label={a.activityName ?? ""}>
-          <ActivityPreview activity={a} />
-        </div>
-      )}
-    </div>
+        <span className="activity-col num">{f.duration(a.durationInSeconds)}</span>
+        <span className="activity-col num small muted">{ps?.text ?? ""}</span>
+        <span className="activity-line-rating">{rating}</span>
+      </Link>
+    </li>
   );
 }
 
@@ -222,7 +158,12 @@ export function ActivitiesPage() {
   const [filter, setFilter] = useState<ActivityListFilter>(DEFAULT_FILTER);
   const [draft, setDraft] = useState<ActivityListFilter>(DEFAULT_FILTER);
   const [sheet, setSheet] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [entering, setEntering] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const importId = useId();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const from = addDays(today, -filter.period + 1);
   const query = useQuery({
     queryKey: ["me", "activities", from, today],
@@ -239,23 +180,54 @@ export function ActivitiesPage() {
     [query.data, draft, f.unitSystem],
   );
   const sum = totals(shown);
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  // Another filter, period or search starts on the first page again.
+  useEffect(() => setPage(1), [filter]);
+  const current = Math.min(page, pages);
+  const visible = shown.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   const extra = activeFilterCount({ ...filter, group: "all", run: "all", query: "" });
 
   const importer = useActivityImport();
   const drop = useFileDrop((files) => void importer.run(files));
   const busy = importer.state.phase === "working";
 
+  const shortDay = (a: ActivityDto) => {
+    const rel = relativeDay(a.calendarDate, today);
+    return rel
+      ? t(`common.${rel}`)
+      : `${f.date(a.calendarDate, "weekdayShort")}, ${f.date(a.calendarDate, "dayMonth")}`;
+  };
   const dayLabel = (a: ActivityDto) => {
     const rel = relativeDay(a.calendarDate, today);
     return rel ? t(`common.${rel}`) : f.date(a.calendarDate, "long");
   };
 
   return (
-    <div className={`stack-l drop-area${drop.dragging ? " dragging" : ""}`} {...drop.handlers}>
+    <div
+      className={`stack-l drop-area activities-page${drop.dragging ? " dragging" : ""}`}
+      {...drop.handlers}
+    >
       <div className="stack" style={{ gap: 4 }}>
-        <div className="row-between">
+        <div className="row-between wrap">
           <h1>{t("nav.activities")}</h1>
-          <ImportButton busy={busy} onFiles={(files) => void importer.run(files)} />
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-primary btn-small"
+              onClick={() => setEntering(true)}
+            >
+              <Icon name="plus" size={16} /> {t("manual.open")}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-small"
+              aria-expanded={importOpen || drop.dragging}
+              aria-controls={importId}
+              onClick={() => setImportOpen((x) => !x)}
+            >
+              <Icon name="upload" size={16} /> {t("import.button")}
+            </button>
+          </div>
         </div>
         {query.data && (
           <span className="small muted num" aria-live="polite">
@@ -268,7 +240,34 @@ export function ActivitiesPage() {
         )}
       </div>
 
-      <DropHint dragging={drop.dragging} />
+      {(importOpen || drop.dragging) && (
+        <section
+          id={importId}
+          className={`import-panel${drop.dragging ? " active" : ""}`}
+          aria-label={t("import.title")}
+        >
+          <Icon name="upload" size={20} />
+          <span className="grow stack" style={{ gap: 2 }}>
+            <span className="small">
+              {drop.dragging ? t("import.dropActive") : t("import.panel")}
+            </span>
+            <span className="tiny muted">{t("import.formats")}</span>
+          </span>
+          <ImportButton
+            busy={busy}
+            label={t("import.choose")}
+            onFiles={(files) => void importer.run(files)}
+          />
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={t("import.closePanel")}
+            onClick={() => setImportOpen(false)}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </section>
+      )}
       <ImportReport state={importer.state} onClose={importer.reset} />
 
       <div className="stack" style={{ gap: 8 }}>
@@ -349,21 +348,38 @@ export function ActivitiesPage() {
             {shown.length === 0 ? (
               <Empty>{t("activities.empty")}</Empty>
             ) : (
-              <div className="list">
-                {shown.map((a) => (
-                  <ActivityRow
-                    key={a.id}
-                    activity={a}
-                    dayLabel={dayLabel(a)}
-                    open={openId === a.id}
-                    onToggle={() => setOpenId((x) => (x === a.id ? null : a.id))}
-                  />
-                ))}
-              </div>
+              <>
+                <ul className="activity-lines" aria-label={t("nav.activities")}>
+                  {visible.map((a) => (
+                    <ActivityLine
+                      key={a.id}
+                      activity={a}
+                      dayLabel={dayLabel(a)}
+                      shortDay={shortDay(a)}
+                    />
+                  ))}
+                </ul>
+                <Pager page={current} pages={pages} onChange={setPage} />
+              </>
             )}
           </section>
         )}
       </QueryView>
+
+      <Dialog open={entering} title={t("manual.title")} onClose={() => setEntering(false)}>
+        {entering && (
+          <ManualActivityForm
+            today={today}
+            onCancel={() => setEntering(false)}
+            onSave={async (input) => {
+              const { activityId } = await api.createActivity(input);
+              await queryClient.invalidateQueries({ queryKey: ["me"] });
+              setEntering(false);
+              void navigate(`/activities/${activityId}`);
+            }}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={sheet} title={t("activities.filters")} onClose={() => setSheet(false)}>
         <div className="stack-l">

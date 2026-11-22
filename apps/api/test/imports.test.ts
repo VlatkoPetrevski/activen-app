@@ -1,3 +1,4 @@
+import { parseActivityFile } from "@activen/importers";
 import { bytesOf, garminTcx, intervalRunFit, START, stravaGpx } from "@activen/importers/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -271,6 +272,85 @@ describe("importing files", () => {
     expect(mine()).toHaveLength(1);
     await h.http().delete("/v1/me").set(athlete.auth).send({ confirm: "DELETE" }).expect(204);
     expect(mine()).toHaveLength(0);
+  });
+});
+
+describe("entering a workout by hand", () => {
+  const entered = {
+    activityType: "RUNNING",
+    date: DAY,
+    startTime: "07:00",
+    durationInSeconds: 3000,
+    distanceInMeters: 10_000,
+    averageHeartRateInBeatsPerMinute: 150,
+    maxHeartRateInBeatsPerMinute: 170,
+    perceivedEffort: 6,
+    feel: 4,
+    comment: "Без часовник",
+  };
+  const skopje = async (user: TestUser) =>
+    h
+      .http()
+      .patch("/v1/me/settings")
+      .set(user.auth)
+      .send({ timeZone: "Europe/Skopje", locale: "mk" })
+      .expect(200);
+
+  it("stores it in the athlete's time zone, named by the sport, with its check-in", async () => {
+    const athlete = await signIn(h);
+    await skopje(athlete);
+    const res = await h
+      .http()
+      .post("/v1/me/activities")
+      .set(athlete.auth)
+      .send(entered)
+      .expect(201);
+    expect(res.body.activityId).toEqual(expect.any(String));
+    const [a] = (
+      await h.http().get(`/v1/me/activities?from=${DAY}&to=${DAY}`).set(athlete.auth).expect(200)
+    ).body;
+    // 07:00 in Skopje (UTC+1 in November) is 06:00 UTC.
+    expect(a).toMatchObject({
+      activityName: "Трчање",
+      startTimeInSeconds: startS,
+      startTimeOffsetInSeconds: 3600,
+      distanceInMeters: 10_000,
+      source: { vendor: "manual" },
+      feedback: { perceivedEffort: 6, feel: 4, comment: "Без часовник", source: "athlete" },
+    });
+    expect(a.source.externalId).toContain(":entered:");
+  });
+
+  it("refuses a future start, a max pulse below the average and a malformed time", async () => {
+    const athlete = await signIn(h);
+    const post = (body: object) => h.http().post("/v1/me/activities").set(athlete.auth).send(body);
+    await post({ ...entered, date: "2099-01-01" }).expect(422);
+    await post({ ...entered, maxHeartRateInBeatsPerMinute: 120 }).expect(422);
+    await post({ ...entered, startTime: "7:00" }).expect(422);
+    await post({ ...entered, durationInSeconds: 0 }).expect(422);
+    await post({ ...entered, restingHeartRate: 50 }).expect(422);
+    await h.http().post("/v1/me/activities").send(entered).expect(401);
+  });
+
+  it("is replaced by a file of the same workout, which keeps the entered check-in", async () => {
+    const athlete = await signIn(h);
+    await skopje(athlete);
+    const fit = intervalRunFit();
+    const parsed = parseActivityFile(fit);
+    await h
+      .http()
+      .post("/v1/me/activities")
+      .set(athlete.auth)
+      .send({ ...entered, durationInSeconds: parsed.durationInSeconds })
+      .expect(201);
+    const res = await upload(athlete, ["run.fit", fit]).expect(200);
+    expect(res.body.results[0]).toMatchObject({ status: "imported" });
+    const list = (
+      await h.http().get(`/v1/me/activities?from=${DAY}&to=${DAY}`).set(athlete.auth).expect(200)
+    ).body as { source: { externalId: string }; feedback: unknown }[];
+    expect(list).toHaveLength(1);
+    expect(list[0]?.source.externalId).not.toContain(":entered:");
+    expect(list[0]?.feedback).toMatchObject({ perceivedEffort: 6, comment: "Без часовник" });
   });
 });
 

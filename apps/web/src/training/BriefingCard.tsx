@@ -16,31 +16,46 @@ const VERDICT_TONE: Record<BriefingVerdict, "good" | "teal" | "warn" | "bad"> = 
 
 /**
  * The morning advice above today's session: verdict, readiness, one-sentence reason and the
- * concrete change. The athlete can enter or correct sleep and pulse here.
+ * concrete change. Without a watch night the athlete can enter or correct sleep here.
  */
+/** True when a device recorded last night; entered sleep is then neither offered nor needed. */
+export const hasDeviceNight = (briefing: BriefingDto): boolean => {
+  const day = briefing.today;
+  return (
+    !!day &&
+    ((day.sleepScore != null && day.sources.sleepScore !== "manual") ||
+      (day.sleepDurationInSeconds != null && day.sources.sleepDurationInSeconds !== "manual"))
+  );
+};
+
 export function BriefingCard({
   briefing,
   onSaveMorning,
   title,
+  editing: editingProp,
+  onEditingChange,
 }: {
   briefing: BriefingDto;
   /** The athlete's own card; absent for the coach (read-only). */
   onSaveMorning?: (input: MorningInputDto | null) => Promise<unknown>;
   title?: string;
+  /** Controlled editing state, so the sleep tile's edit button can open the form here. */
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }) {
   const { t, f, translator } = useI18n();
   const { readiness, advice } = briefing;
   const noData = readiness.score === null;
-  const [editing, setEditing] = useState(false);
+  const [editingState, setEditingState] = useState(false);
+  const editing = editingProp ?? editingState;
+  const setEditing = (next: boolean) => {
+    setEditingState(next);
+    onEditingChange?.(next);
+  };
   const text = briefingText(translator, f, readiness, advice);
   const tone = noData ? "teal" : VERDICT_TONE[advice.verdict];
   // Entering sleep is only for a morning the watch did not record (or to change what was entered).
-  const day = briefing.today;
-  const deviceNight =
-    !!day &&
-    ((day.sleepScore != null && day.sources.sleepScore !== "manual") ||
-      (day.sleepDurationInSeconds != null && day.sources.sleepDurationInSeconds !== "manual"));
-  const canEnter = !!onSaveMorning && !deviceNight;
+  const canEnter = !!onSaveMorning && !hasDeviceNight(briefing);
   const showForm = canEnter && (noData || editing);
 
   return (
@@ -73,6 +88,7 @@ export function BriefingCard({
       )}
       {showForm ? (
         <MorningInputForm
+          onCancel={editing && !noData ? () => setEditing(false) : undefined}
           initial={briefing.morningInput}
           onSave={async (input) => {
             await onSaveMorning(input);

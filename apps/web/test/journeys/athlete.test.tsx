@@ -48,6 +48,14 @@ describe("athlete app (demo)", () => {
     await waitFor(() =>
       expect(within(card).getByRole("button", { name: "Внеси сон" })).toBeInTheDocument(),
     );
+    // The sleep tile in the readiness details opens the same entry, which can be cancelled.
+    await user.click(screen.getByRole("button", { name: /^Спремност за тренинг\s*\d+/ }));
+    const tile = screen.getByText("Сон", { selector: ".tile *" }).closest(".tile") as HTMLElement;
+    expect(within(tile).getByText("Часовникот не ја сними ноќта")).toBeInTheDocument();
+    await user.click(within(tile).getByRole("button", { name: "Внеси сон" }));
+    expect(within(card).getByRole("group", { name: "Колку спиеше?" })).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Откажи" }));
+    expect(within(card).queryByRole("group", { name: "Колку спиеше?" })).toBeNull();
   });
 
   it("signs in and shows today, the plan editor, rating an activity and messages", async () => {
@@ -96,19 +104,17 @@ describe("athlete app (demo)", () => {
     await user.click(within(filters).getByRole("button", { name: "10–21 km" }));
     await user.click(within(filters).getByRole("button", { name: /^Прикажи/ }));
     expect(screen.getByRole("button", { name: /^Филтри/ })).toHaveTextContent("1");
-    // A row expands in place with the route map; the same tap closes it.
-    const rows = await screen.findAllByRole("button", { name: /km/ });
-    const row = rows.find((r) => r.getAttribute("aria-expanded") !== null)!;
-    await user.click(row);
-    expect(row).toHaveAttribute("aria-expanded", "true");
-    expect(await screen.findByRole("img", { name: "Рута" })).toBeInTheDocument();
-    await user.click(row);
-    expect(row).toHaveAttribute("aria-expanded", "false");
-    await user.click(row);
-    await user.click(await screen.findByRole("link", { name: /Детали/ }));
-    expect(await screen.findByRole("heading", { name: "Како помина?" })).toBeInTheDocument();
+    // Compact lines in pages; a line opens the activity, whose parts are tabs.
+    const lines = screen.getByRole("list", { name: "Активности" });
+    await user.click(within(lines).getAllByRole("link")[0]!);
+    expect(await screen.findByRole("tab", { name: "Преглед" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(screen.getByRole("region", { name: "Анализа" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Рута" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Оценка" }));
+    expect(await screen.findByRole("heading", { name: "Како помина?" })).toBeInTheDocument();
     const checkin = screen.getByRole("button", { name: /Како помина\?/ }).closest("form")!;
     await user.click(within(checkin).getByRole("button", { name: "5" }));
     await user.click(within(checkin).getByRole("button", { name: /Силно/ }));

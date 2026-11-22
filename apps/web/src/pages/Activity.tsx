@@ -1,4 +1,4 @@
-import type { ActivityDto } from "@activen/contracts";
+import { isEnteredActivity, type ActivityDto } from "@activen/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { DetailSegments } from "../training/ActivityStats.js";
@@ -12,6 +12,8 @@ import { Insights } from "../training/Insights.js";
 import { RouteMap } from "../training/RouteMap.js";
 import { activitySummary, paceOrSpeed, plannedSummary, sportLabel } from "../training/labels.js";
 import { Icon, SportIcon } from "../ui/Icon.js";
+import { Tabs, type Tab } from "../ui/Tabs.js";
+import { useMediaQuery, WIDE_QUERY } from "../lib/useIsMobile.js";
 import { QueryView } from "../ui/States.js";
 
 function Metrics({ a }: { a: ActivityDto }) {
@@ -67,9 +69,11 @@ export function ActivityPage() {
   const query = useQuery({ queryKey: ["me", "activity", id], queryFn: () => api.activity(id) });
   const coaches = useQuery({ queryKey: ["me", "coaches"], queryFn: () => api.coaches() });
   const coach = coaches.data?.find((c) => c.status === "active");
+  // A computer shows the route beside the numbers; a phone stacks them.
+  const wide = useMediaQuery(WIDE_QUERY);
 
   return (
-    <div className="stack-l">
+    <div className="stack-l activity-page">
       <Link
         to="/activities"
         className="btn btn-ghost btn-small"
@@ -94,62 +98,103 @@ export function ActivityPage() {
                   <Icon name="send" size={16} /> {t("share.open")}
                 </Link>
               </header>
-              {route && (
-                <RouteMap
-                  route={route}
-                  tiles={api.mode === "http"}
-                  distanceInMeters={a.distanceInMeters}
-                />
-              )}
-              <section className="card stack">
-                <Insights insights={insights} />
-                <Metrics a={a} />
-                <div className="row wrap tiny muted">
-                  <span>{t("activity.source", { vendor: vendorName(a.source.vendor) })}</span>
-                  {a.gearName && (
-                    <span>
-                      · {t("activity.gear")}: {a.gearName}
-                    </span>
-                  )}
-                </div>
-              </section>
-              <DetailSegments detail={detail} />
-              {planEntry && (
-                <section className="card stack">
-                  <span className="eyebrow">{t("activity.plannedSession")}</span>
-                  <div className="row-between">
-                    <h3>{planEntry.description}</h3>
-                    <span className="small muted">{plannedSummary(f, planEntry)}</span>
-                  </div>
-                  <div className="small muted">
-                    {t("plan.planned")}: {plannedSummary(f, planEntry) || "—"} · {t("plan.actual")}:{" "}
-                    {activitySummary(f, a)}
-                  </div>
-                  {planEntry.notes && <div className="coach-note small">💬 {planEntry.notes}</div>}
-                </section>
-              )}
-              <CheckInForm
-                key={a.id}
-                title={t("checkin.title")}
-                initial={a.feedback}
-                coachName={coach?.coachName ?? null}
-                defaultOpen={a.feedback === null}
-                onSave={async (input) => {
-                  await api.saveFeedback(a.id, input);
-                  await queryClient.invalidateQueries({ queryKey: ["me"] });
-                }}
+              <Tabs
+                label={t("activity.tabs")}
+                tabs={[
+                  {
+                    key: "overview",
+                    title: t("activity.tab.overview"),
+                    content: (
+                      <div className="activity-overview">
+                        {route && (
+                          <RouteMap
+                            route={route}
+                            tiles={api.mode === "http"}
+                            distanceInMeters={a.distanceInMeters}
+                            height={wide ? 480 : 300}
+                          />
+                        )}
+                        <div className="stack-l">
+                          <section className="card stack">
+                            <Insights insights={insights} />
+                            <Metrics a={a} />
+                            <div className="row wrap tiny muted">
+                              <span>
+                                {isEnteredActivity(a)
+                                  ? t("manual.entered")
+                                  : t("activity.source", { vendor: vendorName(a.source.vendor) })}
+                              </span>
+                              {a.gearName && (
+                                <span>
+                                  · {t("activity.gear")}: {a.gearName}
+                                </span>
+                              )}
+                            </div>
+                          </section>
+                          {planEntry && (
+                            <section className="card stack">
+                              <span className="eyebrow">{t("activity.plannedSession")}</span>
+                              <div className="row-between">
+                                <h3>{planEntry.description}</h3>
+                                <span className="small muted">{plannedSummary(f, planEntry)}</span>
+                              </div>
+                              <div className="small muted">
+                                {t("plan.planned")}: {plannedSummary(f, planEntry) || "—"} ·{" "}
+                                {t("plan.actual")}: {activitySummary(f, a)}
+                              </div>
+                              {planEntry.notes && (
+                                <div className="coach-note small">💬 {planEntry.notes}</div>
+                              )}
+                            </section>
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  },
+                  ...(isEnteredActivity(a) && detail.laps.length === 0
+                    ? []
+                    : [
+                        {
+                          key: "details",
+                          title: t("activity.tab.details"),
+                          content: <DetailSegments detail={detail} />,
+                        } satisfies Tab,
+                      ]),
+                  {
+                    key: "rating",
+                    title: t("activity.tab.rating"),
+                    content: (
+                      <div className="stack-l">
+                        <CheckInForm
+                          key={a.id}
+                          title={t("checkin.title")}
+                          initial={a.feedback}
+                          coachName={coach?.coachName ?? null}
+                          defaultOpen={a.feedback === null}
+                          onSave={async (input) => {
+                            await api.saveFeedback(a.id, input);
+                            await queryClient.invalidateQueries({ queryKey: ["me"] });
+                          }}
+                        />
+                        {comments.length > 0 && (
+                          <section className="card stack">
+                            <h2>{t("activity.comments")}</h2>
+                            {comments.map((c) => (
+                              <div
+                                key={c.id}
+                                className={`bubble${c.authorId === me.user.id ? " mine" : ""}`}
+                              >
+                                {c.body}
+                                <div className="meta">{c.authorName}</div>
+                              </div>
+                            ))}
+                          </section>
+                        )}
+                      </div>
+                    ),
+                  },
+                ]}
               />
-              {comments.length > 0 && (
-                <section className="card stack">
-                  <h2>{t("activity.comments")}</h2>
-                  {comments.map((c) => (
-                    <div key={c.id} className={`bubble${c.authorId === me.user.id ? " mine" : ""}`}>
-                      {c.body}
-                      <div className="meta">{c.authorName}</div>
-                    </div>
-                  ))}
-                </section>
-              )}
             </>
           );
         }}

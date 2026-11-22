@@ -73,7 +73,14 @@ function useFactorText() {
  * Morning readiness in one compact row (score, sleep, HRV, resting pulse, load); the details show
  * each factor against the athlete's own baseline and where the value came from.
  */
-export function ReadinessSegment({ briefing }: { briefing: BriefingDto | null }) {
+export function ReadinessSegment({
+  briefing,
+  onEditSleep,
+}: {
+  briefing: BriefingDto | null;
+  /** Opens the sleep entry; only given when the watch did not record the night. */
+  onEditSleep?: (() => void) | undefined;
+}) {
   const { t } = useI18n();
   const text = useFactorText();
   const r = briefing?.readiness;
@@ -162,7 +169,9 @@ export function ReadinessSegment({ briefing }: { briefing: BriefingDto | null })
         <div className="tiles">
           {r.factors.map((x) => {
             const baseline = text.baseline(x);
-            const source = sourceOf(x.key);
+            const source =
+              sourceOf(x.key) ??
+              (x.key === "sleep" && onEditSleep ? t("briefing.source.noWatch") : null);
             return (
               <div className="tile" key={x.key}>
                 <div className="row small muted">
@@ -174,6 +183,18 @@ export function ReadinessSegment({ briefing }: { briefing: BriefingDto | null })
                 </div>
                 {(baseline || source) && (
                   <div className="tiny muted">{[baseline, source].filter(Boolean).join(" · ")}</div>
+                )}
+                {x.key === "sleep" && onEditSleep && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small tile-action"
+                    onClick={onEditSleep}
+                  >
+                    <Icon name="edit" size={14} />{" "}
+                    {t(
+                      briefing.morningInput ? "briefing.morning.change" : "briefing.morning.enter",
+                    )}
+                  </button>
                 )}
               </div>
             );

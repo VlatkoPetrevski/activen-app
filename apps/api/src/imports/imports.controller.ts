@@ -1,4 +1,5 @@
 import type { ImportResultDto, ImportsSummaryDto } from "@activen/contracts";
+import { ManualActivityCreate } from "@activen/contracts/requests";
 import { MAX_FILE_BYTES } from "@activen/importers";
 import {
   Controller,
@@ -12,8 +13,10 @@ import {
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { z } from "zod";
 import type { AuthContext } from "../auth/auth.types.js";
 import { CurrentAuth } from "../auth/decorators.js";
+import { ApiZodBody, ValidBody } from "../validation.js";
 import { ImportService } from "./import.service.js";
 
 /** Files per upload; the web app sends a folder of activities in batches of this size. */
@@ -65,6 +68,17 @@ export class ImportsController {
       })),
     );
     return { results };
+  }
+
+  @Post("activities")
+  @ApiOperation({ summary: "Enter a workout by hand, with its check-in" })
+  @ApiZodBody(ManualActivityCreate)
+  async create(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(ManualActivityCreate) body: z.output<typeof ManualActivityCreate>,
+  ): Promise<{ activityId: string }> {
+    const activity = await this.imports.createManual(a.userId, body);
+    return { activityId: activity.id };
   }
 
   @Get("imports")

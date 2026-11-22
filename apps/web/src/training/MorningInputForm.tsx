@@ -15,11 +15,14 @@ export function MorningInputForm({
   initial,
   onSave,
   onClear,
+  onCancel,
 }: {
   initial: MorningInputDto | null;
   onSave(input: MorningInputDto): Promise<unknown>;
   /** Shown when something was entered before. */
   onClear?: () => Promise<unknown>;
+  /** Closes the form without saving (when it was opened to change an entry). */
+  onCancel?: (() => void) | undefined;
 }) {
   const { t, translator } = useI18n();
   const id = useId();
@@ -124,6 +127,16 @@ export function MorningInputForm({
             }}
           >
             {t("briefing.morning.clear")}
+          </button>
+        )}
+        {onCancel && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            disabled={state === "saving"}
+            onClick={onCancel}
+          >
+            {t("common.cancel")}
           </button>
         )}
       </div>

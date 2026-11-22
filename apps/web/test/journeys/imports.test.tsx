@@ -14,7 +14,9 @@ const file = (name: string, bytes: Uint8Array) =>
 
 async function openActivities(user: Parameters<typeof nav>[0]) {
   await nav(user, "Активности");
-  return screen.findByRole("button", { name: /Увези активности од датотеки/ });
+  // Import is an option: the drop zone and the file picker open with "Увези".
+  await user.click(await screen.findByRole("button", { name: "Увези" }));
+  return screen.findByRole("button", { name: /Избери датотеки \(FIT, GPX, TCX\)/ });
 }
 
 describe("importing activity files", () => {
@@ -42,6 +44,7 @@ describe("importing activity files", () => {
 
     // The activity opens with the file's laps and device.
     await user.click(within(second).getByRole("link", { name: "Детали" }));
+    await user.click(await screen.findByRole("tab", { name: "Детали" }));
     expect(await screen.findByText("Forerunner 965")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Интервали/ }));
     expect(screen.getAllByText("Загревање").length).toBeGreaterThan(0);

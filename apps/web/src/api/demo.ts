@@ -37,6 +37,8 @@ import {
   type BriefingDto,
   type MorningInputDto,
   importOutcome,
+  ENTERED_MARK,
+  type ManualActivityInput,
   type ConnectionDto,
   type ImportResultDto,
   type ImportsSummaryDto,
@@ -774,7 +776,7 @@ export class DemoApi implements Api {
           (x) => Math.abs(x.startTimeInSeconds - parsed.startTimeInSeconds) <= 3600,
         ),
       );
-      if (outcome.kind !== "new") {
+      if (outcome.kind !== "new" && outcome.kind !== "replaces") {
         record(outcome.kind === "duplicate" ? "duplicate" : "imported", outcome.activity.id);
         results.push({
           ...empty,
@@ -819,10 +821,60 @@ export class DemoApi implements Api {
         exercises: parsed.exercises,
       });
       a.activities.push(activity);
+      if (outcome.kind === "replaces") {
+        // The file takes the place of the workout entered by hand and keeps its check-in.
+        const fb = a.feedback.get(outcome.activity.id);
+        if (fb?.source === "athlete") a.feedback.set(activity.id, fb);
+        a.activities = a.activities.filter((x) => x.id !== outcome.activity.id);
+      }
       record("imported", activity.id);
       results.push({ ...empty, ...summary(activity), status: "imported" });
     }
     return this.delay(results);
+  };
+  createActivity = async (input: ManualActivityInput) => {
+    const a = this.me_();
+    const offset = zoneOffset(a.settings.timeZone, input.date, input.startTime);
+    const local = Date.parse(`${input.date}T${input.startTime}:00Z`) / 1000;
+    const activity: Activity = {
+      id: this.id("entered"),
+      athleteId: a.id,
+      source: { vendor: "manual", externalId: `${a.id}${ENTERED_MARK}${this.id("e")}` },
+      activityName: input.activityName ?? demoTypeName(this.locale(), input.activityType),
+      activityType: input.activityType,
+      calendarDate: input.date,
+      startTimeInSeconds: local - offset,
+      startTimeOffsetInSeconds: offset,
+      distanceInMeters: input.distanceInMeters,
+      durationInSeconds: input.durationInSeconds,
+      movingDurationInSeconds: null,
+      totalElevationGainInMeters: input.totalElevationGainInMeters,
+      trainingLoad: null,
+      averageHeartRateInBeatsPerMinute: input.averageHeartRateInBeatsPerMinute,
+      maxHeartRateInBeatsPerMinute: input.maxHeartRateInBeatsPerMinute,
+      averagePowerInWatts: input.averagePowerInWatts,
+      activeKilocalories: input.activeKilocalories,
+      gearName: null,
+      isRace: false,
+      deleted: false,
+    };
+    this.imported.set(activity.id, {
+      laps: [],
+      streams: null,
+      route: null,
+      device: { manufacturer: null, deviceName: null, heartRateSensor: null, creator: null },
+      exercises: [],
+    });
+    a.activities.push(activity);
+    if (input.perceivedEffort !== null || input.feel !== null || input.comment?.trim())
+      a.feedback.set(activity.id, {
+        perceivedEffort: input.perceivedEffort,
+        feel: input.feel,
+        comment: input.comment?.trim() || null,
+        source: "athlete",
+        updatedAt: this.now().toISOString(),
+      });
+    return this.delay({ activityId: activity.id });
   };
   imports = async (): Promise<ImportsSummaryDto> => {
     const done = this.uploads.filter((u) => u.status === "imported");
@@ -1048,4 +1100,30 @@ export class DemoApi implements Api {
   relative(days: number): LocalDate {
     return addDays(this.today(), days);
   }
+}
+
+/** Offset (seconds) of a time zone from UTC at a local date and time (DST-aware). */
+function zoneOffset(timeZone: string, date: string, time: string): number {
+  const guess = Date.parse(`${date}T${time}:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(new Date(guess))
+      .map((p) => [p.type, p.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+  );
+  return Math.round((asUtc - guess) / 1000);
 }

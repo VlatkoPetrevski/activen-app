@@ -48,7 +48,16 @@ export function useActivityImport() {
 const ACCEPT = ".fit,.gpx,.tcx,application/gpx+xml,application/vnd.garmin.tcx+xml";
 
 /** "Увези": opens the file picker (several files at once). */
-export function ImportButton({ onFiles, busy }: { onFiles(files: File[]): void; busy: boolean }) {
+export function ImportButton({
+  onFiles,
+  busy,
+  label,
+}: {
+  onFiles(files: File[]): void;
+  busy: boolean;
+  /** Visible text; the accessible name starts with it and names the formats. */
+  label?: string;
+}) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -57,10 +66,10 @@ export function ImportButton({ onFiles, busy }: { onFiles(files: File[]): void; 
         type="button"
         className="btn btn-secondary btn-small"
         disabled={busy}
-        aria-label={t("import.buttonLabel")}
+        aria-label={label ? `${label} (FIT, GPX, TCX)` : t("import.buttonLabel")}
         onClick={() => input.current?.click()}
       >
-        <Icon name="upload" size={16} /> {t("import.button")}
+        <Icon name="upload" size={16} /> {label ?? t("import.button")}
       </button>
       <input
         ref={input}
