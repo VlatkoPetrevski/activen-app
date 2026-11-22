@@ -175,3 +175,46 @@ export function StructureLine({ structure }: { structure: WorkoutStructure | nul
     </div>
   );
 }
+
+/** Short step length: "1k", "1,5k", "400m", "3′", "45″" (miles: "1mi"). */
+function shortDuration(f: Formatter, d: StepDuration): string {
+  if (d.type === "open") return "…";
+  if (d.type === "time")
+    return d.seconds >= 60 && d.seconds % 60 === 0
+      ? `${d.seconds / 60}′`
+      : d.seconds < 60
+        ? `${d.seconds}″`
+        : f.duration(d.seconds);
+  if (f.unitSystem === "imperial") return `${f.number(d.meters / 1609.344, 2)}mi`;
+  return d.meters >= 1000 ? `${f.number(d.meters / 1000, 1)}k` : `${d.meters}m`;
+}
+
+/** Short target: "@4:30", "@Z2", "@5K темпо". */
+function shortTarget(f: Formatter, t: T, x: StepTarget): string {
+  if (x.type === "none") return "";
+  if (x.type === "hr_zone") return ` @Z${x.zone}`;
+  if (x.type === "pace") return ` @${f.pace((x.low + x.high) / 2).split(" ")[0]}`;
+  return ` @${targetText(f, t, x)}`;
+}
+
+/**
+ * The main set in one short line, without warm-up and cool-down:
+ * "6×1k @5K темпо / 400m", "3×10′ @Z4 / 2′", "8k @Z2".
+ */
+export function mainSetText(f: Formatter, t: T, s: WorkoutStructure): string {
+  return s.items
+    .map((i: WorkoutItem) => {
+      if (i.kind === "repeat") {
+        const [work, ...rest] = i.steps;
+        if (!work) return "";
+        const recovery = rest.map((r) => shortDuration(f, r.duration)).join(" + ");
+        return `${i.count}×${shortDuration(f, work.duration)}${shortTarget(f, t, work.target)}${
+          recovery ? ` / ${recovery}` : ""
+        }`;
+      }
+      if (i.intensity !== "active") return "";
+      return `${shortDuration(f, i.duration)}${shortTarget(f, t, i.target)}`;
+    })
+    .filter(Boolean)
+    .join(" · ");
+}

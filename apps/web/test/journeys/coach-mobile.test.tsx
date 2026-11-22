@@ -105,4 +105,22 @@ describe("coach on a phone (demo)", () => {
     await user.click(screen.getByRole("button", { name: "Назад: Пораки" }));
     await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
   });
+
+  it("shows the planner week as one short line per day that opens in place", async () => {
+    const { user } = start();
+    await user.click(await screen.findByRole("button", { name: "Пробај како тренер" }));
+    await user.click(await screen.findByRole("button", { name: "Спортисти" }));
+    await user.click(screen.getByRole("link", { name: "Планер" }));
+    await screen.findByRole("heading", { level: 1, name: "Планер" });
+    // The interval session: total and main set in one line, what was done under it.
+    const day = (await screen.findByText(/^\d+(,\d)?k: \d+×/)).closest("button")!;
+    expect(day).toHaveAttribute("aria-expanded", "false");
+    expect(within(day).getByText(/^✓ .*RPE \d+/)).toBeInTheDocument();
+    await user.click(day);
+    expect(day).toHaveAttribute("aria-expanded", "true");
+    const details = document.getElementById(day.getAttribute("aria-controls")!)!;
+    expect(within(details).getAllByRole("button").length).toBeGreaterThan(0);
+    await user.click(day);
+    expect(day).toHaveAttribute("aria-expanded", "false");
+  });
 });

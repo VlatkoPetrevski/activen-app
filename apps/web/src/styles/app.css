@@ -3181,3 +3181,84 @@ div.import-report {
 .setting-control.wide {
   width: min(240px, 55%);
 }
+
+/* Planner on a phone: one short line per day (plan, then what was done) that opens in place. */
+.cmp-day.compact {
+  display: block;
+  padding: 4px 0;
+}
+.cmp-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cmp-summary .plan-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+  flex: none;
+}
+.cmp-summary[aria-expanded="true"] .segment-chevron {
+  transform: rotate(180deg);
+}
+.cmp-day.compact .cmp-lines {
+  padding: 4px 0 8px;
+}
+.cmp-short {
+  display: block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmp-short.plan {
+  border-left: 3px solid var(--primary);
+  background: var(--primary-soft);
+  font-weight: 700;
+}
+.cmp-short.plan.cycling {
+  border-left-color: var(--teal);
+  background: var(--teal-soft);
+}
+.cmp-short.plan.gym {
+  border-left-color: #7a4fb0;
+  background: #efe7f7;
+}
+.cmp-short.plan.rest {
+  border-left-color: var(--border);
+  background: var(--bg-sunken);
+  color: var(--muted);
+}
+.cmp-short.done {
+  border-left: 3px solid var(--good);
+  background: color-mix(in srgb, var(--good) 12%, transparent);
+}
+.cmp-short.missed {
+  border-left: 3px solid var(--warn);
+  color: var(--muted);
+}
+@media (prefers-color-scheme: dark) {
+  .cmp-short.plan.gym {
+    background: #2e2638;
+  }
+}
+.cmp-day.compact,
+.cmp-summary > .grow {
+  min-width: 0;
+  overflow: hidden;
+}
+.planner-grid > *,
+.cmp {
+  min-width: 0;
+}
