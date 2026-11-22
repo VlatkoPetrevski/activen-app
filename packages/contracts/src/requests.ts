@@ -196,6 +196,19 @@ export const PlanEntryUpdate = z
   .extend({ expectedVersion: z.number().int().min(1) })
   .strict();
 
+/**
+ * The athlete's own heart-rate zones: the lower bound (bpm) of zones 2–5, rising. Zone 1 is open
+ * below and zone 5 open above, so every heart rate falls in a zone.
+ */
+export const HrZonesPut = z
+  .object({
+    lowerBounds: z
+      .array(z.number().int().min(60).max(240))
+      .length(4)
+      .refine((b) => b.every((v, i) => i === 0 || v > (b[i - 1] ?? 0)), "bounds must rise"),
+  })
+  .strict();
+
 const optionalNumber = (min: number, max: number) => z.number().min(min).max(max).nullable();
 
 /** A workout entered by hand; see ManualActivityInput. */

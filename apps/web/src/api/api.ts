@@ -25,6 +25,7 @@ import type {
   ImportResultDto,
   ImportsSummaryDto,
   ManualActivityInput,
+  HrZonesDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import type { z } from "zod";
@@ -111,6 +112,10 @@ export interface Api {
    * order. The same workout is never stored twice (see ImportResultDto).
    */
   importActivities(files: readonly File[]): Promise<ImportResultDto[]>;
+  /** Heart-rate zones in use today and where they come from (Profile › HR zones). */
+  hrZones(): Promise<HrZonesDto>;
+  /** The athlete's own zones: lower bounds of zones 2–5; switches the zones to "manual". */
+  saveHrZones(lowerBounds: number[]): Promise<HrZonesDto>;
   /** A workout entered by hand, with its check-in. */
   createActivity(input: ManualActivityInput): Promise<{ activityId: string }>;
   /** Files imported so far and the latest attempts (Profile › Sources). */

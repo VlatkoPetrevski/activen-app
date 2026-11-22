@@ -24,6 +24,7 @@ import type {
   ImportResultDto,
   ImportsSummaryDto,
   ManualActivityInput,
+  HrZonesDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import {
@@ -203,6 +204,9 @@ export class HttpApi implements Api {
       await this.request<{ results: ImportResultDto[] }>("POST", "/v1/me/activities/import", form)
     ).results;
   };
+  hrZones = () => this.request<HrZonesDto>("GET", "/v1/me/hr-zones");
+  saveHrZones = (lowerBounds: number[]) =>
+    this.request<HrZonesDto>("PUT", "/v1/me/hr-zones", { lowerBounds });
   createActivity = (input: ManualActivityInput) =>
     this.request<{ activityId: string }>("POST", "/v1/me/activities", input);
   imports = () => this.request<ImportsSummaryDto>("GET", "/v1/me/imports");

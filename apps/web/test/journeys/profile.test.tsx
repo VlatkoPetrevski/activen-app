@@ -99,24 +99,42 @@ describe("profile account", () => {
 });
 
 describe("profile preferences", () => {
-  it("chooses heart-rate zones, max HR and birth date", async () => {
+  it("shows five colored zones from the watch, or the athlete's own; max HR and birth date", async () => {
     const { user, api } = start();
     const update = vi.spyOn(api, "updateSettings");
     await asAthlete(user);
     await openProfile(user);
-    await user.click(await screen.findByRole("button", { name: /^HR зони/ }));
-    await user.click(screen.getByRole("radio", { name: "Секогаш од еден уред" }));
-    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "vendor", vendor: "garmin" } });
-    const vendor = await screen.findByRole("combobox", { name: "Секогаш од еден уред" });
-    await waitFor(() => expect(vendor).toBeEnabled());
-    await user.selectOptions(vendor, "polar");
+    const section = await screen.findByRole("button", { name: /^HR зони/ });
+    // The demo watch (Garmin) sent its zones; five rows by physiology, with ranges.
+    await waitFor(() => expect(section).toHaveTextContent("Од Garmin"));
+    await user.click(section);
+    for (const name of ["Опоравување", "Аеробна основа", "Темпо", "Праг", "VO2max"])
+      expect(screen.getByText(name)).toBeInTheDocument();
+    expect(screen.getByText("129–144")).toBeInTheDocument();
+    expect(screen.getByText("168+")).toBeInTheDocument();
+    // Always one app.
+    await user.selectOptions(screen.getByLabelText("Апликација"), "polar");
     expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "vendor", vendor: "polar" } });
-    const manual = screen.getByRole("radio", { name: "Рачно" });
-    await waitFor(() => expect(manual).toBeEnabled());
-    await user.click(manual);
-    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "manual" } });
+    expect(await screen.findByText(/Избраната апликација нема испратено зони/)).toBeInTheDocument();
 
-    await waitFor(() => expect(screen.getByRole("radio", { name: "Рачно" })).toBeEnabled());
+    // Manual: the bounds start from the zones in use; invalid ones are explained.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Рачно" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Рачно" }));
+    expect(update).toHaveBeenLastCalledWith({ hrZones: { mode: "manual" } });
+    const z2 = await screen.findByLabelText("Почеток на зона 2 (удари/мин)");
+    const z3 = screen.getByLabelText("Почеток на зона 3 (удари/мин)");
+    await user.clear(z3);
+    await user.type(z3, "110");
+    await user.click(screen.getByRole("button", { name: "Зачувај зони" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/растат/);
+    await user.clear(z2);
+    await user.type(z2, "105");
+    await user.clear(z3);
+    await user.type(z3, "135");
+    await user.click(screen.getByRole("button", { name: "Зачувај зони" }));
+    expect(await screen.findByText("Зоните се зачувани и важат од денес.")).toBeInTheDocument();
+    await waitFor(() => expect(section).toHaveTextContent("Рачно"));
+
     const maxHr = screen.getByLabelText("Макс. пулс (bpm)");
     update.mockClear();
     // Out of range values are not sent.
@@ -128,9 +146,9 @@ describe("profile preferences", () => {
     await user.type(maxHr, "188");
     await user.tab();
     expect(update).toHaveBeenLastCalledWith({ maxHeartRate: 188 });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /^HR зони/ })).toHaveTextContent("max 188"),
-    );
+    expect(
+      await screen.findByRole("button", { name: "Пресметај од макс. пулс (188)" }),
+    ).toBeInTheDocument();
     const birth = screen.getByLabelText("Датум на раѓање");
     await user.type(birth, "1985-04-12");
     await user.tab();

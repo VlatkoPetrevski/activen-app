@@ -5,6 +5,7 @@
 import type {
   Activity,
   AthleteSettings,
+  HrZone,
   Kpis,
   LocalDate,
   MixEntry,
@@ -337,4 +338,17 @@ export interface ConnectionDto {
   lastSyncAt: string | null;
   /** Why the last sync failed; null when it worked. */
   lastError: string | null;
+}
+
+/** The heart-rate zones in use today, where they come from, and the five physiological names. */
+export interface HrZonesDto {
+  zones: HrZone[];
+  /** "vendor": from a connected app; "manual": entered here; "garmin_default": % of max HR. */
+  origin: "vendor" | "manual" | "garmin_default";
+  /** The app the zones came from ("manual" for entered ones); null for the default. */
+  source: Vendor | null;
+  /** Max HR the default zones were computed from (entered, or 220 − age). */
+  maxHeartRate: number | null;
+  /** True when the chosen source had no zones and another one was used. */
+  fellBack: boolean;
 }

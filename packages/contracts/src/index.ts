@@ -10,3 +10,4 @@ export * from "./analytics.js";
 export * from "./viewer.js";
 export * from "./imports.js";
 export * from "./briefing.js";
+export * from "./zones.js";

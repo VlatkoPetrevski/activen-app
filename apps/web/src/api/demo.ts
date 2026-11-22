@@ -37,6 +37,10 @@ import {
   type BriefingDto,
   type MorningInputDto,
   importOutcome,
+  hrZonesView,
+  HR_ZONE_COLORS,
+  manualZones,
+  type HrZonesDto,
   ENTERED_MARK,
   type ManualActivityInput,
   type ConnectionDto,
@@ -44,6 +48,8 @@ import {
   type ImportsSummaryDto,
 } from "@activen/contracts";
 import {
+  zonesFromLowerBounds,
+  type HrZoneProfile,
   addDays,
   DEFAULT_ATHLETE_SETTINGS,
   localDateOf,
@@ -81,6 +87,8 @@ interface DemoAthlete {
   /** Relationship with the coach Ана. */
   link: { id: string; status: "active" | "invited"; scopes: ConsentScope[] } | null;
   comments: CommentDto[];
+  /** Heart-rate zone versions; the demo watch (Garmin) sent one at the start of the year. */
+  zoneProfiles?: HrZoneProfile[];
 }
 
 const COACH = { id: "demo-ana", name: "Ана Стојанова", email: "ana.coach@example.com" };
@@ -832,6 +840,44 @@ export class DemoApi implements Api {
     }
     return this.delay(results);
   };
+  hrZones = async (): Promise<HrZonesDto> => {
+    const a = this.me_();
+    return this.delay(hrZonesView(this.zoneProfilesOf(a), this.today(), a.settings));
+  };
+  saveHrZones = async (lowerBounds: number[]): Promise<HrZonesDto> => {
+    const a = this.me_();
+    const profiles = this.zoneProfilesOf(a);
+    const version = profiles.filter((p) => p.source === "manual").length + 1;
+    a.zoneProfiles = [
+      ...profiles,
+      {
+        id: this.id("zones"),
+        athleteId: a.id,
+        source: "manual",
+        name: "ActiveN",
+        version,
+        effectiveFrom: this.today(),
+        zones: manualZones(lowerBounds),
+      },
+    ];
+    a.settings = { ...a.settings, hrZones: { mode: "manual" } };
+    return this.hrZones();
+  };
+  private zoneProfilesOf(a: DemoAthlete): HrZoneProfile[] {
+    a.zoneProfiles ??= [
+      {
+        id: `${a.id}-garmin-zones`,
+        athleteId: a.id,
+        source: "garmin",
+        name: "Garmin",
+        version: 1,
+        effectiveFrom: "2026-01-01",
+        // Garmin zones by lactate threshold heart rate (LTHR 165).
+        zones: zonesFromLowerBounds([100, 129, 145, 158, 168], { colors: HR_ZONE_COLORS }),
+      },
+    ];
+    return a.zoneProfiles;
+  }
   createActivity = async (input: ManualActivityInput) => {
     const a = this.me_();
     const offset = zoneOffset(a.settings.timeZone, input.date, input.startTime);

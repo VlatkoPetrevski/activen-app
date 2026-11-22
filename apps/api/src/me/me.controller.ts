@@ -8,7 +8,10 @@ import {
   ProfilePatch,
   SelfServiceRole as RoleParam,
   SettingsPatch,
+  HrZonesPut,
 } from "@activen/contracts/requests";
+import { hrZonesView, manualZones, type HrZonesDto } from "@activen/contracts";
+import { localDateOf } from "@activen/domain";
 import {
   Controller,
   Delete,
@@ -118,6 +121,39 @@ export class MeController {
       Object.entries(patch).filter(([, v]) => v !== undefined),
     ) as Partial<AthleteSettings>;
     return this.repos.settings.save(a.userId, { ...current, ...next });
+  }
+
+  @Get("hr-zones")
+  @ApiOperation({ summary: "Heart-rate zones in use today and where they come from" })
+  async hrZones(@CurrentAuth() a: AuthContext): Promise<HrZonesDto> {
+    const settings = await this.repos.settings.get(a.userId);
+    const today = localDateOf(new Date().toISOString(), settings.timeZone);
+    return hrZonesView(await this.repos.hrZones.list(a.userId), today, settings);
+  }
+
+  @Put("hr-zones")
+  @ApiOperation({
+    summary: "Set own zones (lower bounds of zones 2–5); a new version from today, mode manual",
+  })
+  @ApiZodBody(HrZonesPut)
+  async setHrZones(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(HrZonesPut) body: z.output<typeof HrZonesPut>,
+  ): Promise<HrZonesDto> {
+    const settings = await this.repos.settings.get(a.userId);
+    const today = localDateOf(new Date().toISOString(), settings.timeZone);
+    await this.repos.hrZones.addVersion({
+      userId: a.userId,
+      source: "manual",
+      name: "ActiveN",
+      effectiveFrom: today,
+      zones: manualZones(body.lowerBounds),
+    });
+    const next = await this.repos.settings.save(a.userId, {
+      ...settings,
+      hrZones: { mode: "manual" },
+    });
+    return hrZonesView(await this.repos.hrZones.list(a.userId), today, next);
   }
 
   @Get("identities")
