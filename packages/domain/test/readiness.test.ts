@@ -23,6 +23,7 @@ function record(overrides: Partial<WellnessRecord> & { calendarDate: string }): 
     source: "polar",
     sleepDurationInSeconds: null,
     sleepScore: null,
+    sleepQuality: null,
     restingHeartRate: null,
     lastNightHrvMs: null,
     vendorReadiness: null,
@@ -91,6 +92,7 @@ describe("factors", () => {
     calendarDate: TODAY,
     sleepDurationInSeconds: null,
     sleepScore: null,
+    sleepQuality: null,
     restingHeartRate: null,
     lastNightHrvMs: null,
     vendorReadiness: null,
@@ -110,6 +112,25 @@ describe("factors", () => {
     });
     expect(sleepFactor(day({ sleepDurationInSeconds: 3.5 * 3600 }), 8 * 3600).score).toBe(0);
     expect(sleepFactor(undefined, 8 * 3600).status).toBe("missing");
+    // The athlete's rating: alone, or averaged with the duration range.
+    const manual = { sleepDurationInSeconds: "manual", sleepQuality: "manual" } as const;
+    expect(sleepFactor(day({ sleepQuality: 5, sources: manual }), 8 * 3600)).toMatchObject({
+      score: 100,
+      value: null,
+      quality: 5,
+    });
+    expect(
+      sleepFactor(
+        day({ sleepQuality: 1, sleepDurationInSeconds: 8 * 3600, sources: manual }),
+        8 * 3600,
+      ),
+    ).toMatchObject({ score: 55, value: 8 * 3600, quality: 1 });
+    expect(
+      sleepFactor(
+        day({ sleepScore: 90, sleepQuality: 2, sources: { sleepQuality: "manual" } }),
+        8 * 3600,
+      ),
+    ).toMatchObject({ score: 35, unit: "seconds" });
     // Typed-in sleep wins over the watch's score of the same night.
     expect(
       sleepFactor(

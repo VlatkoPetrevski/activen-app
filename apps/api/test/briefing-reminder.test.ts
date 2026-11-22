@@ -79,6 +79,7 @@ describe("morning email", () => {
         source: "polar",
         sleepDurationInSeconds: 7.5 * 3600,
         sleepScore: null,
+        sleepQuality: null,
         restingHeartRate: 48 + (i % 2),
         lastNightHrvMs: null,
         vendorReadiness: null,
@@ -88,6 +89,7 @@ describe("morning email", () => {
       source: "manual",
       sleepDurationInSeconds: 5 * 3600,
       sleepScore: null,
+      sleepQuality: null,
       restingHeartRate: 55,
       lastNightHrvMs: null,
       vendorReadiness: null,
@@ -103,7 +105,7 @@ describe("morning email", () => {
     const [email] = to(athlete);
     expect(email?.subject).toMatch(/^Замени со лесно · спремност \d+$/);
     expect(email?.text).toContain("Денес: 8 × 400 m брзо");
-    expect(email?.text).toContain("Спиеше 5 ч");
+    expect(email?.text).toContain("Спиеше 5–6 ч");
     expect(email?.text).toContain("Измена: Лесно 7 km, зона 2");
     expect(email?.text).toContain("https://app.activen.test/");
     expect(email?.text).toContain("Профил › Известувања");

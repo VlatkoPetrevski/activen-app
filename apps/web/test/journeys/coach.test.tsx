@@ -136,8 +136,9 @@ describe("coach analytics (demo)", () => {
     await user.keyboard("{Escape}");
     // Open an athlete who shares activities (the attention order depends on the demo's day).
     await user.click(screen.getByRole("link", { name: /^Анализа: Влатко/ }));
-    // Athlete page: key numbers first, charts on demand.
-    expect(await screen.findByText("Исполнет план (28 д.)")).toBeInTheDocument();
+    // Athlete page: key numbers first, charts on demand. (The node may be replaced while the page
+    // finishes loading, so only its appearance is awaited.)
+    await screen.findByText("Исполнет план (28 д.)");
     const weekly = await screen.findByRole("button", { name: /^Неделен волумен \(12 нед\.\)/ });
     await user.click(weekly);
     expect(weekly).toHaveAttribute("aria-expanded", "true");

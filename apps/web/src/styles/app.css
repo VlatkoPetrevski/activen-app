@@ -811,25 +811,34 @@ dialog.sheet::backdrop {
   padding-top: 12px;
   border-top: 1px solid var(--border-soft);
 }
-.morning-fields {
+.sleep-ranges {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
 }
-.morning-fields fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  min-width: 0;
+.sleep-ranges button {
+  min-height: 44px;
+  padding: 4px 2px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
 }
-.morning-fields .row .input {
-  width: 4.5em;
-  min-width: 0;
+.sleep-ranges button[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
 }
 @media (max-width: 420px) {
-  .morning-fields {
-    grid-template-columns: 1fr;
+  .sleep-ranges {
+    grid-template-columns: repeat(3, 1fr);
   }
+}
+.morning-pulse {
+  max-width: 220px;
 }
 .coach-note {
   display: flex;

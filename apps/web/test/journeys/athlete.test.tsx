@@ -16,8 +16,15 @@ describe("athlete app (demo)", () => {
     expect(within(card).getByText(/^Спремност \d+ · /)).toBeInTheDocument();
     // A short night with a raised pulse changes the advice right away.
     await user.click(within(card).getByRole("button", { name: "Внеси сон и пулс" }));
-    await user.type(within(card).getByLabelText("Сон, часови"), "4");
-    await user.type(within(card).getByLabelText("Сон, минути"), "20");
+    // Sleep as a range, the night as a face (like the check-in), the pulse as a number.
+    const ranges = within(card).getByRole("group", { name: "Колку спиеше?" });
+    await user.click(within(ranges).getByRole("button", { name: "под 5 ч" }));
+    expect(within(ranges).getByRole("button", { name: "под 5 ч" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const quality = within(card).getByRole("group", { name: "Квалитет на сонот" });
+    await user.click(within(quality).getByRole("button", { name: /многу лош/ }));
     await user.type(within(card).getByLabelText("Пулс во мирување (bpm)"), "61");
     await user.click(within(card).getByRole("button", { name: "Зачувај" }));
     await waitFor(() =>
@@ -25,14 +32,27 @@ describe("athlete app (demo)", () => {
         /Одмор денес|Замени со лесно|Полесно/,
       ),
     );
-    expect(within(card).getByText(/Спиеше 4 ч 20 мин|Пулс во мирување 61/)).toBeInTheDocument();
-    // Wrong values are explained, and what was entered can be removed again.
+    expect(
+      within(card).getByText(/Спиеше околу 4 ч 30 мин, а сонот беше многу лош|Пулс во мирување 61/),
+    ).toBeInTheDocument();
+    // The form opens again with what was chosen.
     await user.click(within(card).getByRole("button", { name: "Измени сон и пулс" }));
+    expect(within(card).getByRole("button", { name: "под 5 ч" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(card).getByRole("button", { name: /многу лош/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(within(card).getByRole("button", { name: "Зачувај" }));
+    // Wrong values are explained, and what was entered can be removed again.
+    await user.click(await within(card).findByRole("button", { name: "Измени сон и пулс" }));
     const pulse = within(card).getByLabelText("Пулс во мирување (bpm)");
     await user.clear(pulse);
     await user.type(pulse, "300");
     await user.click(within(card).getByRole("button", { name: "Зачувај" }));
-    expect(await within(card).findByRole("alert")).toHaveTextContent(/пулс 25–120/);
+    expect(await within(card).findByRole("alert")).toHaveTextContent(/Пулсот е 25–120/);
     await user.click(within(card).getByRole("button", { name: "Избриши го внесеното" }));
     await waitFor(() =>
       expect(within(card).getByRole("button", { name: "Внеси сон и пулс" })).toBeInTheDocument(),

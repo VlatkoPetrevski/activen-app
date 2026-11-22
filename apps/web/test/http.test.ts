@@ -215,6 +215,7 @@ describe("HttpApi", () => {
     await api.briefing("2026-11-20");
     await api.saveMorningInput("2026-11-21", {
       sleepDurationInSeconds: 25_200,
+      sleepQuality: 4,
       restingHeartRate: 50,
     });
     await api.athleteBriefing("x");
@@ -226,6 +227,7 @@ describe("HttpApi", () => {
     ]);
     expect(JSON.parse(String(calls[2]!.init.body))).toEqual({
       sleepDurationInSeconds: 25_200,
+      sleepQuality: 4,
       restingHeartRate: 50,
     });
   });

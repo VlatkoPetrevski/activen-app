@@ -29,6 +29,7 @@ async function history(athlete: TestUser) {
       source: "polar",
       sleepDurationInSeconds: 7.5 * 3600,
       sleepScore: null,
+      sleepQuality: null,
       restingHeartRate: 48 + (i % 3),
       lastNightHrvMs: 60 + (i % 4),
       vendorReadiness: null,
@@ -122,12 +123,30 @@ describe("morning briefing", () => {
     const read = await h.http().get("/v1/me/briefing").set(athlete.auth).expect(200);
     expect(read.body.advice).toEqual(bad.body.advice);
 
+    // How the night was counts too: a range of 5–6 h rated "very poor".
+    const rated = await h
+      .http()
+      .put(`/v1/me/wellness/${today()}`)
+      .set(athlete.auth)
+      .send({ sleepDurationInSeconds: 5.5 * 3600, sleepQuality: 1, restingHeartRate: 48 })
+      .expect(200);
+    expect(rated.body.morningInput).toEqual({
+      sleepDurationInSeconds: 19_800,
+      sleepQuality: 1,
+      restingHeartRate: 48,
+    });
+    expect(rated.body.readiness.factors[0]).toMatchObject({
+      key: "sleep",
+      quality: 1,
+      status: "poor",
+    });
+
     // Clearing the input.
     const cleared = await h
       .http()
       .put(`/v1/me/wellness/${today()}`)
       .set(athlete.auth)
-      .send({ sleepDurationInSeconds: null, restingHeartRate: null })
+      .send({ sleepDurationInSeconds: null, sleepQuality: null, restingHeartRate: null })
       .expect(200);
     expect(cleared.body.morningInput).toBeNull();
   });
@@ -143,6 +162,8 @@ describe("morning briefing", () => {
     await put("21-11-2026", ok).expect(400);
     await put(today(), { ...ok, restingHeartRate: 10 }).expect(422);
     await put(today(), { ...ok, mood: 3 }).expect(422);
+    await put(today(), { ...ok, sleepQuality: 6 }).expect(422);
+    await put(today(), { ...ok, sleepQuality: 2.5 }).expect(422);
     await put(today(), { sleepDurationInSeconds: 20 * 3600, restingHeartRate: null }).expect(422);
     await h.http().get("/v1/me/briefing?date=tomorrow").set(athlete.auth).expect(422);
     const past = await h
@@ -150,7 +171,7 @@ describe("morning briefing", () => {
       .get(`/v1/me/briefing?date=${addDays(today(), -7)}`)
       .set(athlete.auth)
       .expect(200);
-    expect(past.body.morningInput).toEqual(ok);
+    expect(past.body.morningInput).toEqual({ ...ok, sleepQuality: null });
     await h.http().get("/v1/me/briefing").expect(401);
   });
 

@@ -1,12 +1,14 @@
-import type { MorningInputDto } from "@activen/contracts";
+import { SLEEP_RANGES, sleepRangeIndex, type MorningInputDto } from "@activen/contracts";
+import { sleepQualityKey, sleepRangeText } from "@activen/i18n";
 import { useId, useState, type FormEvent } from "react";
 import { useI18n } from "../i18n/I18nContext.js";
 
-const MAX_SLEEP_HOURS = 16;
+/** Same faces as the post-session check-in, from a very poor to an excellent night. */
+const SLEEP_EMOJI = ["😫", "😕", "🙂", "😊", "🤩"] as const;
 
 /**
- * The morning input: measured values only — hours and minutes slept and the resting pulse.
- * No self-assessment scales (product decision, ADR-0013).
+ * The morning input: roughly how long the athlete slept (a range), how the night was (1–5, the
+ * check-in faces) and the resting pulse. Every part is optional; one is enough.
  */
 export function MorningInputForm({
   initial,
@@ -18,29 +20,23 @@ export function MorningInputForm({
   /** Shown when something was entered before. */
   onClear?: () => Promise<unknown>;
 }) {
-  const { t } = useI18n();
+  const { t, translator } = useI18n();
   const id = useId();
-  const sleep = initial?.sleepDurationInSeconds ?? null;
-  const [hours, setHours] = useState(sleep === null ? "" : String(Math.floor(sleep / 3600)));
-  const [minutes, setMinutes] = useState(
-    sleep === null ? "" : String(Math.round((sleep % 3600) / 60)),
+  const [range, setRange] = useState<number | null>(
+    sleepRangeIndex(initial?.sleepDurationInSeconds ?? null),
   );
+  const [quality, setQuality] = useState<number | null>(initial?.sleepQuality ?? null);
   const [pulse, setPulse] = useState(
     initial?.restingHeartRate == null ? "" : String(initial.restingHeartRate),
   );
   const [state, setState] = useState<"idle" | "saving" | "invalid" | "error">("idle");
 
   const parse = (): MorningInputDto | null => {
-    const h = hours.trim() === "" ? null : Number(hours);
-    const m = minutes.trim() === "" ? 0 : Number(minutes);
     const p = pulse.trim() === "" ? null : Number(pulse);
-    if (h !== null && (!Number.isInteger(h) || h < 0 || h > MAX_SLEEP_HOURS)) return null;
-    if (!Number.isInteger(m) || m < 0 || m > 59) return null;
     if (p !== null && (!Number.isInteger(p) || p < 25 || p > 120)) return null;
-    const seconds = h === null ? null : h * 3600 + m * 60;
-    if (seconds !== null && seconds > MAX_SLEEP_HOURS * 3600) return null;
-    if (seconds === null && p === null) return null;
-    return { sleepDurationInSeconds: seconds, restingHeartRate: p };
+    const seconds = range === null ? null : (SLEEP_RANGES[range]?.seconds ?? null);
+    if (seconds === null && quality === null && p === null) return null;
+    return { sleepDurationInSeconds: seconds, sleepQuality: quality, restingHeartRate: p };
   };
 
   const submit = async (e: FormEvent) => {
@@ -67,50 +63,55 @@ export function MorningInputForm({
         <h3 id={`${id}-title`}>{t("briefing.morning.title")}</h3>
         <p className="small muted">{t("briefing.morning.hint")}</p>
       </div>
-      <div className="morning-fields">
-        <fieldset className="field">
-          <legend className="label">{t("briefing.morning.sleep")}</legend>
-          <div className="row">
-            <input
-              id={`${id}-h`}
-              className="input num"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={MAX_SLEEP_HOURS}
-              value={hours}
-              aria-label={`${t("briefing.morning.sleep")}, ${t("briefing.morning.hours")}`}
-              onChange={(e) => setHours(e.target.value)}
-            />
-            <span className="small muted">{t("briefing.morning.hours")}</span>
-            <input
-              id={`${id}-m`}
-              className="input num"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={59}
-              step={5}
-              value={minutes}
-              aria-label={`${t("briefing.morning.sleep")}, ${t("briefing.morning.minutes")}`}
-              onChange={(e) => setMinutes(e.target.value)}
-            />
-            <span className="small muted">{t("briefing.morning.minutes")}</span>
-          </div>
-        </fieldset>
-        <div className="field">
-          <label htmlFor={`${id}-p`}>{t("briefing.morning.pulse")}</label>
-          <input
-            id={`${id}-p`}
-            className="input num"
-            type="number"
-            inputMode="numeric"
-            min={25}
-            max={120}
-            value={pulse}
-            onChange={(e) => setPulse(e.target.value)}
-          />
-        </div>
+      <div className="checkin-label">
+        <span>{t("briefing.morning.sleep")}</span>
+      </div>
+      <div className="sleep-ranges" role="group" aria-label={t("briefing.morning.sleep")}>
+        {SLEEP_RANGES.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-pressed={range === i}
+            onClick={() => {
+              setRange(range === i ? null : i);
+              setState("idle");
+            }}
+          >
+            {sleepRangeText(translator, i)}
+          </button>
+        ))}
+      </div>
+      <div className="checkin-label">
+        <span>{t("briefing.morning.quality")}</span>
+      </div>
+      <div className="feel compact" role="group" aria-label={t("briefing.morning.quality")}>
+        {SLEEP_EMOJI.map((emoji, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-pressed={quality === i + 1}
+            onClick={() => {
+              setQuality(quality === i + 1 ? null : i + 1);
+              setState("idle");
+            }}
+          >
+            <span aria-hidden>{emoji}</span>
+            <span>{t(sleepQualityKey(i + 1))}</span>
+          </button>
+        ))}
+      </div>
+      <div className="field morning-pulse">
+        <label htmlFor={`${id}-p`}>{t("briefing.morning.pulse")}</label>
+        <input
+          id={`${id}-p`}
+          className="input num"
+          type="number"
+          inputMode="numeric"
+          min={25}
+          max={120}
+          value={pulse}
+          onChange={(e) => setPulse(e.target.value)}
+        />
       </div>
       {state === "invalid" && (
         <p className="small" role="alert" style={{ color: "var(--bad)" }}>

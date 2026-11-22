@@ -89,7 +89,7 @@ export function TodayPage() {
   const saveMorning = async (input: MorningInputDto | null) => {
     const next = await api.saveMorningInput(
       today,
-      input ?? { sleepDurationInSeconds: null, restingHeartRate: null },
+      input ?? { sleepDurationInSeconds: null, sleepQuality: null, restingHeartRate: null },
     );
     queryClient.setQueryData(["me", "briefing", today], next);
   };

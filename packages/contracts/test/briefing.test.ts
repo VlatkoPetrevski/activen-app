@@ -4,6 +4,8 @@ import {
   buildBriefing,
   coachRowView,
   sessionOfTheDay,
+  sleepRangeIndex,
+  SLEEP_RANGES,
   wellnessRecordsOf,
   wellnessSeries,
   type PlanEntryDto,
@@ -16,6 +18,7 @@ const rec = (calendarDate: string, o: Partial<WellnessRecord> = {}): WellnessRec
   source: "polar",
   sleepDurationInSeconds: 7.5 * 3600,
   sleepScore: null,
+  sleepQuality: null,
   restingHeartRate: 49,
   lastNightHrvMs: 60,
   vendorReadiness: null,
@@ -93,7 +96,11 @@ describe("buildBriefing", () => {
       sleepDurationInSeconds: 4.5 * 3600,
       sources: { sleepDurationInSeconds: "manual", lastNightHrvMs: "polar" },
     });
-    expect(b.morningInput).toEqual({ sleepDurationInSeconds: 4.5 * 3600, restingHeartRate: 56 });
+    expect(b.morningInput).toEqual({
+      sleepDurationInSeconds: 4.5 * 3600,
+      sleepQuality: null,
+      restingHeartRate: 56,
+    });
     expect(b.readiness.level).toBe("LOW");
     expect(b.advice).toMatchObject({
       verdict: "swap_easy",
@@ -143,6 +150,18 @@ describe("buildBriefing", () => {
       sessionOfTheDay([entry({ id: "r", kind: "rest" }), entry({ id: "w", sequence: 2 })])?.id,
     ).toBe("w");
     expect(sessionOfTheDay([])).toBeNull();
+  });
+});
+
+describe("sleep ranges", () => {
+  it("maps a duration to its range and back to the middle", () => {
+    expect(sleepRangeIndex(null)).toBeNull();
+    expect(sleepRangeIndex(4 * 3600)).toBe(0);
+    expect(sleepRangeIndex(6.5 * 3600)).toBe(2);
+    expect(sleepRangeIndex(7 * 3600)).toBe(3);
+    expect(sleepRangeIndex(11 * 3600)).toBe(5);
+    expect(sleepRangeIndex(-1)).toBeNull();
+    for (const [i, r] of SLEEP_RANGES.entries()) expect(sleepRangeIndex(r.seconds)).toBe(i);
   });
 });
 

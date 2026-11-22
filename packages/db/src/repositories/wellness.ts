@@ -10,6 +10,7 @@ const toRecord = (r: Row): WellnessRecord => ({
   source: r.source,
   sleepDurationInSeconds: r.sleepDurationInSeconds,
   sleepScore: r.sleepScore,
+  sleepQuality: r.sleepQuality,
   restingHeartRate: r.restingHeartRate,
   lastNightHrvMs: r.lastNightHrvMs,
   vendorReadiness: r.vendorReadiness,
@@ -27,6 +28,7 @@ export class WellnessRepository {
     const values = {
       sleepDurationInSeconds: record.sleepDurationInSeconds,
       sleepScore: record.sleepScore,
+      sleepQuality: record.sleepQuality,
       restingHeartRate: record.restingHeartRate,
       lastNightHrvMs: record.lastNightHrvMs,
       vendorReadiness: record.vendorReadiness,
@@ -70,6 +72,7 @@ export class WellnessRepository {
       source,
       sleepDurationInSeconds: null,
       sleepScore: null,
+      sleepQuality: null,
       restingHeartRate: null,
       lastNightHrvMs: null,
       vendorReadiness: null,

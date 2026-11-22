@@ -72,8 +72,8 @@ export const SettingsPatch = z
   .strict();
 
 /**
- * The morning input: measured values only (sleep and resting pulse), no self-assessment.
- * Null clears a value; both null removes the input for the day.
+ * The morning input: how long the athlete slept (a range, sent as its middle), how the night was
+ * (1–5) and the resting pulse. Null clears a value; all null removes the input for the day.
  */
 export const MorningInput = z
   .object({
@@ -83,6 +83,7 @@ export const MorningInput = z
       .min(0)
       .max(16 * 3600)
       .nullable(),
+    sleepQuality: z.number().int().min(1).max(5).nullable().default(null),
     restingHeartRate: z.number().int().min(25).max(120).nullable(),
   })
   .strict();

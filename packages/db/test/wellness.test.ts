@@ -9,6 +9,7 @@ const empty = (calendarDate: string, source: WellnessRecord["source"]): Wellness
   source,
   sleepDurationInSeconds: null,
   sleepScore: null,
+  sleepQuality: null,
   restingHeartRate: null,
   lastNightHrvMs: null,
   vendorReadiness: null,
@@ -25,6 +26,9 @@ describe("daily wellness", () => {
     });
     await w.put(u.id, { ...empty("2026-11-20", "polar"), sleepScore: 78, lastNightHrvMs: 61.5 });
     await w.put(u.id, { ...empty("2026-11-20", "manual"), restingHeartRate: 49 });
+    await expect(
+      w.put(u.id, { ...empty("2026-11-20", "manual"), sleepQuality: 6 }),
+    ).rejects.toThrow();
     const day = await w.range(u.id, "2026-11-20", "2026-11-20");
     expect(day).toHaveLength(2);
     expect(day).toEqual(

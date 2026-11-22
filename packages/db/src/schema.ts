@@ -346,6 +346,8 @@ export const dailyWellness = pgTable(
     source: vendorEnum("source").notNull(),
     sleepDurationInSeconds: integer("sleep_duration_s"),
     sleepScore: smallint("sleep_score"),
+    /** The athlete's own rating of the night, 1–5 (morning input). */
+    sleepQuality: smallint("sleep_quality"),
     restingHeartRate: smallint("resting_hr"),
     lastNightHrvMs: doublePrecision("hrv_ms"),
     vendorReadiness: smallint("vendor_readiness"),
@@ -357,6 +359,7 @@ export const dailyWellness = pgTable(
       "daily_wellness_ranges_ck",
       sql`(${t.sleepDurationInSeconds} is null or ${t.sleepDurationInSeconds} between 0 and 86400)
         and (${t.sleepScore} is null or ${t.sleepScore} between 0 and 100)
+        and (${t.sleepQuality} is null or ${t.sleepQuality} between 1 and 5)
         and (${t.restingHeartRate} is null or ${t.restingHeartRate} between 20 and 200)
         and (${t.lastNightHrvMs} is null or ${t.lastNightHrvMs} between 0 and 500)
         and (${t.vendorReadiness} is null or ${t.vendorReadiness} between 0 and 100)`,

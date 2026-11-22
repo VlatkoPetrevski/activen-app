@@ -95,6 +95,50 @@ describe("briefingText", () => {
     expect(briefingText(en, fen, scored, advice({})).reason).toBe(
       "Sleep score 55 — weaker than usual.",
     );
+    const rated = (value: number | null, quality: number) => ({
+      ...readiness,
+      factors: [
+        {
+          key: "sleep" as const,
+          status: "poor" as const,
+          score: 20,
+          value,
+          baseline: 8 * 3600,
+          unit: "seconds" as const,
+          quality,
+        },
+      ],
+    });
+    expect(briefingText(mk, fmk, rated(null, 1), advice({})).reason).toBe(
+      "Сонот го оцени како многу лош.",
+    );
+    expect(briefingText(mk, fmk, rated(5.5 * 3600, 2), advice({})).reason).toBe(
+      "Спиеше 5 ч 30 мин, а сонот беше лош.",
+    );
+    const typed = (seconds: number, quality: number | null) => ({
+      ...readiness,
+      factors: [
+        {
+          key: "sleep" as const,
+          status: "poor" as const,
+          score: 20,
+          value: seconds,
+          baseline: 8 * 3600,
+          unit: "seconds" as const,
+          quality,
+          typed: true,
+        },
+      ],
+    });
+    expect(briefingText(mk, fmk, typed(4.5 * 3600, 1), advice({})).reason).toBe(
+      "Спиеше под 5 ч, а сонот беше многу лош.",
+    );
+    expect(briefingText(mk, fmk, typed(6.5 * 3600, null), advice({})).reason).toBe(
+      "Спиеше 6–7 ч, под потребата од 8 ч 0 мин.",
+    );
+    expect(briefingText(en, fen, typed(9.5 * 3600, 5), advice({})).reason).toBe(
+      "You slept 9+ h, and the night was excellent.",
+    );
     for (const kind of ["all_good", "no_data", "rest_planned", "nothing_planned"] as const)
       expect(reason({ kind })).not.toMatch(/briefing\./);
   });

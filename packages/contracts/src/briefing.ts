@@ -20,11 +20,17 @@ import {
 import type { PlanEntryDto, WellnessDto } from "./responses.js";
 import type { Viewer } from "./viewer.js";
 
-/** What the athlete typed this morning (only measured values; no self-assessment). */
+/** What the athlete entered this morning: sleep (a range), how the night was, resting pulse. */
 export interface MorningInputDto {
+  /** The middle of the chosen range (see {@link SLEEP_RANGES}). */
   sleepDurationInSeconds: number | null;
+  /** 1 (very poor) – 5 (excellent). */
+  sleepQuality: number | null;
   restingHeartRate: number | null;
 }
+
+/** Sleep is entered as a range; the ranges live in the domain with the readiness rules. */
+export { SLEEP_RANGES, sleepRangeIndex } from "@activen/domain";
 
 export interface BriefingDto {
   athleteId: string;
@@ -93,6 +99,7 @@ export function buildBriefing(input: BriefingInput): BriefingDto {
     morningInput: manual
       ? {
           sleepDurationInSeconds: manual.sleepDurationInSeconds,
+          sleepQuality: manual.sleepQuality,
           restingHeartRate: manual.restingHeartRate,
         }
       : null,
@@ -166,6 +173,7 @@ export function wellnessRecordsOf(list: readonly WellnessDto[], source: Vendor):
     source,
     sleepDurationInSeconds: w.sleepDurationInSeconds,
     sleepScore: w.sleepScore,
+    sleepQuality: null,
     restingHeartRate: w.restingHeartRate,
     lastNightHrvMs: w.lastNightHrvMs,
     vendorReadiness: w.trainingReadiness,

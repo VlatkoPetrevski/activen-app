@@ -50,6 +50,13 @@
       "when": 1795300426575,
       "tag": "0006_morning_briefing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795327372625,
+      "tag": "0007_sleep_quality",
+      "breakpoints": true
     }
   ]
 }

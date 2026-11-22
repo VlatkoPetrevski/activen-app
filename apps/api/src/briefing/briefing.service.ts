@@ -86,7 +86,7 @@ export class BriefingService {
   }
 
   /**
-   * Saves what the athlete measured this morning (sleep and resting pulse). Not for future days
+   * Saves the morning input (sleep range, how the night was, resting pulse). Not for future days
    * and at most a week back; both values null removes the input.
    */
   async saveMorningInput(
@@ -105,6 +105,7 @@ export class BriefingService {
       source: "manual",
       sleepDurationInSeconds: input.sleepDurationInSeconds,
       sleepScore: null,
+      sleepQuality: input.sleepQuality,
       restingHeartRate: input.restingHeartRate,
       lastNightHrvMs: null,
       vendorReadiness: null,

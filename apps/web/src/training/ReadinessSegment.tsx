@@ -1,5 +1,6 @@
 import type { BriefingDto } from "@activen/contracts";
 import type { FactorStatus, ReadinessFactor, ReadinessFactorKey, Vendor } from "@activen/domain";
+import { sleepDurationText, sleepQualityKey } from "@activen/i18n";
 import { useI18n } from "../i18n/I18nContext.js";
 import { vendorName } from "../lib/vendors.js";
 import { Icon, type IconName } from "../ui/Icon.js";
@@ -38,13 +39,14 @@ const sleepText = (seconds: number | null) => {
 };
 
 function useFactorText() {
-  const { t, f } = useI18n();
+  const { t, f, translator } = useI18n();
   return {
     value(x: ReadinessFactor | undefined): string {
+      if (x?.key === "sleep" && x.value === null && x.quality) return t(sleepQualityKey(x.quality));
       if (!x || x.value === null) return "—";
       switch (x.unit) {
         case "seconds":
-          return sleepText(x.value);
+          return x.typed ? sleepDurationText(translator, f, x.value, true) : sleepText(x.value);
         case "score":
           return t("today.sleepScore", { score: x.value });
         case "ms":
@@ -57,7 +59,10 @@ function useFactorText() {
     },
     baseline(x: ReadinessFactor): string | null {
       if (x.baseline === null) return null;
-      if (x.key === "sleep") return t("briefing.need", { value: sleepText(x.baseline) });
+      if (x.key === "sleep") {
+        const need = t("briefing.need", { value: sleepText(x.baseline) });
+        return x.quality && x.value !== null ? `${t(sleepQualityKey(x.quality))} · ${need}` : need;
+      }
       if (x.key === "load") return null;
       return t("briefing.usual", { value: x.baseline });
     },

@@ -31,6 +31,8 @@ export interface WellnessRecord {
   sleepDurationInSeconds: number | null;
   /** 0–100 (Garmin sleep score, Polar sleep score). */
   sleepScore: number | null;
+  /** How the athlete rated the night, 1 (very poor) – 5 (excellent); typed in the morning. */
+  sleepQuality: number | null;
   restingHeartRate: number | null;
   /** Nightly HRV, RMSSD in ms. */
   lastNightHrvMs: number | null;
@@ -43,6 +45,7 @@ export type WellnessField = Exclude<keyof WellnessRecord, "calendarDate" | "sour
 export const WELLNESS_FIELDS: readonly WellnessField[] = Object.freeze([
   "sleepDurationInSeconds",
   "sleepScore",
+  "sleepQuality",
   "restingHeartRate",
   "lastNightHrvMs",
   "vendorReadiness",
@@ -53,6 +56,7 @@ export interface WellnessDay {
   calendarDate: LocalDate;
   sleepDurationInSeconds: number | null;
   sleepScore: number | null;
+  sleepQuality: number | null;
   restingHeartRate: number | null;
   lastNightHrvMs: number | null;
   vendorReadiness: number | null;
@@ -82,6 +86,7 @@ export function mergeWellness(
         calendarDate,
         sleepDurationInSeconds: null,
         sleepScore: null,
+        sleepQuality: null,
         restingHeartRate: null,
         lastNightHrvMs: null,
         vendorReadiness: null,
@@ -138,6 +143,10 @@ export interface ReadinessFactor {
   /** What the value is compared with (sleep need, baseline median/mean, 1.0 for load). */
   baseline: number | null;
   unit: "seconds" | "score" | "bpm" | "ms" | "ratio";
+  /** Sleep only: the athlete's own rating of the night (1–5), when given. */
+  quality?: number | null;
+  /** Sleep only: the duration is a range the athlete chose (see {@link SLEEP_RANGES}). */
+  typed?: boolean;
 }
 
 export type ReadinessConfidence = "high" | "medium" | "low" | "none";
@@ -218,17 +227,59 @@ function factor(
 }
 
 /**
+ * Sleep is estimated as a range ("6–7 h"), not typed to the minute. Each range is stored as its
+ * middle; the last range is open-ended.
+ */
+export const SLEEP_RANGES: readonly { from: number; to: number | null; seconds: number }[] =
+  Object.freeze([
+    { from: 0, to: 5, seconds: 4.5 * 3600 },
+    { from: 5, to: 6, seconds: 5.5 * 3600 },
+    { from: 6, to: 7, seconds: 6.5 * 3600 },
+    { from: 7, to: 8, seconds: 7.5 * 3600 },
+    { from: 8, to: 9, seconds: 8.5 * 3600 },
+    { from: 9, to: null, seconds: 9.5 * 3600 },
+  ]);
+
+/** The range a duration falls in (index into {@link SLEEP_RANGES}); null without a duration. */
+export function sleepRangeIndex(seconds: number | null): number | null {
+  if (seconds === null) return null;
+  const hours = seconds / 3600;
+  const i = SLEEP_RANGES.findIndex((r) => hours >= r.from && (r.to === null || hours < r.to));
+  return i === -1 ? null : i;
+}
+
+/** The athlete's rating of the night (1–5) as a 0–100 score. */
+export const SLEEP_QUALITY_SCORE: Readonly<Record<number, number>> = Object.freeze({
+  1: 10,
+  2: 35,
+  3: 60,
+  4: 80,
+  5: 100,
+});
+
+/**
  * Sleep: the vendor's sleep score when present, otherwise duration vs. need (half the need → 0).
- * Sleep the athlete typed in replaces the watch's night, score included.
+ * What the athlete typed in (duration range and/or quality) replaces the watch's night; duration
+ * and quality are averaged when both are given.
  */
 export function sleepFactor(day: WellnessDay | undefined, needSeconds: number): ReadinessFactor {
-  const typed = day?.sources.sleepDurationInSeconds === "manual";
+  const typed =
+    day?.sources.sleepDurationInSeconds === "manual" || day?.sources.sleepQuality === "manual";
   if (day?.sleepScore != null && !typed)
     return factor("sleep", "score", day.sleepScore, day.sleepScore, null);
   const d = day?.sleepDurationInSeconds;
-  if (d == null || d <= 0) return missing("sleep", "seconds");
-  const ratio = d / needSeconds;
-  return factor("sleep", "seconds", ((ratio - 0.5) / 0.5) * 100, d, needSeconds);
+  const q = day?.sleepQuality ?? null;
+  const qualityScore = q === null ? null : (SLEEP_QUALITY_SCORE[Math.round(q)] ?? null);
+  const durationScore = d == null || d <= 0 ? null : ((d / needSeconds - 0.5) / 0.5) * 100;
+  if (durationScore === null && qualityScore === null) return missing("sleep", "seconds");
+  const scores = [durationScore, qualityScore].filter((x): x is number => x !== null);
+  const score = scores.reduce((sum, x) => sum + Math.min(100, Math.max(0, x)), 0) / scores.length;
+  return {
+    ...factor("sleep", "seconds", score, d != null && d > 0 ? d : 0, needSeconds),
+    ...(durationScore === null ? { value: null } : {}),
+    quality: q,
+    typed: day?.sources.sleepDurationInSeconds === "manual",
+  };
 }
 
 /** Resting HR above the athlete's median: +0 → 100, +3 → 75, +6 → 40, +10 → 0. Lower is fine. */
