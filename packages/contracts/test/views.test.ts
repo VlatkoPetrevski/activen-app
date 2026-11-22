@@ -57,7 +57,10 @@ const activities = [
   run("a-thu-prev", "2026-11-12"),
 ];
 const feedback = new Map([
-  ["a-tue", { perceivedEffort: 9, feel: 2, comment: "heavy", updatedAt: "" }],
+  [
+    "a-tue",
+    { perceivedEffort: 9, feel: 2, comment: "heavy", source: "athlete" as const, updatedAt: "" },
+  ],
 ]);
 const base = {
   athleteId: "a",

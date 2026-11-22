@@ -30,11 +30,11 @@ const act = (
 
 const list = [
   act("RUNNING", 10, 55, {
-    feedback: { perceivedEffort: 4, feel: 3, comment: "лесно", updatedAt: "" },
+    feedback: { perceivedEffort: 4, feel: 3, comment: "лесно", source: "athlete", updatedAt: "" },
   }),
   act("TRAIL_RUNNING", 15, 100, { activityName: "Vodno" }),
   act("TREADMILL_RUNNING", 6, 30, {
-    feedback: { perceivedEffort: 8, feel: 2, comment: null, updatedAt: "" },
+    feedback: { perceivedEffort: 8, feel: 2, comment: null, source: "device", updatedAt: "" },
   }),
   act("CYCLING", 40, 90),
   act("STRENGTH_TRAINING", 0, 45, { distanceInMeters: null }),

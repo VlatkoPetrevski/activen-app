@@ -1,8 +1,7 @@
 import type { CoachLinkDto, MorningInputDto } from "@activen/contracts";
-import { addDays, type LocalDate } from "@activen/domain";
+import type { LocalDate } from "@activen/domain";
 import type { MessageKey } from "@activen/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { Link } from "react-router";
 import { useApi } from "../api/ApiContext.js";
 import { useMe } from "../auth/AuthContext.js";
@@ -18,7 +17,6 @@ import { QueryView } from "../ui/States.js";
 import { BriefingCard } from "../training/BriefingCard.js";
 import { ReadinessSegment } from "../training/ReadinessSegment.js";
 import { WeatherSegment } from "../training/WeatherSegment.js";
-import { CheckInForm } from "../training/CheckInForm.js";
 import { StructureLine } from "../training/WorkoutSteps.js";
 
 function greetingKey(now: Date): MessageKey {
@@ -97,15 +95,8 @@ export function TodayPage() {
     queryKey: ["me", "calendar", week.from, week.to],
     queryFn: () => api.calendar(week.from, week.to),
   });
-  // The latest unrated session of the last 3 days (also yesterday's on a Monday).
-  const recent = useQuery({
-    queryKey: ["me", "activities", addDays(today, -3), addDays(today, -1)],
-    queryFn: () => api.activities(addDays(today, -3), addDays(today, -1)),
-  });
   const coaches = useQuery({ queryKey: ["me", "coaches"], queryFn: () => api.coaches() });
   const coach = coaches.data?.find((c) => c.status === "active");
-  const [rated, setRated] = useState<string | null>(null);
-  const pending = recent.data?.find((a) => !a.feedback || a.id === rated);
   const firstName = me.user.displayName.split(" ")[0] ?? me.user.displayName;
 
   return (
@@ -157,21 +148,6 @@ export function TodayPage() {
                   </div>
                 )}
               </section>
-
-              {pending && (
-                <CheckInForm
-                  key={pending.id}
-                  title={t("today.checkInPrompt")}
-                  subtitle={`${f.date(pending.calendarDate, "long")} · ${activitySummary(f, pending)}`}
-                  initial={pending.feedback}
-                  coachName={coach?.coachName ?? null}
-                  onSave={async (input) => {
-                    setRated(pending.id);
-                    await api.saveFeedback(pending.id, input);
-                    await queryClient.invalidateQueries({ queryKey: ["me"] });
-                  }}
-                />
-              )}
 
               <section className="card stack">
                 <div className="row-between">

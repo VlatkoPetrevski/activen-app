@@ -99,7 +99,25 @@ export function parseFit(bytes: Uint8Array): ImportedActivity {
     streams,
     device,
     exercises: exercisesOf((messages.setMesgs ?? []) as Mesg[]),
+    rating: ratingOf(sessions),
   });
+}
+
+/**
+ * The rating the athlete gave on the watch: FIT `session.workout_rpe` is RPE × 10 (0–100) and
+ * `session.workout_feel` 0–100 in steps of 25 (very weak … very strong).
+ */
+export function ratingOf(sessions: readonly Mesg[]): ImportedActivity["rating"] {
+  const first = (key: string) =>
+    sessions.map((s) => num(s[key])).find((v): v is number => v != null && v >= 0 && v <= 100) ??
+    null;
+  const rpe = first("workoutRpe");
+  const feel = first("workoutFeel");
+  const perceivedEffort = rpe === null ? null : Math.min(10, Math.max(1, Math.round(rpe / 10)));
+  const feelScale = feel === null ? null : Math.min(5, Math.max(1, Math.round(feel / 25) + 1));
+  return perceivedEffort === null && feelScale === null
+    ? null
+    : { perceivedEffort, feel: feelScale };
 }
 
 function sessionTotals(sessions: Mesg[]) {

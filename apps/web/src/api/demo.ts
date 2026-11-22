@@ -324,6 +324,8 @@ export class DemoApi implements Api {
             perceivedEffort: f.perceivedEffort,
             feel: f.feel,
             comment: f.comment,
+            // The demo watch asks after each workout; a comment means it was entered in ActiveN.
+            source: f.comment ? ("athlete" as const) : ("device" as const),
             updatedAt: this.now().toISOString(),
           },
         ]),
@@ -854,6 +856,7 @@ export class DemoApi implements Api {
     const fb: FeedbackDto = {
       ...input,
       comment: input.comment?.trim() || null,
+      source: "athlete",
       updatedAt: this.now().toISOString(),
     };
     a.feedback.set(activityId, fb);

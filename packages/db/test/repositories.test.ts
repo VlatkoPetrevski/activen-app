@@ -385,6 +385,34 @@ describe("activity feedback", () => {
     expect(again).toMatchObject({ perceivedEffort: 8, feel: null, comment: null });
   });
 
+  it("takes the watch's rating only into an empty slot; the athlete's entry wins", async () => {
+    const u = await createUser(repos());
+    const { activity } = await repos().activities.upsert(run(u.id));
+    expect(
+      await repos().feedback.fromDevice(u.id, activity.id, { perceivedEffort: null, feel: 9 }),
+    ).toBe(false);
+    expect(
+      await repos().feedback.fromDevice(u.id, activity.id, { perceivedEffort: 6, feel: 4 }),
+    ).toBe(true);
+    let saved = (await repos().feedback.forActivities([activity.id])).get(activity.id);
+    expect(saved).toMatchObject({ perceivedEffort: 6, feel: 4, source: "device", comment: null });
+    // A second file of the same workout does not overwrite it.
+    expect(
+      await repos().feedback.fromDevice(u.id, activity.id, { perceivedEffort: 9, feel: 1 }),
+    ).toBe(false);
+    await repos().feedback.upsert(u.id, activity.id, {
+      perceivedEffort: 7,
+      feel: 4,
+      comment: "ок",
+      language: "mk",
+    });
+    saved = (await repos().feedback.forActivities([activity.id])).get(activity.id);
+    expect(saved).toMatchObject({ perceivedEffort: 7, source: "athlete" });
+    expect(
+      await repos().feedback.fromDevice(u.id, activity.id, { perceivedEffort: 3, feel: 3 }),
+    ).toBe(false);
+  });
+
   it("validates ranges and ownership", async () => {
     const u = await createUser(repos());
     const other = await createUser(repos(), "Друг");

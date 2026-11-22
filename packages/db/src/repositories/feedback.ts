@@ -12,7 +12,11 @@ export interface FeedbackInput {
   language: string | null;
 }
 
+export type FeedbackSource = "athlete" | "device";
+
 export interface Feedback extends FeedbackInput {
+  /** Where the rating came from: entered in ActiveN, or rated on the watch. */
+  source: FeedbackSource;
   activityId: string;
   athleteId: string;
   updatedAt: Date;
@@ -29,6 +33,7 @@ const toFeedback = (row: Row): Feedback => ({
   feel: row.feel,
   comment: row.comment,
   language: row.language,
+  source: row.source,
   updatedAt: row.updatedAt,
 });
 
@@ -43,6 +48,28 @@ export class FeedbackRepository {
       .from(activityFeedback)
       .where(inArray(activityFeedback.activityId, [...activityIds]));
     return new Map(rows.map((r) => [r.activityId, toFeedback(r)]));
+  }
+
+  /**
+   * The rating the athlete gave on the watch, read from the activity file. Only fills an empty
+   * slot: never replaces what the athlete entered (or an earlier watch rating). True if stored.
+   */
+  async fromDevice(
+    athleteId: string,
+    activityId: string,
+    rating: { perceivedEffort: number | null; feel: number | null },
+  ): Promise<boolean> {
+    const valid = (v: number | null, hi: number) =>
+      v !== null && Number.isInteger(v) && v >= 1 && v <= hi ? v : null;
+    const perceivedEffort = valid(rating.perceivedEffort, 10);
+    const feel = valid(rating.feel, 5);
+    if (perceivedEffort === null && feel === null) return false;
+    const rows = await this.db
+      .insert(activityFeedback)
+      .values({ activityId, athleteId, perceivedEffort, feel, source: "device" })
+      .onConflictDoNothing({ target: activityFeedback.activityId })
+      .returning({ id: activityFeedback.id });
+    return rows.length === 1;
   }
 
   /** The athlete's check-in for one of their own activities; saving again replaces it. */
@@ -69,6 +96,7 @@ export class FeedbackRepository {
       feel: f,
       comment,
       language: input.language,
+      source: "athlete" as const,
     };
     const [row] = await this.db
       .insert(activityFeedback)

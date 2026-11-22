@@ -1,0 +1,2 @@
+ALTER TABLE "activity_feedback" ADD COLUMN "source" text DEFAULT 'athlete' NOT NULL;--> statement-breakpoint
+ALTER TABLE "activity_feedback" ADD CONSTRAINT "activity_feedback_source_ck" CHECK ("activity_feedback"."source" in ('athlete', 'device'));

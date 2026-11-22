@@ -40,6 +40,18 @@ export interface ImportedActivity {
   streams: ImportedStreams;
   device: ImportedDevice;
   exercises: ImportedExercise[];
+  /**
+   * How the athlete rated the session on the watch (Garmin asks after a workout: perceived effort
+   * and how they felt), when the file has it; null otherwise.
+   */
+  rating: ImportedRating | null;
+}
+
+export interface ImportedRating {
+  /** 1–10 (Borg CR10). */
+  perceivedEffort: number | null;
+  /** 1 very weak – 5 very strong. */
+  feel: number | null;
 }
 
 export type ImportErrorCode =

@@ -206,6 +206,8 @@ export class ImportService {
       device: parsed.device,
       exercises: parsed.exercises,
     });
+    // Rated on the watch: the rating comes with the file, so the athlete is not asked again.
+    if (parsed.rating) await this.repos.feedback.fromDevice(userId, activity.id, parsed.rating);
     return activity;
   }
 

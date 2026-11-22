@@ -58,7 +58,13 @@ const plan = (id: string, date: LocalDate, kind: "workout" | "rest" = "workout")
   sequence: 0,
   version: 1,
 });
-const rated = (rpe: number) => ({ perceivedEffort: rpe, feel: 3, comment: null, updatedAt: "" });
+const rated = (rpe: number) => ({
+  perceivedEffort: rpe,
+  feel: 3,
+  comment: null,
+  source: "athlete" as const,
+  updatedAt: "",
+});
 
 /** Six weeks of steady 10 km runs every other day, then a big last week with a long run. */
 function calendar(visible = true): CalendarDto {

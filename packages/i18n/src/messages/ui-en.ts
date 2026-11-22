@@ -653,6 +653,8 @@ export const uiEn = {
   "profile.suggestions.off": "Automatic suggestions: off",
   "profile.suggestionsHint":
     "Off: workouts go as text, and steps are requested with the “Structure it” button.",
+  "checkin.fromWatch": "from the watch",
+  "checkin.fromWatchHint": "Rated on the watch after the workout. You can change it here.",
   "briefing.readiness": "Readiness {score} · {level}",
   "briefing.morning.title": "How did you sleep?",
   "briefing.morning.hint":

@@ -154,6 +154,7 @@ export function parseGpx(xml: string): ImportedActivity {
       creator: str(gpx["@creator"]),
     },
     exercises: [],
+    rating: null,
   });
 }
 
@@ -244,5 +245,6 @@ export function parseTcx(xml: string): ImportedActivity {
       creator: deviceName ? null : str(author.Name),
     },
     exercises: [],
+    rating: null,
   });
 }

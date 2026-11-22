@@ -59,7 +59,7 @@ describe("athlete app (demo)", () => {
     );
   });
 
-  it("signs in and shows today, the plan editor, check-in and messages", async () => {
+  it("signs in and shows today, the plan editor, rating an activity and messages", async () => {
     const { user } = start();
     await user.click(await screen.findByRole("button", { name: "Пробај како спортист" }));
     expect(await screen.findByRole("heading", { level: 1, name: /Влатко/ })).toBeInTheDocument();
@@ -76,16 +76,8 @@ describe("athlete app (demo)", () => {
     const weather = await screen.findByRole("button", { name: /Делумно облачно/ });
     await user.click(weather);
     expect(screen.getByRole("img", { name: /Денес по часови/ })).toBeInTheDocument();
-    // Quick check-in from Today: tapping a number opens the form.
-    const quick = screen
-      .getByRole("button", { name: /Како помина последниот тренинг/ })
-      .closest("form")!;
-    await user.click(within(quick).getByRole("button", { name: "4" }));
-    expect(
-      within(quick).getByRole("button", { name: /Како помина последниот тренинг/ }),
-    ).toHaveAttribute("aria-expanded", "true");
-    await user.click(within(quick).getByRole("button", { name: "Испрати до Ана" }));
-    expect(await within(quick).findByText("Зачувано ✓")).toBeInTheDocument();
+    // Rating a session is not asked on Today: it comes from the watch, or is entered on the activity.
+    expect(screen.queryByRole("button", { name: /Како помина последниот тренинг/ })).toBeNull();
 
     // Plan: edit a session.
     await user.click(screen.getAllByRole("link", { name: "План" })[0]!);
@@ -101,6 +93,8 @@ describe("athlete app (demo)", () => {
 
     // Activities → check-in.
     await user.click(screen.getAllByRole("link", { name: "Активности" })[0]!);
+    // Sessions rated on the watch carry its mark; unrated ones say so.
+    expect((await screen.findAllByTitle("од часовникот")).length).toBeGreaterThan(0);
     // Filters: running → trail shows none in the demo; back to all runs.
     await user.click(await screen.findByRole("button", { name: "Трчање" }));
     await user.click(screen.getByRole("button", { name: "Трејл" }));

@@ -6,6 +6,7 @@ describe("viewer", () => {
     perceivedEffort: 6,
     feel: 4,
     comment: "Heavy legs",
+    source: "athlete" as const,
     updatedAt: "2026-11-20T08:00:00Z",
   };
 

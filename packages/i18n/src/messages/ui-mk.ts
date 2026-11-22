@@ -665,6 +665,8 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "profile.suggestions.off": "Автоматски предлог: исклучен",
   "profile.suggestionsHint":
     "Исклучено: тренингот оди како текст, а чекорите се бараат со копчето „Структурирај“.",
+  "checkin.fromWatch": "од часовникот",
+  "checkin.fromWatchHint": "Оценето на часовникот по тренингот. Можеш да ја смениш тука.",
   "briefing.readiness": "Спремност {score} · {level}",
   "briefing.morning.title": "Како спиеше?",
   "briefing.morning.hint":

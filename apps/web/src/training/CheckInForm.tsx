@@ -73,9 +73,20 @@ export function CheckInForm({
         <span className="segment-summary">
           <span className="row-between">
             <h2>{title}</h2>
-            {state === "saved" && <span className="chip good">{t("checkin.done")}</span>}
+            {state === "saved" ? (
+              <span className="chip good">{t("checkin.done")}</span>
+            ) : (
+              initial?.source === "device" && (
+                <span className="chip teal">
+                  <Icon name="watch" size={14} /> {t("checkin.fromWatch")}
+                </span>
+              )
+            )}
           </span>
           {subtitle && <span className="small muted">{subtitle}</span>}
+          {initial?.source === "device" && state !== "saved" && (
+            <span className="small muted">{t("checkin.fromWatchHint")}</span>
+          )}
         </span>
         <span className="segment-chevron" aria-hidden>
           <Icon name="chevronDown" size={20} />

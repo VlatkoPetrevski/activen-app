@@ -24,6 +24,25 @@ function expectImportError(fn: () => unknown, code: string) {
 }
 
 describe("FIT", () => {
+  it("reads the rating the athlete gave on the watch", () => {
+    expect(parseActivityFile(intervalRunFit()).rating).toBeNull();
+    expect(
+      parseActivityFile(intervalRunFit({ rating: { workoutRpe: 70, workoutFeel: 75 } })).rating,
+    ).toEqual({ perceivedEffort: 7, feel: 4 });
+    expect(parseActivityFile(intervalRunFit({ rating: { workoutRpe: 0 } })).rating).toEqual({
+      perceivedEffort: 1,
+      feel: null,
+    });
+    expect(parseActivityFile(intervalRunFit({ rating: { workoutFeel: 0 } })).rating).toEqual({
+      perceivedEffort: null,
+      feel: 1,
+    });
+    expect(
+      parseActivityFile(intervalRunFit({ rating: { workoutRpe: 100, workoutFeel: 100 } })).rating,
+    ).toEqual({ perceivedEffort: 10, feel: 5 });
+    expect(parseActivityFile(bytesOf(stravaGpx())).rating).toBeNull();
+  });
+
   it("reads an interval run with laps, device, strap and training load", () => {
     const a = parseActivityFile(intervalRunFit({ strap: true }));
     expect(a).toMatchObject({

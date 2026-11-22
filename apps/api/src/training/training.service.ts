@@ -49,6 +49,7 @@ const toFeedbackDto = (f: Feedback): FeedbackDto => ({
   perceivedEffort: f.perceivedEffort,
   feel: f.feel,
   comment: f.comment,
+  source: f.source,
   updatedAt: f.updatedAt.toISOString(),
 });
 

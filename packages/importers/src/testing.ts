@@ -60,6 +60,8 @@ export interface FitOptions {
   extraSession?: boolean;
   /** Moves the whole activity later by this many seconds (another workout). */
   startShiftSeconds?: number;
+  /** The watch's post-workout rating, as FIT stores it: RPE × 10 and feel 0–100. */
+  rating?: { workoutRpe?: number; workoutFeel?: number };
 }
 
 export function intervalRunFit(o: FitOptions = {}): Uint8Array {
@@ -149,6 +151,7 @@ export function intervalRunFit(o: FitOptions = {}): Uint8Array {
       totalAscent: 31,
       trainingLoadPeak: 142.4,
       avgPower: 250,
+      ...o.rating,
     };
     write(e, MESG.SESSION, session);
     if (o.extraSession)

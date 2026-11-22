@@ -87,6 +87,33 @@ describe("importing files", () => {
     );
   });
 
+  it("takes the rating given on the watch; the athlete can still change it", async () => {
+    const athlete = await signIn(h);
+    await upload(athlete, [
+      "rated.fit",
+      intervalRunFit({ rating: { workoutRpe: 80, workoutFeel: 50 } }),
+    ]).expect(200);
+    const list = await h
+      .http()
+      .get(`/v1/me/activities?from=${DAY}&to=${DAY}`)
+      .set(athlete.auth)
+      .expect(200);
+    const [activity] = list.body as { id: string; feedback: unknown }[];
+    expect(activity?.feedback).toMatchObject({ perceivedEffort: 8, feel: 3, source: "device" });
+    await h
+      .http()
+      .put(`/v1/me/activities/${activity?.id}/feedback`)
+      .set(athlete.auth)
+      .send({ perceivedEffort: 6, feel: 4, comment: null })
+      .expect(200);
+    const after = await h
+      .http()
+      .get(`/v1/me/activities?from=${DAY}&to=${DAY}`)
+      .set(athlete.auth)
+      .expect(200);
+    expect(after.body[0].feedback).toMatchObject({ perceivedEffort: 6, source: "athlete" });
+  });
+
   it("refuses the same file twice and the same run in another format", async () => {
     const athlete = await signIn(h);
     const fit = intervalRunFit();

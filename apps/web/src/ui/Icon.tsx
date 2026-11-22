@@ -50,6 +50,7 @@ const PATHS = {
   chevronDown: "M6 9l6 6 6-6",
   upload: "M12 16V4M7 9l5-5 5 5M4 16v4h16v-4",
   file: "M6 3h8l4 4v14H6zM14 3v4h4",
+  watch: "M8 7h8v10H8zM9 7l1-4h4l1 4M9 17l1 4h4l1-4M12 10v2.5l1.5 1",
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
 } as const;
 

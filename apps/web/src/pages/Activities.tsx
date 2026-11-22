@@ -186,7 +186,13 @@ function ActivityRow({
           <span className="row-between">
             <strong className="activity-name">{a.activityName ?? ""}</strong>
             {a.feedback?.perceivedEffort ? (
-              <span className="chip">RPE {a.feedback.perceivedEffort}</span>
+              <span
+                className="chip"
+                title={a.feedback.source === "device" ? t("checkin.fromWatch") : undefined}
+              >
+                {a.feedback.source === "device" && <Icon name="watch" size={14} />}
+                RPE {a.feedback.perceivedEffort}
+              </span>
             ) : (
               <span className="chip warn">{t("activities.noCheckIn")}</span>
             )}

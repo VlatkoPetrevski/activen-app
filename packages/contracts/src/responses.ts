@@ -72,6 +72,8 @@ export interface FeedbackDto {
   perceivedEffort: number | null;
   feel: number | null;
   comment: string | null;
+  /** `device`: rated on the watch; `athlete`: entered in ActiveN. */
+  source: "athlete" | "device";
   updatedAt: IsoDateTime;
 }
 

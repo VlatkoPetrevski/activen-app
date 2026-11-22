@@ -454,7 +454,10 @@ export const planLinkOverrides = pgTable("plan_link_overrides", {
   setAt: createdAt("set_at"),
 });
 
-/** Athlete's check-in after an activity: perceived effort (1–10), feel (1–5), comment. */
+/**
+ * The rating of an activity: perceived effort (1–10), feel (1–5), comment. From the watch when
+ * the athlete rated it there, otherwise entered in ActiveN; the athlete's own entry wins.
+ */
 export const activityFeedback = pgTable(
   "activity_feedback",
   {
@@ -469,11 +472,16 @@ export const activityFeedback = pgTable(
     feel: smallint("feel"),
     comment: text("comment"),
     language: text("language"),
+    /** `device`: rated on the watch and read from the file; `athlete`: entered in ActiveN. */
+    source: text("source", { enum: ["athlete", "device"] })
+      .notNull()
+      .default("athlete"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     uniqueIndex("activity_feedback_activity_uq").on(t.activityId),
+    check("activity_feedback_source_ck", sql`${t.source} in ('athlete', 'device')`),
     check(
       "activity_feedback_effort_ck",
       sql`${t.perceivedEffort} is null or ${t.perceivedEffort} between 1 and 10`,
