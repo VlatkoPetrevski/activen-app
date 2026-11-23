@@ -24,7 +24,9 @@ export function Brand() {
   return (
     <NavLink to="/" className="brand">
       <img src="./icon.svg" alt="" />
-      ActiveN
+      <span>
+        Active<span className="brand-n">N</span>
+      </span>
     </NavLink>
   );
 }

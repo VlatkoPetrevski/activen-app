@@ -204,6 +204,10 @@ textarea {
   width: 28px;
   height: 28px;
 }
+/* Logotype: the final N in the brand color (docs/brand/logo.md). */
+.brand-n {
+  color: var(--primary);
+}
 .bottom-nav {
   position: fixed;
   inset: auto 0 0 0;
