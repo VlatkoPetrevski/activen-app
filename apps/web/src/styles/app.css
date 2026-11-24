@@ -249,6 +249,11 @@ textarea {
   padding: 6px 16px;
   text-align: center;
 }
+.demo-banner a {
+  color: #fff;
+  font-weight: 700;
+  margin-left: 12px;
+}
 .demo-banner button {
   background: none;
   border: 0;

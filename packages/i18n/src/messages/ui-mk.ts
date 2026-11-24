@@ -40,6 +40,7 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "common.minutes": "{value} мин",
   "demo.banner": "Демо со примерни податоци — промените важат до освежување на страницата.",
   "demo.exit": "Излези од демо",
+  "demo.phoneView": "Приказ на телефон",
   "auth.title": "Најави се во ActiveN",
   "auth.subtitle": "Планирај, тренирај и соработувај со тренерот.",
   "auth.google": "Продолжи со Google",

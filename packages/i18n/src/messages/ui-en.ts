@@ -38,6 +38,7 @@ export const uiEn = {
   "common.minutes": "{value} min",
   "demo.banner": "Demo with sample data — changes are kept only until you reload.",
   "demo.exit": "Exit demo",
+  "demo.phoneView": "Phone view",
   "auth.title": "Sign in to ActiveN",
   "auth.subtitle": "Plan, train and work together with your coach.",
   "auth.google": "Continue with Google",

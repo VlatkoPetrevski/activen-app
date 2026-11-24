@@ -40,7 +40,14 @@ export default defineConfig(({ mode }) => ({
       "/.well-known": "http://localhost:3000",
     },
   },
-  build: { sourcemap: mode !== "demo", target: "es2022" },
+  build: {
+    sourcemap: mode !== "demo",
+    target: "es2022",
+    // The demo also ships phone.html: the same app in a phone-sized frame.
+    ...(mode === "demo" && {
+      rollupOptions: { input: { main: "index.html", phone: "phone.html" } },
+    }),
+  },
   test: {
     environment: "jsdom",
     include: ["test/**/*.test.{ts,tsx}"],

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="mk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <title>ActiveN — приказ на телефон</title>
+    <!--
+      Demo only: the same app in a phone-sized frame, for looking at the phone layout on a
+      computer. Each frame runs its own demo (sample data, nothing is shared or saved).
+    -->
+    <style>
+      :root {
+        --bg: #f3ece3;
+        --ink: #2a201b;
+        --muted: #6f625a;
+        --primary: #b5482b;
+        --line: #e2d6c9;
+        color-scheme: light;
+        font-family:
+          "Nunito",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      body {
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        background: #1e5a5e;
+        color: #fff;
+        font-size: 14px;
+      }
+      header a {
+        color: #fff;
+        font-weight: 700;
+      }
+      header label {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      header select,
+      header button {
+        font: inherit;
+        font-size: 13px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+      }
+      header select option {
+        color: var(--ink);
+      }
+      main {
+        display: flex;
+        gap: 40px;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .slot {
+        display: grid;
+        place-items: center;
+        gap: 10px;
+      }
+      .slot p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      /* The phone body; the screen inside is exactly the device's CSS size, scaled to fit. */
+      .phone {
+        position: relative;
+        padding: 14px;
+        border-radius: 54px;
+        background: #1c1917;
+        box-shadow:
+          0 0 0 2px #3a3431,
+          0 24px 60px rgba(42, 32, 27, 0.28);
+        transform-origin: top center;
+      }
+      .screen {
+        overflow: hidden;
+        border-radius: 40px;
+        background: #fbf7f2;
+      }
+      .phone.no-notch .screen {
+        border-radius: 22px;
+      }
+      /* The phone's status bar (time, island): the app starts below it, as on a real phone. */
+      .status {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 47px;
+        padding: 0 30px 0 34px;
+        background: #1e5a5e;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .status::after {
+        content: "";
+        position: absolute;
+        top: 11px;
+        left: 50%;
+        width: 96px;
+        height: 26px;
+        transform: translateX(-50%);
+        border-radius: 14px;
+        background: #1c1917;
+      }
+      .phone.no-notch .status {
+        height: 20px;
+        padding: 0 10px;
+        font-size: 12px;
+      }
+      .phone.no-notch .status::after {
+        display: none;
+      }
+      .status .icons {
+        letter-spacing: 2px;
+        font-size: 12px;
+      }
+      .phone iframe {
+        display: block;
+        border: 0;
+        background: #fbf7f2;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .phone {
+          transition: transform 0.15s ease;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a id="back" href="./index.html">← Приказ на компјутер</a>
+      <label>
+        <span id="deviceLabel">Уред</span>
+        <select id="device">
+          <option value="390x844">iPhone 15 · 390×844</option>
+          <option value="430x932">iPhone 15 Pro Max · 430×932</option>
+          <option value="375x667">iPhone SE · 375×667</option>
+          <option value="360x800">Android · 360×800</option>
+          <option value="412x915">Pixel 8 · 412×915</option>
+        </select>
+      </label>
+      <button id="twoUp" type="button" aria-pressed="false">Спортист и тренер</button>
+      <button id="reload" type="button">Почни одново</button>
+    </header>
+    <main id="stage"></main>
+    <script>
+      (function () {
+        var en = !/^mk/i.test(navigator.language || "");
+        var text = en
+          ? {
+              title: "ActiveN — phone view",
+              back: "← Computer view",
+              device: "Device",
+              twoUp: "Athlete and coach",
+              reload: "Start over",
+              athlete: "Athlete",
+              coach: "Coach",
+              frame: "ActiveN on a phone",
+            }
+          : {
+              title: "ActiveN — приказ на телефон",
+              back: "← Приказ на компјутер",
+              device: "Уред",
+              twoUp: "Спортист и тренер",
+              reload: "Почни одново",
+              athlete: "Спортист",
+              coach: "Тренер",
+              frame: "ActiveN на телефон",
+            };
+        document.documentElement.lang = en ? "en" : "mk";
+        document.title = text.title;
+        document.getElementById("back").textContent = text.back;
+        document.getElementById("deviceLabel").textContent = text.device;
+        document.getElementById("twoUp").textContent = text.twoUp;
+        document.getElementById("reload").textContent = text.reload;
+
+        var stage = document.getElementById("stage");
+        var device = document.getElementById("device");
+        var twoUp = document.getElementById("twoUp");
+        var KEY = "activen.phoneView";
+        var saved = {};
+        try {
+          saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {};
+        } catch (e) {}
+        if (saved.device) device.value = saved.device;
+        if (!device.value) device.value = "390x844";
+        var both = saved.both === true;
+
+        function remember() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({ device: device.value, both: both }));
+          } catch (e) {}
+        }
+
+        function build() {
+          var size = device.value.split("x").map(Number);
+          var w = size[0];
+          var h = size[1];
+          stage.textContent = "";
+          var count = both ? 2 : 1;
+          for (var i = 0; i < count; i++) {
+            var slot = document.createElement("div");
+            slot.className = "slot";
+            var phone = document.createElement("div");
+            phone.className = "phone" + (h < 700 ? " no-notch" : "");
+            var screen = document.createElement("div");
+            screen.className = "screen";
+            var status = document.createElement("div");
+            status.className = "status";
+            status.setAttribute("aria-hidden", "true");
+            var clock = document.createElement("span");
+            clock.textContent = "9:41";
+            var icons = document.createElement("span");
+            icons.className = "icons";
+            icons.textContent = "▂▄▆ ▮";
+            status.appendChild(clock);
+            status.appendChild(icons);
+            var bar = h < 700 ? 20 : 47;
+            var frame = document.createElement("iframe");
+            frame.src = "./index.html";
+            frame.width = String(w);
+            frame.height = String(h - bar);
+            frame.title = both ? text.frame + " — " + (i ? text.coach : text.athlete) : text.frame;
+            screen.appendChild(status);
+            screen.appendChild(frame);
+            phone.appendChild(screen);
+            if (both) {
+              var label = document.createElement("p");
+              label.textContent = i ? text.coach : text.athlete;
+              slot.appendChild(label);
+            }
+            slot.appendChild(phone);
+            stage.appendChild(slot);
+          }
+          twoUp.setAttribute("aria-pressed", String(both));
+          fit();
+        }
+
+        // Scale the phones down (never up) so the whole screen fits the window.
+        function fit() {
+          var phones = stage.querySelectorAll(".phone");
+          if (!phones.length) return;
+          var size = device.value.split("x").map(Number);
+          var labels = both ? 28 : 0;
+          var availH = stage.clientHeight - 40 - labels;
+          var availW = (stage.clientWidth - 40 - (phones.length - 1) * 40) / phones.length;
+          var scale = Math.min(1, availH / (size[1] + 28), availW / (size[0] + 28));
+          for (var i = 0; i < phones.length; i++) {
+            var p = phones[i];
+            p.style.transform = "scale(" + scale + ")";
+            // Transforms do not change layout: shrink the slot so the phones sit side by side.
+            p.parentNode.style.width = (size[0] + 28) * scale + "px";
+            p.parentNode.style.height = (size[1] + 28) * scale + labels + "px";
+            p.parentNode.style.alignContent = "start";
+          }
+        }
+
+        device.addEventListener("change", function () {
+          remember();
+          build();
+        });
+        twoUp.addEventListener("click", function () {
+          both = !both;
+          remember();
+          build();
+        });
+        document.getElementById("reload").addEventListener("click", build);
+        window.addEventListener("resize", fit);
+        build();
+      })();
+    </script>
+  </body>
+</html>
