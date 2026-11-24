@@ -799,4 +799,38 @@ export const uiEn = {
   "advice.steady": "{d} at {target}: start controlled and keep the pace even.",
   "advice.noGoal": "“{label}” gets numbers once the athlete has a goal with a race and a time.",
   "profile.goal": "Goal",
+  "planImport.open": "Import plan",
+  "planImport.title": "Import a plan",
+  "planImport.how": "How to enter it",
+  "planImport.text": "Text or file",
+  "planImport.week": "By hand, week by week",
+  "planImport.from": "The plan starts in the week of",
+  "planImport.paste": "Paste the plan",
+  "planImport.example":
+    "Week 1: mon rest, tue 6x1k @5K / 400m jog, wed 10 km easy\nThu: Strength 45 min\nSaturday: Long 24 km, last 5 km at M pace\n\n24.11 10 km easy\nDay 3: 8 km",
+  "planImport.textHint":
+    "One day per line or separated by commas: a weekday (mon, tue…), a date (24.11) or “Day 3”. “Week 2” moves to the next week. “Rest” is a rest day.",
+  "planImport.file": "Upload file",
+  "planImport.fileNeedsAi":
+    "“{name}”: for now text and CSV are read (.txt, .csv, .md). Word, PDF and images will be read by AI once it is on. Until then, copy the text and paste it here.",
+  "planImport.read": "Read",
+  "planImport.weekN": "Week {n} · from {from}",
+  "planImport.cellExample": "e.g. 14k: 6×1k @5K / 400m",
+  "planImport.addWeek": "Add week",
+  "planImport.none":
+    "No days found in the text. Start lines with a day (mon, tue…), a date (24.11) or “Day 1”.",
+  "planImport.found":
+    "Days read: {days}. Already taken: {conflicts}. Check and correct before saving.",
+  "planImport.skipped": "Not imported (no day before them):",
+  "planImport.sportFor": "Sport, {date}",
+  "planImport.descFor": "Description, {date}",
+  "planImport.actionFor": "What to do with the existing session, {date}",
+  "planImport.already": "Already planned: {what}",
+  "planImport.replace": "Replace",
+  "planImport.add": "Add alongside",
+  "planImport.skip": "Skip",
+  "planImport.back": "Back",
+  "planImport.save": "Save {count} days",
+  "planImport.saving": "Saving… {saved}/{total}",
+  "planImport.error": "Saving stopped ({saved} saved). Please try again.",
 } as const;

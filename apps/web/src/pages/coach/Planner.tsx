@@ -10,6 +10,7 @@ import { ActivityStats } from "../../training/ActivityStats.js";
 import { MonthCalendar, monthGrid, monthOf } from "../../training/MonthCalendar.js";
 import { PlanCompare } from "../../training/PlanCompare.js";
 import { PlanEditor } from "../../training/PlanEditor.js";
+import { PlanImport } from "../../training/PlanImport.js";
 import { athleteTarget, type PlanTarget } from "../../training/target.js";
 import { WeekStats, WeekStatsSegment } from "../../training/WeekStats.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
@@ -29,6 +30,7 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
     null,
   );
   const [opened, setOpened] = useState<{ id: string; name: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const mobile = useIsMobile();
   const week = weekOf(anchor);
   const grid = monthGrid(month);
@@ -97,15 +99,24 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
                 onAdd={(date) => setEditing({ entry: null, date })}
                 onOpenActivity={(a) => setOpened({ id: a.id, name: a.activityName })}
                 addButton={
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-small"
-                    onClick={() =>
-                      setEditing({ entry: null, date: anchor < today ? today : anchor })
-                    }
-                  >
-                    <Icon name="plus" size={18} /> {t("plan.add")}
-                  </button>
+                  <div className="row" style={{ gap: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      onClick={() => setImporting(true)}
+                    >
+                      <Icon name="upload" size={18} /> {t("planImport.open")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      onClick={() =>
+                        setEditing({ entry: null, date: anchor < today ? today : anchor })
+                      }
+                    >
+                      <Icon name="plus" size={18} /> {t("plan.add")}
+                    </button>
+                  </div>
                 }
               />
             </section>
@@ -131,6 +142,13 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
           ))}
       </aside>
 
+      <PlanImport
+        open={importing}
+        target={target}
+        start={week.from}
+        onClose={() => setImporting(false)}
+        onDone={() => queryClient.invalidateQueries({ queryKey: target.key })}
+      />
       <PlanEditor
         open={editing !== null}
         entry={editing?.entry ?? null}

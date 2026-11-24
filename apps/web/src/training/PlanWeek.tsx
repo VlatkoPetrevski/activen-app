@@ -10,6 +10,7 @@ import { Icon, SportIcon } from "../ui/Icon.js";
 import { QueryView } from "../ui/States.js";
 import { activitySummary, plannedSummary } from "./labels.js";
 import { PlanEditor } from "./PlanEditor.js";
+import { PlanImport } from "./PlanImport.js";
 import type { PlanTarget } from "./target.js";
 import { StructureLine } from "./WorkoutSteps.js";
 
@@ -33,6 +34,7 @@ export function PlanWeek({
   const [editing, setEditing] = useState<{ entry: PlanEntryDto | null; date: LocalDate } | null>(
     null,
   );
+  const [importing, setImporting] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: target.key });
   const run = async <R,>(p: Promise<R>) => {
@@ -96,13 +98,24 @@ export function PlanWeek({
                     done: workouts.filter((e) => e.status === "done").length,
                   })}
                 </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-small"
-                  onClick={() => setEditing({ entry: null, date: anchor < today ? today : anchor })}
-                >
-                  <Icon name="plus" size={18} /> {t("plan.add")}
-                </button>
+                <span className="row" style={{ gap: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    onClick={() => setImporting(true)}
+                  >
+                    <Icon name="upload" size={18} /> {t("planImport.open")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    onClick={() =>
+                      setEditing({ entry: null, date: anchor < today ? today : anchor })
+                    }
+                  >
+                    <Icon name="plus" size={18} /> {t("plan.add")}
+                  </button>
+                </span>
               </div>
               {days.map((day) => (
                 <div key={day.date} className={`plan-day${day.date === today ? " is-today" : ""}`}>
@@ -199,6 +212,13 @@ export function PlanWeek({
         }}
       </QueryView>
 
+      <PlanImport
+        open={importing}
+        target={target}
+        start={week.from}
+        onClose={() => setImporting(false)}
+        onDone={invalidate}
+      />
       <PlanEditor
         open={editing !== null}
         entry={editing?.entry ?? null}

@@ -3375,3 +3375,74 @@ div.import-report {
     flex: none;
   }
 }
+
+/* Plan import: week table (description left, dates right) and review rows. */
+.plan-week-table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  padding: 8px 10px 10px;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.plan-week-row {
+  display: grid;
+  grid-template-columns: 1fr 76px;
+  align-items: center;
+  gap: 8px;
+}
+.plan-week-date {
+  text-align: right;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.import-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 52vh;
+  overflow: auto;
+}
+.import-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.import-row.conflict {
+  background: color-mix(in srgb, var(--warn, #d97706) 5%, transparent);
+}
+.input.input-small {
+  padding: 4px 8px;
+  min-height: 32px;
+  font-size: 0.875rem;
+  width: auto;
+}
+.import-date {
+  display: grid;
+  width: 48px;
+  flex: none;
+  padding-top: 6px;
+  line-height: 1.2;
+  font-size: 0.8rem;
+}
+.import-date .dow {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.import-date .num {
+  font-weight: 700;
+}
+@media (max-width: 720px) {
+  .import-row .row:has(> select) {
+    flex-wrap: wrap;
+  }
+  .import-row .row:has(> select) > .input.grow {
+    flex-basis: 100%;
+  }
+}

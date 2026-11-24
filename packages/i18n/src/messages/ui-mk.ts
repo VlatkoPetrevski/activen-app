@@ -813,4 +813,38 @@ export const uiMk: Readonly<Record<keyof typeof uiEn, string>> = {
   "advice.steady": "{d} на {target}: почни контролирано и држи го темпото рамномерно.",
   "advice.noGoal": "„{label}“ ќе добие бројки кога спортистот ќе има цел со трка и време.",
   "profile.goal": "Цел",
+  "planImport.open": "Внеси план",
+  "planImport.title": "Внеси план",
+  "planImport.how": "Начин на внес",
+  "planImport.text": "Текст или датотека",
+  "planImport.week": "Рачно по недела",
+  "planImport.from": "Планот почнува во неделата на",
+  "planImport.paste": "Залепи го планот",
+  "planImport.example":
+    "Седмица 1: пон одмор, вто 6x1k @5K / 400m jog, сре 10 km лесно\nЧет: Сила 45 мин\nСабота: Долго 24 km, последните 5 km на M pace\n\n24.11 10 km лесно\nДен 3: 8 km",
+  "planImport.textHint":
+    "Секој ден на свој ред или одделен со запирка: ден од неделата (пон, вто…), датум (24.11) или „Ден 3“. „Седмица 2“ ја поместува неделата. „Одмор“ е ден за одмор.",
+  "planImport.file": "Подигни датотека",
+  "planImport.fileNeedsAi":
+    "„{name}“: засега се читаат текст и CSV (.txt, .csv, .md). Word, PDF и слики ќе ги чита AI кога ќе биде вклучен. Дотогаш копирај го текстот и залепи го тука.",
+  "planImport.read": "Прочитај",
+  "planImport.weekN": "Недела {n} · од {from}",
+  "planImport.cellExample": "на пр. 14k: 6×1k @5K / 400m",
+  "planImport.addWeek": "Додај недела",
+  "planImport.none":
+    "Не најдов денови во текстот. Почни ги редовите со ден (пон, вто…), датум (24.11) или „Ден 1“.",
+  "planImport.found":
+    "Прочитани денови: {days}. Веќе зафатени: {conflicts}. Провери и поправи пред да зачуваш.",
+  "planImport.skipped": "Не се внесени (немаат ден пред нив):",
+  "planImport.sportFor": "Спорт, {date}",
+  "planImport.descFor": "Опис, {date}",
+  "planImport.actionFor": "Што со постојниот тренинг, {date}",
+  "planImport.already": "Веќе има: {what}",
+  "planImport.replace": "Замени",
+  "planImport.add": "Додај покрај",
+  "planImport.skip": "Прескокни",
+  "planImport.back": "Назад",
+  "planImport.save": "Зачувај {count} дена",
+  "planImport.saving": "Се зачувува… {saved}/{total}",
+  "planImport.error": "Зачувувањето прекина (зачувани: {saved}). Обиди се повторно.",
 };

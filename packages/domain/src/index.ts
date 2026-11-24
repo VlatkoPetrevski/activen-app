@@ -18,3 +18,4 @@ export * from "./workout.js";
 export * from "./activity-detail.js";
 export * from "./readiness.js";
 export * from "./paces.js";
+export * from "./plan-text.js";
