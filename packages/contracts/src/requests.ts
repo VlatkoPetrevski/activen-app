@@ -209,6 +209,14 @@ export const HrZonesPut = z
   })
   .strict();
 
+/** The athlete's goal in words, e.g. "маратон за 3:30", with an optional race date. */
+export const GoalPut = z
+  .object({
+    text: z.string().trim().min(1).max(300),
+    raceDate: localDate.nullable().default(null),
+  })
+  .strict();
+
 const optionalNumber = (min: number, max: number) => z.number().min(min).max(max).nullable();
 
 /** A workout entered by hand; see ManualActivityInput. */

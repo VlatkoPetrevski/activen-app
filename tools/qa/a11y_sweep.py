@@ -76,6 +76,9 @@ async def run(width):
             await pg.locator(".segment-head").first.click(); await pg.locator(".segment .btn-primary").first.click(); await check(pg, f"{width} analytics-athlete")
             await pg.locator(".an-activity").first.click(); await check(pg, f"{width} analytics-activity")
             await pg.get_by_role("link", name="Планер").first.click(); await check(pg, f"{width} planner")
+            # Early in the week nothing is done yet: the previous week has activities.
+            if await pg.locator(".cmp-done").count() == 0:
+                await pg.get_by_role("button", name="Претходна недела").first.click(); await pg.wait_for_timeout(500)
             await pg.locator(".cmp-done").first.click(); await check(pg, f"{width} planner-stats")
             await pg.keyboard.press("Escape")
             await pg.get_by_role("button", name="Додај тренинг").click(); await check(pg, f"{width} plan-editor")

@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { asCoach, start } from "../support/app.js";
 
-/** Structured workouts: suggestions while writing, accept or keep plain text, the setting. */
+/** Structured workouts: the description read into a summary, plain text by choice, the setting. */
 beforeEach(() => {
   window.location.hash = "";
 });
@@ -17,40 +17,59 @@ describe("structured workouts (demo)", () => {
     return { user, dialog, text: within(dialog).getByLabelText("Опис") };
   }
 
-  it("suggests steps while the coach writes; the coach adjusts and accepts them", async () => {
+  it("reads the description into a summary: bar, steps, totals and advice; steps can be corrected", async () => {
     const { user, dialog, text } = await openEditor();
-    // No button: the suggestion appears by itself after a short pause.
-    expect(within(dialog).queryByRole("button", { name: "Структурирај" })).toBeNull();
-    await user.type(text, "Загревање 3 km, 8 × 400 m на 3:30, одмор 200 m, смирување 2 km");
-    const suggestion = await within(dialog).findByRole(
-      "region",
-      { name: "Предлог" },
-      { timeout: 3000 },
+    // The sport comes first, above the description.
+    const sports = within(dialog).getByRole("group", { name: "Спорт" });
+    expect(within(sports).getByRole("button", { name: "Трчање" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(within(suggestion).getByText("Препознаено автоматски од текстот")).toBeInTheDocument();
-    expect(within(suggestion).getByText("8 ×")).toBeInTheDocument();
-    expect(within(suggestion).getByText(/само „Зачувај“/)).toBeInTheDocument();
-    const warm = within(suggestion).getByLabelText(/^Загревање: Вредност/);
+    expect(within(dialog).queryByLabelText(/^Растојание/)).toBeNull();
+    await user.type(text, "Загревање 3 km, 8 × 400 m на 3:30, одмор 200 m, смирување 2 km");
+    const summary = within(dialog).getByRole("region", { name: "Резиме на тренингот" });
+    expect(
+      await within(summary).findByText("8 ×", undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(
+      within(summary).getByRole("img", { name: "Тренингот по зони, по време" }),
+    ).toBeInTheDocument();
+    // Totals from the description: 3 + 8 × 0.4 + 7 × 0.2 + 2 km.
+    expect(within(summary).getByText(/^9,6 km · /)).toBeInTheDocument();
+    expect(within(summary).getByText(/^Загреј се 3 km лесно/)).toBeInTheDocument();
+    const warm = within(summary).getByLabelText(/^Загревање: Вредност/);
     await user.clear(warm);
     await user.type(warm, "2,5");
     await user.tab();
-    await user.click(within(dialog).getByRole("button", { name: "Прифати чекори" }));
-    expect(within(dialog).queryByRole("region", { name: "Предлог" })).toBeNull();
+    expect(within(summary).getByText(/^9,1 km · /)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Зачувај" }));
     expect(
       await screen.findByText(/Загревање 2,5 km · 8 × 400 m @ 3:30 \/km \/ 200 m · Смирување 2 km/),
     ).toBeInTheDocument();
   });
 
-  it("saves the text as written when the suggestion is not accepted", async () => {
+  it("gives a named pace the numbers of the athlete's goal", async () => {
+    const { user, dialog, text } = await openEditor();
+    // Влатко's goal in the demo: half marathon in 1:45.
+    await user.type(text, "Интервали 2k wu + 6x1000 HM pace / 500m jog + 2k CD");
+    const summary = within(dialog).getByRole("region", { name: "Резиме на тренингот" });
+    // 1:45 for 21.1 km is 4:59 /km: on the step and in the advice.
+    expect(
+      await within(summary).findAllByText(/HM pace · 4:59 \/km/, undefined, { timeout: 3000 }),
+    ).toHaveLength(2);
+    expect(within(summary).getByText(/^12,5 km · /)).toBeInTheDocument();
+  });
+
+  it("keeps the text as written without a structure when the coach chooses so", async () => {
     const { user, dialog, text } = await openEditor();
     await user.type(text, "6 × 1000 m на 5K темпо, одмор 2 мин");
-    await within(dialog).findByRole("region", { name: "Предлог" }, { timeout: 3000 });
-    // Discarding hides it for this text; saving keeps only the text.
-    await user.click(within(dialog).getByRole("button", { name: "Отфрли" }));
-    expect(within(dialog).queryByRole("region", { name: "Предлог" })).toBeNull();
+    const summary = within(dialog).getByRole("region", { name: "Резиме на тренингот" });
+    await within(summary).findByText("6 ×", undefined, { timeout: 3000 });
+    await user.click(within(dialog).getByRole("button", { name: "Без структура" }));
+    expect(within(summary).getByText(/останува само како текст/)).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 700));
+    expect(within(summary).queryByText("6 ×")).toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "Зачувај" }));
-    // The saved plan carries no steps line: it went as plain text.
     const cell = await waitFor(() => {
       const found = screen
         .getAllByText("6 × 1000 m на 5K темпо, одмор 2 мин")
@@ -87,9 +106,10 @@ describe("structured workouts (demo)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Додај тренинг" });
     await user.type(within(dialog).getByLabelText("Опис"), "6 × 1000 m на 5K темпо");
     await new Promise((r) => setTimeout(r, 900));
-    expect(within(dialog).queryByRole("region", { name: "Предлог" })).toBeNull();
+    const summary = within(dialog).getByRole("region", { name: "Резиме на тренингот" });
+    expect(within(summary).queryByText("6 ×")).toBeNull();
     expect(within(dialog).getByText(/Со „Структурирај“/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Структурирај" }));
-    expect(await within(dialog).findByRole("region", { name: "Предлог" })).toBeInTheDocument();
+    expect(await within(summary).findByText("6 ×")).toBeInTheDocument();
   });
 });

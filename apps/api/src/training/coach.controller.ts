@@ -2,6 +2,7 @@ import {
   CoachInvite,
   CommentCreate,
   DateRange,
+  GoalPut,
   PlanEntryCreate,
   PlanEntryUpdate,
   ProgressQuery,
@@ -9,6 +10,8 @@ import {
 import {
   type BriefingDto,
   coachViewer,
+  goalView,
+  type GoalDto,
   sortByAttention,
   type Viewer,
   type AnalyticsSummaryDto,
@@ -27,8 +30,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
+  Res,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import type { z } from "zod";
 import type { AuthContext } from "../auth/auth.types.js";
 import { CurrentAuth, Roles } from "../auth/decorators.js";
@@ -160,6 +166,31 @@ export class CoachController {
     if (!scopes.includes("sleep_recovery"))
       throw new ForbiddenException("The athlete has not shared sleep and recovery");
     return this.briefings.briefing(athleteId, undefined, viewer);
+  }
+
+  @Get("athletes/:athleteId/goal")
+  @ApiOperation({ summary: "The athlete's goal and training paces (active link)" })
+  async goal(
+    @CurrentAuth() a: AuthContext,
+    @Param("athleteId", ParseUUIDPipe) athleteId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<GoalDto | undefined> {
+    await this.access(a.userId, athleteId);
+    const row = await this.repos.goals.get(athleteId);
+    if (!row) res.status(204);
+    return row ? goalView(row) : undefined;
+  }
+
+  @Put("athletes/:athleteId/goal")
+  @ApiOperation({ summary: "Set the athlete's goal (the coach writes it with the athlete)" })
+  @ApiZodBody(GoalPut)
+  async setGoal(
+    @CurrentAuth() a: AuthContext,
+    @Param("athleteId", ParseUUIDPipe) athleteId: string,
+    @ValidBody(GoalPut) body: z.output<typeof GoalPut>,
+  ): Promise<GoalDto> {
+    await this.access(a.userId, athleteId);
+    return goalView(await this.repos.goals.put(athleteId, body, a.userId));
   }
 
   @Get("athletes/:athleteId/progress")

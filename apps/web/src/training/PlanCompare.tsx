@@ -7,6 +7,8 @@ import { Icon, SportIcon } from "../ui/Icon.js";
 import { activitySummary, paceOrSpeed, plannedSummary } from "./labels.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { mainSetText, StructureLine } from "./WorkoutSteps.js";
+import { usePaces } from "./PacesContext.js";
+import type { TrainingPaces } from "@activen/domain";
 import type { Formatter } from "@activen/i18n";
 import type { T } from "../i18n/I18nContext.js";
 
@@ -34,7 +36,12 @@ function ofPlan(entry: PlanEntryDto, a: ActivityDto): number | null {
 }
 
 /** "14k: 6×1k @5K темпо / 400m", "45′: 3×10′ @Z4 / 2′", or the description when unstructured. */
-export function compactPlanText(f: Formatter, t: T, e: PlanEntryDto): string {
+export function compactPlanText(
+  f: Formatter,
+  t: T,
+  e: PlanEntryDto,
+  paces: TrainingPaces | null = null,
+): string {
   if (e.kind === "rest") return t("plan.kind.rest");
   const total = e.plannedDistanceInMeters
     ? f.unitSystem === "imperial"
@@ -43,7 +50,7 @@ export function compactPlanText(f: Formatter, t: T, e: PlanEntryDto): string {
     : e.plannedDurationInSeconds
       ? `${Math.round(e.plannedDurationInSeconds / 60)}′`
       : "";
-  const main = e.structure ? mainSetText(f, t, e.structure) : "";
+  const main = e.structure ? mainSetText(f, t, e.structure, paces) : "";
   const body = main || e.description;
   return total && main ? `${total}: ${body}` : body;
 }
@@ -87,6 +94,7 @@ export function PlanCompare({
   const rows = buildDays(calendar, days, today);
   // Phones: each day is one short line (plan, and what was done under it) that opens in place.
   const compact = useIsMobile();
+  const paces = usePaces();
   const [open, setOpen] = useState<Set<LocalDate>>(() => new Set([today]));
   const baseId = useId();
   const toggle = (date: LocalDate) =>
@@ -211,7 +219,7 @@ export function PlanCompare({
                           className={`cmp-short plan ${p.plan.entry.kind === "rest" ? "rest" : groupOf(p.plan.entry.plannedActivityType)}`}
                         >
                           <span className="cmp-tag">{t("planner.plan")}</span>
-                          {compactPlanText(f, t, p.plan.entry)}
+                          {compactPlanText(f, t, p.plan.entry, paces)}
                         </span>
                       )}
                       {p.activity ? (

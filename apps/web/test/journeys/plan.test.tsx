@@ -54,6 +54,8 @@ describe("plan week", () => {
     await user.click(emptyDay!);
     const dialog = await screen.findByRole("dialog", { name: "Додај тренинг" });
     await user.type(within(dialog).getByLabelText("Опис"), "Брдски спринтови");
+    // Not a structure the text can be read into: distance and time by hand.
+    await user.click(within(dialog).getByRole("button", { name: "Растојание и време рачно" }));
     await user.type(within(dialog).getByLabelText(/^Растојание/), "6");
     await user.type(within(dialog).getByLabelText("Времетраење (мин)"), "40");
     await user.click(within(dialog).getByRole("button", { name: "Зачувај" }));

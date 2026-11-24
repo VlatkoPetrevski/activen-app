@@ -26,6 +26,7 @@ import type {
   ImportsSummaryDto,
   ManualActivityInput,
   HrZonesDto,
+  GoalDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import type { z } from "zod";
@@ -112,6 +113,13 @@ export interface Api {
    * order. The same workout is never stored twice (see ImportResultDto).
    */
   importActivities(files: readonly File[]): Promise<ImportResultDto[]>;
+  /** The athlete's goal with its race and training paces; null when none is set. */
+  goal(): Promise<GoalDto | null>;
+  saveGoal(input: GoalInput): Promise<GoalDto>;
+  removeGoal(): Promise<void>;
+  /** Coach: an athlete's goal (active link). */
+  athleteGoal(athleteId: string): Promise<GoalDto | null>;
+  saveAthleteGoal(athleteId: string, input: GoalInput): Promise<GoalDto>;
   /** Heart-rate zones in use today and where they come from (Profile › HR zones). */
   hrZones(): Promise<HrZonesDto>;
   /** The athlete's own zones: lower bounds of zones 2–5; switches the zones to "manual". */
@@ -156,4 +164,10 @@ export interface Api {
   athleteComments(athleteId: string): Promise<CommentDto[]>;
   postAthleteComment(athleteId: string, input: CommentInput): Promise<CommentDto>;
   endAthlete(athleteId: string): Promise<void>;
+}
+
+/** A goal in words ("маратон за 3:30") and an optional race date. */
+export interface GoalInput {
+  text: string;
+  raceDate: LocalDate | null;
 }

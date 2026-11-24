@@ -11,3 +11,4 @@ export * from "./viewer.js";
 export * from "./imports.js";
 export * from "./briefing.js";
 export * from "./zones.js";
+export * from "./goals.js";

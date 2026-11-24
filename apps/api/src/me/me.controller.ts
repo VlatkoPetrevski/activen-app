@@ -9,8 +9,15 @@ import {
   SelfServiceRole as RoleParam,
   SettingsPatch,
   HrZonesPut,
+  GoalPut,
 } from "@activen/contracts/requests";
-import { hrZonesView, manualZones, type HrZonesDto } from "@activen/contracts";
+import {
+  goalView,
+  hrZonesView,
+  manualZones,
+  type GoalDto,
+  type HrZonesDto,
+} from "@activen/contracts";
 import { localDateOf } from "@activen/domain";
 import {
   Controller,
@@ -121,6 +128,34 @@ export class MeController {
       Object.entries(patch).filter(([, v]) => v !== undefined),
     ) as Partial<AthleteSettings>;
     return this.repos.settings.save(a.userId, { ...current, ...next });
+  }
+
+  @Get("goal")
+  @ApiOperation({ summary: "My goal, the race read from it and the training paces (204 if none)" })
+  async goal(
+    @CurrentAuth() a: AuthContext,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<GoalDto | undefined> {
+    const row = await this.repos.goals.get(a.userId);
+    if (!row) res.status(204);
+    return row ? goalView(row) : undefined;
+  }
+
+  @Put("goal")
+  @ApiOperation({ summary: 'Set my goal in words ("маратон за 3:30") and an optional race date' })
+  @ApiZodBody(GoalPut)
+  async setGoal(
+    @CurrentAuth() a: AuthContext,
+    @ValidBody(GoalPut) body: z.output<typeof GoalPut>,
+  ): Promise<GoalDto> {
+    return goalView(await this.repos.goals.put(a.userId, body, a.userId));
+  }
+
+  @Delete("goal")
+  @HttpCode(204)
+  @ApiOperation({ summary: "Remove my goal" })
+  async removeGoal(@CurrentAuth() a: AuthContext): Promise<void> {
+    await this.repos.goals.remove(a.userId);
   }
 
   @Get("hr-zones")

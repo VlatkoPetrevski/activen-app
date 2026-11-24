@@ -17,6 +17,7 @@ import { Dialog } from "../../ui/Dialog.js";
 import { Icon } from "../../ui/Icon.js";
 import { Empty, QueryView } from "../../ui/States.js";
 import { useCoachAthletes } from "./hooks.js";
+import { TargetGoalCard, TargetPaces } from "../../training/TargetGoal.js";
 
 /** Plan vs. done for one athlete: week on the left, month and week totals on the right. */
 function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDate }) {
@@ -121,6 +122,7 @@ function AthletePlanner({ target, today }: { target: PlanTarget; today: LocalDat
           onPickDay={goTo}
           onMonth={setMonth}
         />
+        <TargetGoalCard target={target} today={today} />
         {weekQuery.data &&
           (mobile ? (
             <WeekStatsSegment calendar={weekQuery.data} from={week.from} to={week.to} />
@@ -192,7 +194,9 @@ export function CoachPlanner() {
       <QueryView query={query}>
         {() =>
           target ? (
-            <AthletePlanner key={athleteId} target={target} today={todayIn(me.settings.timeZone)} />
+            <TargetPaces key={athleteId} target={target}>
+              <AthletePlanner target={target} today={todayIn(me.settings.timeZone)} />
+            </TargetPaces>
           ) : (
             <section className="card">
               <Empty>{t("coachApp.empty")}</Empty>

@@ -381,6 +381,24 @@ export const notificationLog = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.kind, t.calendarDate] })],
 );
 
+/**
+ * The athlete's goal in their own words ("маратон за 3:30"), with an optional race date. The
+ * athlete or their coach writes it; paces are derived from the text, never stored.
+ */
+export const athleteGoals = pgTable(
+  "athlete_goals",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    raceDate: date("race_date", { mode: "string" }),
+    setBy: uuid("set_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("athlete_goals_text_ck", sql`char_length(${t.text}) between 1 and 300`)],
+);
+
 /** Immutable, versioned HR zone profiles (HR-04, HR-05). */
 export const hrZoneProfiles = pgTable(
   "hr_zone_profiles",

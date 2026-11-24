@@ -25,6 +25,7 @@ import type {
   ImportsSummaryDto,
   ManualActivityInput,
   HrZonesDto,
+  GoalDto,
 } from "@activen/contracts";
 import type { AthleteSettings, LocalDate, WorkoutStructure } from "@activen/domain";
 import {
@@ -32,6 +33,7 @@ import {
   type Api,
   type CommentInput,
   type FeedbackInput,
+  type GoalInput,
   type PlanInput,
   type PlanPatch,
   type SettingsInput,
@@ -204,6 +206,14 @@ export class HttpApi implements Api {
       await this.request<{ results: ImportResultDto[] }>("POST", "/v1/me/activities/import", form)
     ).results;
   };
+  goal = async () => (await this.request<GoalDto | undefined>("GET", "/v1/me/goal")) ?? null;
+  saveGoal = (input: GoalInput) => this.request<GoalDto>("PUT", "/v1/me/goal", input);
+  removeGoal = () => this.request<undefined>("DELETE", "/v1/me/goal");
+  athleteGoal = async (athleteId: string) =>
+    (await this.request<GoalDto | undefined>("GET", `/v1/coach/athletes/${athleteId}/goal`)) ??
+    null;
+  saveAthleteGoal = (athleteId: string, input: GoalInput) =>
+    this.request<GoalDto>("PUT", `/v1/coach/athletes/${athleteId}/goal`, input);
   hrZones = () => this.request<HrZonesDto>("GET", "/v1/me/hr-zones");
   saveHrZones = (lowerBounds: number[]) =>
     this.request<HrZonesDto>("PUT", "/v1/me/hr-zones", { lowerBounds });

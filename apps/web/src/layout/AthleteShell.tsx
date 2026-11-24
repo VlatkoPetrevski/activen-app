@@ -5,6 +5,10 @@ import { useI18n } from "../i18n/I18nContext.js";
 import { Avatar } from "../ui/Avatar.js";
 import { Icon, type IconName } from "../ui/Icon.js";
 import { DemoBanner } from "./DemoBanner.js";
+import { useMemo } from "react";
+import { useApi } from "../api/ApiContext.js";
+import { selfTarget } from "../training/target.js";
+import { TargetPaces } from "../training/TargetGoal.js";
 
 const ITEMS: {
   to: string;
@@ -36,6 +40,9 @@ export function AthleteShell() {
   const { t } = useI18n();
   const me = useMe();
   const isCoach = me.user.roles.includes("coach");
+  const api = useApi();
+  // Named paces in the athlete's plan ("M pace") get the numbers of their goal on every screen.
+  const selfPlan = useMemo(() => selfTarget(api), [api]);
   return (
     <>
       <DemoBanner />
@@ -79,7 +86,9 @@ export function AthleteShell() {
                 </NavLink>
               </div>
             </div>
-            <Outlet />
+            <TargetPaces target={selfPlan}>
+              <Outlet />
+            </TargetPaces>
           </main>
         </div>
         <nav className="bottom-nav" aria-label="ActiveN">

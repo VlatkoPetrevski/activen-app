@@ -7,6 +7,7 @@ import { useI18n } from "../../i18n/I18nContext.js";
 import { todayIn } from "../../lib/dates.js";
 import { BriefingCard } from "../../training/BriefingCard.js";
 import { PlanWeek } from "../../training/PlanWeek.js";
+import { TargetGoalCard, TargetPaces } from "../../training/TargetGoal.js";
 import { ProgressView } from "../../training/ProgressView.js";
 import { athleteTarget } from "../../training/target.js";
 import { Avatar } from "../../ui/Avatar.js";
@@ -91,7 +92,14 @@ export function CoachAthletePage() {
   ) : (
     <div className="alert info">{t("briefing.notShared", { name: row.displayName })}</div>
   );
-  const plan = <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />;
+  const plan = (
+    <TargetPaces target={target}>
+      <div className="stack-l">
+        <TargetGoalCard target={target} today={todayIn(me.settings.timeZone)} />
+        <PlanWeek target={target} today={todayIn(me.settings.timeZone)} />
+      </div>
+    </TargetPaces>
+  );
   const progressView = (
     <>
       {shared && (

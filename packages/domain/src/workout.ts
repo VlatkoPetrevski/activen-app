@@ -45,13 +45,15 @@ export interface WorkoutStructure {
 }
 
 const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
-const UNIT = String.raw`(km|км|mi|m|м|min|мин|sec|сек|s|h|ч)(?![\p{L}])`;
+const UNIT = String.raw`(km|км|k|к|mi|m|м|min|мин|sec|сек|s|h|ч)(?![\p{L}])`;
 const num = (s: string | undefined) => Number((s ?? "0").replace(",", "."));
 
 function duration(value: number, unit: string): StepDuration {
   switch (unit.toLowerCase()) {
     case "km":
     case "км":
+    case "k":
+    case "к":
       return { type: "distance", meters: Math.round(value * 1000) };
     case "mi":
       return { type: "distance", meters: Math.round(value * 1609.344) };
@@ -75,6 +77,10 @@ const clock = (m: string, s: string) => Number(m) * 60 + Number(s);
 const MIN_PACE = 90;
 const MAX_PACE = 1200;
 const isPace = (v: number) => v >= MIN_PACE && v <= MAX_PACE;
+
+/** Training paces named in plain words (resolved against the athlete's goal, see paces.ts). */
+const NAMED_PACE =
+  /(?<![\p{L}\d])((?:HM|MP|M|T|I|R|E)\s*(?:pace|темпо)|(?:5|10)\s*(?:k|км|к)\s*(?:pace|темпо)|marathon pace|half[- ]?marathon pace|маратонско темпо|полумаратонско темпо|темпо за (?:полу)?маратон)(?![\p{L}])/iu;
 
 /** Pace ("4:00/km", "3:55–4:05"), heart-rate zone ("Z2", "зона 3") or a named effort. */
 export function parseTarget(text: string): StepTarget {
@@ -103,6 +109,9 @@ export function parseTarget(text: string): StepTarget {
       text,
     );
   if (label?.[1]) return { type: "label", text: label[1].trim() };
+  // A training pace named without "at"/"@": "M pace", "HM темпо", "праг".
+  const named = NAMED_PACE.exec(text);
+  if (named?.[1]) return { type: "label", text: named[1].trim() };
   return { type: "none" };
 }
 
@@ -132,7 +141,11 @@ function approxMeters(d: StepDuration, fast = false): number {
  * customary 2 km warm-up and the cool-down that completes a stated total distance.
  */
 export function parseWorkout(text: string): WorkoutStructure | null {
-  const t = text.replace(/\s+/g, " ").trim();
+  const t = text
+    .replace(/\s+/g, " ")
+    // "6x1000 M pace": the number is metres and "M" is marathon pace, not a unit.
+    .replace(/(\d{3,})\s+(HM|MP|M|T|I|R|E)\s+(pace|темпо)/gu, "$1 m @$2 $3")
+    .trim();
   if (!t) return null;
   const items: WorkoutItem[] = [];
   const total = new RegExp(String.raw`^${NUM}\s*(km|км|mi)(?![\p{L}])`, "iu").exec(t);

@@ -1,11 +1,14 @@
-import type {
-  StepDuration,
-  StepTarget,
-  WorkoutItem,
-  WorkoutStep,
-  WorkoutStructure,
+import {
+  resolvePace,
+  type TrainingPaces,
+  type StepDuration,
+  type StepTarget,
+  type WorkoutItem,
+  type WorkoutStep,
+  type WorkoutStructure,
 } from "@activen/domain";
 import type { Formatter } from "@activen/i18n";
+import { usePaces } from "./PacesContext.js";
 import { useI18n, type T } from "../i18n/I18nContext.js";
 import { Icon } from "../ui/Icon.js";
 
@@ -15,7 +18,20 @@ export function durationText(f: Formatter, t: T, d: StepDuration): string {
   return d.meters < 1000 && f.unitSystem === "metric" ? `${d.meters} m` : f.distance(d.meters, 2);
 }
 
-export function targetText(f: Formatter, t: T, x: StepTarget): string {
+/** "4:54–5:04 /km" for a resolved pace range, the single pace when the range is narrow. */
+function paceRange(f: Formatter, low: number, high: number): string {
+  return Math.abs(high - low) <= 10
+    ? f.pace((low + high) / 2)
+    : `${f.pace(low).split(" ")[0]}–${f.pace(high)}`;
+}
+
+/** A target in words; a named pace ("M pace") gets its numbers from the athlete's goal. */
+export function targetText(
+  f: Formatter,
+  t: T,
+  x: StepTarget,
+  paces: TrainingPaces | null = null,
+): string {
   switch (x.type) {
     case "pace":
       return x.low === x.high || Math.abs(x.high - x.low) <= 10
@@ -23,31 +39,38 @@ export function targetText(f: Formatter, t: T, x: StepTarget): string {
         : `${f.pace(x.low).split(" ")[0]}–${f.pace(x.high)}`;
     case "hr_zone":
       return t("workout.zone", { zone: x.zone });
-    case "label":
-      return x.text;
+    case "label": {
+      const r = resolvePace(x.text, paces);
+      return r ? `${x.text} · ${paceRange(f, r.low, r.high)}` : x.text;
+    }
     case "none":
       return "";
   }
 }
 
-function stepText(f: Formatter, t: T, s: WorkoutStep): string {
-  const target = targetText(f, t, s.target);
+function stepText(f: Formatter, t: T, s: WorkoutStep, paces: TrainingPaces | null): string {
+  const target = targetText(f, t, s.target, paces);
   return `${durationText(f, t, s.duration)}${target ? ` @ ${target}` : ""}`;
 }
 
 /** One line: "Загревање 2 km · 6 × 1000 m @ 5K темпо / 2:00 · Смирување 6 km". */
-export function workoutSummary(f: Formatter, t: T, s: WorkoutStructure): string {
+export function workoutSummary(
+  f: Formatter,
+  t: T,
+  s: WorkoutStructure,
+  paces: TrainingPaces | null = null,
+): string {
   return s.items
     .map((i) => {
       if (i.kind === "repeat") {
         const [work, ...rest] = i.steps;
         const recovery = rest.map((r) => durationText(f, t, r.duration)).join(" / ");
-        return `${t("workout.repeat", { count: i.count })} ${work ? stepText(f, t, work) : ""}${
+        return `${t("workout.repeat", { count: i.count })} ${work ? stepText(f, t, work, paces) : ""}${
           recovery ? ` / ${recovery}` : ""
         }`;
       }
-      if (i.intensity === "active") return stepText(f, t, i);
-      return `${t(`lap.${i.intensity}`)} ${stepText(f, t, i)}`;
+      if (i.intensity === "active") return stepText(f, t, i, paces);
+      return `${t(`lap.${i.intensity}`)} ${stepText(f, t, i, paces)}`;
     })
     .join(" · ");
 }
@@ -60,6 +83,7 @@ function StepRow({
   onChange?: ((s: WorkoutStep) => void) | undefined;
 }) {
   const { t, f } = useI18n();
+  const paces = usePaces();
   const d = step.duration;
   const value =
     d.type === "distance"
@@ -111,7 +135,7 @@ function StepRow({
         <span className="num">{durationText(f, t, d)}</span>
       )}
       {step.target.type !== "none" && (
-        <span className="chip teal">{targetText(f, t, step.target)}</span>
+        <span className="chip teal">{targetText(f, t, step.target, paces)}</span>
       )}
     </li>
   );
@@ -168,10 +192,11 @@ export function WorkoutStepsView({
 /** Compact steps line under a plan entry (only when a structure was accepted). */
 export function StructureLine({ structure }: { structure: WorkoutStructure | null | undefined }) {
   const { t, f } = useI18n();
+  const paces = usePaces();
   if (!structure) return null;
   return (
     <div className="small workout-line num" title={t("workout.structure")}>
-      <Icon name="activities" size={14} /> {workoutSummary(f, t, structure)}
+      <Icon name="activities" size={14} /> {workoutSummary(f, t, structure, paces)}
     </div>
   );
 }
@@ -190,30 +215,37 @@ function shortDuration(f: Formatter, d: StepDuration): string {
 }
 
 /** Short target: "@4:30", "@Z2", "@5K темпо". */
-function shortTarget(f: Formatter, t: T, x: StepTarget): string {
+function shortTarget(f: Formatter, t: T, x: StepTarget, paces: TrainingPaces | null): string {
   if (x.type === "none") return "";
   if (x.type === "hr_zone") return ` @Z${x.zone}`;
   if (x.type === "pace") return ` @${f.pace((x.low + x.high) / 2).split(" ")[0]}`;
-  return ` @${targetText(f, t, x)}`;
+  const r = resolvePace(x.text, paces);
+  // "@M 4:59": the name the coach wrote and the athlete's number for it.
+  return r ? ` @${r.key} ${f.pace((r.low + r.high) / 2).split(" ")[0]}` : ` @${x.text}`;
 }
 
 /**
  * The main set in one short line, without warm-up and cool-down:
  * "6×1k @5K темпо / 400m", "3×10′ @Z4 / 2′", "8k @Z2".
  */
-export function mainSetText(f: Formatter, t: T, s: WorkoutStructure): string {
+export function mainSetText(
+  f: Formatter,
+  t: T,
+  s: WorkoutStructure,
+  paces: TrainingPaces | null = null,
+): string {
   return s.items
     .map((i: WorkoutItem) => {
       if (i.kind === "repeat") {
         const [work, ...rest] = i.steps;
         if (!work) return "";
         const recovery = rest.map((r) => shortDuration(f, r.duration)).join(" + ");
-        return `${i.count}×${shortDuration(f, work.duration)}${shortTarget(f, t, work.target)}${
+        return `${i.count}×${shortDuration(f, work.duration)}${shortTarget(f, t, work.target, paces)}${
           recovery ? ` / ${recovery}` : ""
         }`;
       }
       if (i.intensity !== "active") return "";
-      return `${shortDuration(f, i.duration)}${shortTarget(f, t, i.target)}`;
+      return `${shortDuration(f, i.duration)}${shortTarget(f, t, i.target, paces)}`;
     })
     .filter(Boolean)
     .join(" · ");

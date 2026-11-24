@@ -17,3 +17,4 @@ export * from "./weather.js";
 export * from "./workout.js";
 export * from "./activity-detail.js";
 export * from "./readiness.js";
+export * from "./paces.js";

@@ -37,6 +37,8 @@ import {
   type BriefingDto,
   type MorningInputDto,
   importOutcome,
+  goalView,
+  type GoalDto,
   hrZonesView,
   HR_ZONE_COLORS,
   manualZones,
@@ -67,6 +69,7 @@ import {
   type Api,
   type CommentInput,
   type FeedbackInput,
+  type GoalInput,
   type PlanInput,
   type PlanPatch,
   type SettingsInput,
@@ -89,7 +92,24 @@ interface DemoAthlete {
   comments: CommentDto[];
   /** Heart-rate zone versions; the demo watch (Garmin) sent one at the start of the year. */
   zoneProfiles?: HrZoneProfile[];
+  /** Undefined until first read: then the seeded goal (or null). */
+  goal?: GoalRowDemo | null;
 }
+
+interface GoalRowDemo {
+  text: string;
+  raceDate: LocalDate | null;
+  setBy: { id: string; name: string } | null;
+  updatedAt: string;
+}
+
+/** Goals the demo athletes start with (in Macedonian; English demo keeps the same words). */
+const DEMO_GOALS: Record<string, { text: string; weeks: number; byCoach: boolean }> = {
+  "demo-vlatko": { text: "Полумаратон за 1:45", weeks: 20, byCoach: false },
+  "demo-mila": { text: "Маратон за 3:30", weeks: 22, byCoach: true },
+  "demo-jovana": { text: "10k за 45 мин", weeks: 8, byCoach: true },
+  "demo-stefan": { text: "Трејл 25 км без пешачење", weeks: 12, byCoach: false },
+};
 
 const COACH = { id: "demo-ana", name: "Ана Стојанова", email: "ana.coach@example.com" };
 const ROSTER: {
@@ -1110,6 +1130,47 @@ export class DemoApi implements Api {
     if (!viewer.activities) throw new ApiError(403, "The athlete has not shared activities");
     return this.delay(this.detailFor(a, id, viewer));
   };
+  private goalOf(a: DemoAthlete): GoalRowDemo | null {
+    if (a.goal === undefined) {
+      const seed = DEMO_GOALS[a.id];
+      a.goal = seed
+        ? {
+            text: seed.text,
+            raceDate: addDays(this.today(), seed.weeks * 7),
+            setBy: seed.byCoach ? { id: COACH.id, name: COACH.name } : { id: a.id, name: a.name },
+            updatedAt: this.now().toISOString(),
+          }
+        : null;
+    }
+    return a.goal;
+  }
+  private setGoal(a: DemoAthlete, input: GoalInput, by: { id: string; name: string }): GoalDto {
+    a.goal = {
+      text: input.text.trim(),
+      raceDate: input.raceDate,
+      setBy: by,
+      updatedAt: this.now().toISOString(),
+    };
+    return goalView(a.goal);
+  }
+  goal = async (): Promise<GoalDto | null> => {
+    const g = this.goalOf(this.me_());
+    return this.delay(g ? goalView(g) : null);
+  };
+  saveGoal = async (input: GoalInput) => {
+    const a = this.me_();
+    return this.delay(this.setGoal(a, input, { id: a.id, name: a.name }));
+  };
+  removeGoal = async () => {
+    this.me_().goal = null;
+    return this.delay(undefined);
+  };
+  athleteGoal = async (athleteId: string): Promise<GoalDto | null> => {
+    const g = this.goalOf(this.athlete(athleteId));
+    return this.delay(g ? goalView(g) : null);
+  };
+  saveAthleteGoal = async (athleteId: string, input: GoalInput) =>
+    this.delay(this.setGoal(this.athlete(athleteId), input, { id: COACH.id, name: COACH.name }));
   athleteBriefing = async (athleteId: string) => {
     const a = this.athlete(athleteId);
     if (!a.link?.scopes.includes("sleep_recovery"))
